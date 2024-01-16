@@ -89,8 +89,8 @@ end
 % and can get a good fit by futzing with the initial guesses
 % by hand.
 nTrialSimulateForFit = 100;
-deltaEsForFit = [0 1 3 5];
-probCsForFit = [0.5 0.65 0.90 0.99];
+deltaEsForFit = [0 1 2 3];
+probCsForFit = [0.5 0.8 0.90 0.99];
 alpha0 = 2;
 beta0 = 3.5;
 [alpha1] = FitWeibAlphTAFC(deltaEsForFit,round(nTrialSimulateForFit*probCsForFit),round(nTrialSimulateForFit*(1-probCsForFit)),alpha0,beta0);
