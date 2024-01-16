@@ -23,6 +23,33 @@ T_cones = SplineCmf(S_cones_ss2,T_cones_ss2,S);
 load T_xyzCIEPhys2.mat
 T_xyz = SplineCmf(S_xyzCIEPhys2,T_xyzCIEPhys2,S);
 
+%% Key stimulus parameters
+%
+% Start by getting monitor gray point.  B_monitor
+% describes an old CRT that was rather blue in its
+% color balance, so we tweak from the natural [0.5 0.5 0.5]
+% to make it come out gray in the end
+backgroundRGB = [0.5 0.4 0.37]';
+
+% Reference. We will define a threshold contour around this point.
+% Choosing the reference in the monitor space guarantees
+% we will be in gamut [0-1].  We then convert that to
+% LMS coordinates, because we want to think in LMS
+% space for the most part.
+%
+% You can enter any RGB as a column vector here as long as the
+% values are between 0 and 1.  You don't want to get too close
+% to 0 or 1, however, because then the perturbation will go out
+% of gamut.
+referenceRGB = 1.2*backgroundRGB;
+
+% Color direction in LMS space for stimulus pertrubation
+%
+% We will compute a psychometric function for
+% perturbations around the reference in this color
+% direction.
+rawDeltaLMS = [0 1 0]';
+
 %% Load in primaries for a monitor.
 %
 % We'll use this to define a reasonable color gamut,
@@ -62,8 +89,8 @@ end
 % and can get a good fit by futzing with the initial guesses
 % by hand.
 nTrialSimulateForFit = 100;
-deltaEsForFit = [0 1 2 3];
-probCsForFit = [0.5 0.65 0.92 0.99];
+deltaEsForFit = [0 1 3 5];
+probCsForFit = [0.5 0.65 0.90 0.99];
 alpha0 = 2;
 beta0 = 3.5;
 [alpha1] = FitWeibAlphTAFC(deltaEsForFit,round(nTrialSimulateForFit*probCsForFit),round(nTrialSimulateForFit*(1-probCsForFit)),alpha0,beta0);
@@ -80,52 +107,34 @@ if (verbose)
     ylabel('Prob Correct');
 end
 
-%% Define some stimuli 
-%
-% Start by getting monitor gray point.  B_monitor
-% describes an old CRT that was rather blue in its
-% color balance, so we tweak from the natural [0.5 0.5 0.5]
-% to make it come out gray in the end
-backgroundRGB = [0.5 0.4 0.37]';
+%% Compute background factoids
 backgroundSpd = B_monitor*backgroundRGB;
 backgroundLMS = T_cones*backgroundSpd;
 backgroundXYZ = M_LMSToXYZ*backgroundLMS;
 
-%% Pick a reference point in color space.
-%
-% We will define a threshold contour around this point.
-% Choosing the reference in the monitor space guarantees
-% we will be in gamut [0-1].  We then convert that to
-% LMS coordinates, because we want to think in LMS
-% space for the most part.
-referenceRGB = [0.6 0.5 0.4]';
+%% Compute reference factoids
 referenceSpd = B_monitor*referenceRGB;
 referenceLMS = T_cones*referenceSpd;
 
-%% Pick a color direction in LMS space
-%
-% We will compute a psychometric function for
-% perturbations around the reference in this color
-% direction.
+%% Compute color direction factoids
 %
 % It's hard to intuit the scale of perturbations
 % in LMS.  But it is easy to figure out how
 % far we can go before we hit the edge of the monitor
 % gamut.  We use that to define the scale we'll
 % explore.
-rawDeltaLMS = [1 0 0]';
 rawDeltaRGB = M_LMSTORGB*rawDeltaLMS;
 gamutScalar = MaximizeGamutContrast(rawDeltaRGB,referenceRGB);
 deltaLMS = gamutScalar*rawDeltaLMS;
 deltaRGB = gamutScalar*rawDeltaRGB;
-if (verbose)
-    % All of the values here should be between 0 and 1,
-    % and at least one should be 0 or 1
-    max(referenceRGB + deltaRGB)
-    min(referenceRGB + deltaRGB)
-    max(referenceRGB - deltaRGB)
-    max(referenceRGB - deltaRGB)
-end
+
+% All of the values here should be between 0 and 1,
+% and at least one should be 0 or 1.  You can check
+% by looking at these if you like.
+max(referenceRGB + deltaRGB);
+min(referenceRGB + deltaRGB);
+max(referenceRGB - deltaRGB);
+max(referenceRGB - deltaRGB);
 
 %% We now have a scaled deltaLMS
 %
@@ -193,7 +202,7 @@ for tt = 1:length(threshLevels)
     % ComparisonLMS
     threshComparisonLMS(:,tt) = referenceLMS + threshDeltaScalars(tt) * deltaLMS;
 end
-if (max(abs(threshProbCs-threshLevels)) > 0.005)
+if (max(abs(threshProbCs-threshLevels)) > 0.01)
     error('Have not spaced deltaScalars finely enough to obtain desired threshold levels precisely');
 end
 threshComparisonXYZ = M_LMSToXYZ*threshComparisonLMS;
@@ -207,15 +216,26 @@ if (any(allSRGBPrimary < 0))
     error('Flying too close to the one.  At least one sRGB primary value is negative');
 end
 sRGBPrimaryFactor = 1/max(allSRGBPrimary);
-backgroundSRGB = SRGBGammaCorrect(backgroundSRGBPrimary*sRGBPrimaryFactor,false);
-referenceSRGB = SRGBGammaCorrect(referenceSRGBPrimary*sRGBPrimaryFactor,false);
-threshComparisonSRGB = SRGBGammaCorrect(threshComparisonSRGBPrimary*sRGBPrimaryFactor,false);
- 
-% Composite an image
+
+% Official sRGB gamma correction.  Quantizes to uint8 at this step
+sRGBGamma = false;
+gammaExp = 2;
+if (sRGBGamma)
+    backgroundSRGB = double(SRGBGammaCorrect(backgroundSRGBPrimary*sRGBPrimaryFactor,false))/255;
+    referenceSRGB = double(SRGBGammaCorrect(referenceSRGBPrimary*sRGBPrimaryFactor,false))/255;
+    threshComparisonSRGB = double(SRGBGammaCorrect(threshComparisonSRGBPrimary*sRGBPrimaryFactor,false))/255;
+else
+    backgroundSRGB = (backgroundSRGBPrimary*sRGBPrimaryFactor).^(1/gammaExp);
+    referenceSRGB = (referenceSRGBPrimary*sRGBPrimaryFactor).^(1/gammaExp);
+    threshComparisonSRGB = (threshComparisonSRGBPrimary*sRGBPrimaryFactor).^(1/gammaExp);
+end
+
+% Composite an image.  Lots of futzing with indices, but nothing
+% intellectually interesting here.
 nPixels = 512;
 blockSize = 110;
 blockVertSpacer = 20;
-theImage = uint8(ones(nPixels,nPixels,3));
+theImage = ones(nPixels,nPixels,3);
 for cc = 1:3
     theImage(:,:,cc) = backgroundSRGB(cc);
 end
