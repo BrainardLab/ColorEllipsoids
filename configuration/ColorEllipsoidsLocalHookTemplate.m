@@ -1,19 +1,19 @@
-function ColorEllipsoidLocalHook
-% ColorEllipsoidLocalHook
+function ColorEllipsoidsLocalHook
+% ColorEllipsoidsLocalHook
 %
-% Configure things for working on the ColorEllipsoid project.
+% Configure things for working on the ColorEllipsoids project.
 %
 % For use with the ToolboxToolbox.  If you copy this into your
 % ToolboxToolbox localToolboxHooks directory (by default,
 % ~/localToolboxHooks) and delete "LocalHooksTemplate" from the filename,
-% this will get run when you execute tbUseProject('ColorEllipsoid') to set up for
+% this will get run when you execute tbUseProject('ColorEllipsoids') to set up for
 % this project.  You then edit your local copy to match your configuration.
 %
 % You will need to edit the project location and i/o directory locations
 % to match what is true on your computer.
 
 %% Define project
-projectName = 'ColorEllipsoid';
+projectName = 'ColorEllipsoids';
 
 %% Say hello
 fprintf('Running %s local hook\n',projectName);
