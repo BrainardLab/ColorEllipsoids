@@ -52,7 +52,7 @@ end
 % CIELAB defines a difference deltaE between any two
 % points in color space.  A deltaE of 1 is more or less
 % forced choice detection threshold, and a deltaE of 3
-% is more or less reliably but not perfectly discriminated.
+% is close to perfectly discriminated.
 % We'll use these two facts to pin down the parameters of
 % a Weibull function, and then later use those parameters
 % to predict binary choice probabilities given deltaE.
@@ -62,11 +62,11 @@ end
 % and can get a good fit by futzing with the initial guesses
 % by hand.
 nTrialSimulateForFit = 100;
-deltaEsForFit = [0 1 3 4];
+deltaEsForFit = [0 1 2 3];
 probCsForFit = [0.5 0.65 0.92 0.99];
 alpha0 = 2;
 beta0 = 3.5;
-[alpha1,beta] = FitWeibAlphTAFC(deltaEsForFit,round(nTrialSimulateForFit*probCsForFit),round(nTrialSimulateForFit*(1-probCsForFit)),alpha0,beta0);
+[alpha1] = FitWeibAlphTAFC(deltaEsForFit,round(nTrialSimulateForFit*probCsForFit),round(nTrialSimulateForFit*(1-probCsForFit)),alpha0,beta0);
 [alpha,beta] = FitWeibTAFC(deltaEsForFit,round(nTrialSimulateForFit*probCsForFit),round(nTrialSimulateForFit*(1-probCsForFit)),alpha1,beta0);
 
 % Check that the fit is OK
@@ -82,8 +82,11 @@ end
 
 %% Define some stimuli 
 %
-% Start by getting monitor gray point
-backgroundRGB = [0.5 0.5 0.5]';
+% Start by getting monitor gray point.  B_monitor
+% describes an old CRT that was rather blue in its
+% color balance, so we tweak from the natural [0.5 0.5 0.5]
+% to make it come out gray in the end
+backgroundRGB = [0.5 0.4 0.37]';
 backgroundSpd = B_monitor*backgroundRGB;
 backgroundLMS = T_cones*backgroundSpd;
 backgroundXYZ = M_LMSToXYZ*backgroundLMS;
@@ -132,7 +135,7 @@ end
 % are in the opposite directions around the white point.  We
 % will illustrate computing the psychometric function for
 % positive perturbations.
-nDeltaScalars = 100;
+nDeltaScalars = 1000;
 deltaScalars = linspace(0,1,nDeltaScalars);
 
 %% Loop over the perturbations and compute prob correct for each one
@@ -164,7 +167,8 @@ if (verbose)
     maxDeltaEToPlot = 6;
 
     figure; clf; hold on;
-    plot(deltaEs,probCs,'ro','MarkerSize',10,'MarkerFaceColor','r');
+    plotPointSpacing = 10;
+    plot(deltaEs(1:plotPointSpacing:end),probCs(1:plotPointSpacing:end),'ro','MarkerSize',8,'MarkerFaceColor','r');
     plot(deltaEsForPlot,probCsForPlot,'r','LineWidth',2);
     xlim([0 maxDeltaEToPlot]);
     xlabel('Delta Scalar');
@@ -176,4 +180,63 @@ end
 %% We might reasonably want to get a feel for what these stimuli.  
 %
 % Today's displays do something close to the sRGB standard, and
-% we can go from XYZ to that standard pretty easily.
+% we can go from XYZ to that standard pretty easily.  The only
+% trick is to get our XYZ units scaled into those of the sRGB
+% standard.
+threshLevels = [0.6 0.7 0.8 0.9];
+for tt = 1:length(threshLevels)
+    % Find compute probCorrect as close as possible to the specified level.
+    [~,minIndex] = min(abs(probCs-threshLevels(tt)));
+    threshDeltaScalars(tt) = deltaScalars(minIndex(1));
+    threshProbCs(tt) = probCs(minIndex(1));
+    
+    % ComparisonLMS
+    threshComparisonLMS(:,tt) = referenceLMS + threshDeltaScalars(tt) * deltaLMS;
+end
+if (max(abs(threshProbCs-threshLevels)) > 0.005)
+    error('Have not spaced deltaScalars finely enough to obtain desired threshold levels precisely');
+end
+threshComparisonXYZ = M_LMSToXYZ*threshComparisonLMS;
+
+% Convert to linear sRGB
+backgroundSRGBPrimary = XYZToSRGBPrimary(backgroundXYZ);
+referenceSRGBPrimary = XYZToSRGBPrimary(referenceXYZ);
+threshComparisonSRGBPrimary = XYZToSRGBPrimary(threshComparisonXYZ);
+allSRGBPrimary = [backgroundSRGBPrimary(:) ; referenceSRGBPrimary(:) ; threshComparisonSRGBPrimary(:)];
+if (any(allSRGBPrimary < 0))
+    error('Flying too close to the one.  At least one sRGB primary value is negative');
+end
+sRGBPrimaryFactor = 1/max(allSRGBPrimary);
+backgroundSRGB = SRGBGammaCorrect(backgroundSRGBPrimary*sRGBPrimaryFactor,false);
+referenceSRGB = SRGBGammaCorrect(referenceSRGBPrimary*sRGBPrimaryFactor,false);
+threshComparisonSRGB = SRGBGammaCorrect(threshComparisonSRGBPrimary*sRGBPrimaryFactor,false);
+ 
+% Composite an image
+nPixels = 512;
+blockSize = 110;
+blockVertSpacer = 20;
+theImage = uint8(ones(nPixels,nPixels,3));
+for cc = 1:3
+    theImage(:,:,cc) = backgroundSRGB(cc);
+end
+referenceRowLow = nPixels/2 - blockSize - blockVertSpacer;
+referenceRowHigh = referenceRowLow  + blockSize;
+referenceColLow = nPixels/2 - blockSize/2;
+referenceColHigh = referenceColLow  + blockSize;
+for cc = 1:3
+    theImage(referenceRowLow:referenceRowHigh,referenceColLow:referenceColHigh,cc) = referenceSRGB(cc);
+end
+comparisonRowLow = nPixels/2 + blockVertSpacer;
+comparisonRowHigh = comparisonRowLow + blockSize;
+for tt = 1:length(threshLevels)
+    spacer = round((nPixels-length(threshLevels)*blockSize)/(length(threshLevels)+1));
+    comparisonColLow = spacer + (tt-1)*blockSize + (tt-1)*spacer;
+    comparisonColHigh = comparisonColLow+ blockSize;
+    for cc = 1:3
+        theImage(comparisonRowLow:comparisonRowHigh,comparisonColLow:comparisonColHigh,cc) = threshComparisonSRGB(cc,tt);
+    end
+end
+
+% SHow the image
+figure; clf; imshow(theImage);
+title({'Reference (top) and Comparisons (bottom)' ; ' '});
