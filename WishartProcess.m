@@ -1,12 +1,13 @@
 clear all; close all; clc; 
 %define some parameters
+global MAX_DEGREE NUM_DIMS EXTRA_DIMS NUM_GRID_PTS NUM_MC_SAMPLES
 MAX_DEGREE     = 5;
 NUM_DIMS       = 2;
 EXTRA_DIMS     = 1;
 NUM_GRID_PTS   = 28;
+NUM_MC_SAMPLES = 100;
 DECAY_RATE     = 0.4;
 VARIANCE_SCALE = 0.004;
-NUM_MC_SAMPLES = 100;
 
 %% Part 1: Wishart Process prior and approximation in Chebyshev polynomial basis 
 % Chebyshev polynomials of the first kind
@@ -88,13 +89,12 @@ end
 %T(2) = 2x^2 - 1        -> [0, 0, 2, 0,-1]
 %T(3) = 4x^3 - 3x       -> [0, 4, 0,-3, 0]
 %T(4) = 8x^4 - 8x^2 + 1 -> [8, 0,-8, 0, 1]
-Basis_chebyshev = compute_chebyshev_basis_coeffs(MAX_DEGREE);
+Basis_chebyshev = compute_chebyshev_basis_coeffs;
 disp(Basis_chebyshev)
 
 %Sample W. As the degree of polynomial increases, the std of weights
 %decreases. 
-[W_true, logprior_W] = sample_W_prior(MAX_DEGREE, NUM_DIMS, EXTRA_DIMS,...
-    VARIANCE_SCALE, DECAY_RATE);
+[W_true, logprior_W] = sample_W_prior(VARIANCE_SCALE, DECAY_RATE);
 
 %For debugging, load W_true.m exported from Alex's code. This way, we can
 %test if the code below works as expected.
@@ -135,8 +135,8 @@ end
 %in a tedious way
 
 % Reshape U for the operation, aligning the dimensions for multiplication
-U1 = reshape(U_true, [], size(U_true, 3), size(U_true, 4));
-U2 = reshape(U_true, [], size(U_true, 3), size(U_true, 4));
+U1 = reshape(U_true, [], NUM_DIMS, NUM_DIMS+EXTRA_DIMS);
+U2 = reshape(U_true, [], NUM_DIMS, NUM_DIMS+EXTRA_DIMS);
 
 % Perform the tensor contraction
 % Multiplying and summing over the last dimension of U1 and the fourth dimension of U2
@@ -147,7 +147,7 @@ for i = 1:size(U1, 2)
     end
 end
 
-% Reshape C back to the desired 4D format (28 x 28 x 2 x 2)
+% Reshape C back to the desired 4D format (NUM_GRID_PTS x NUM_GRID_PTS x 2 x 2)
 Sigmas_true = reshape(C, size(U_true, 1), size(U_true, 2),...
     size(U_true, 3), size(U_true, 3));
 
@@ -163,32 +163,80 @@ for i = 1:2:NUM_GRID_PTS
 end
 title('Sample from Wishart process prior');
 
-%% helping function
-function coeffs = compute_chebyshev_basis_coeffs(max_deg)
-    syms x
-    T = chebyshevT(0:max_deg-1, x);
-    coeffs = zeros(max_deg, max_deg);
-    for p = 1:max_deg
-        coeffs_p = sym2poly(T(p));
-        coeffs(p,(max_deg-length(coeffs_p)+1):end) = coeffs_p;
+%Questions so far:
+%1. what does the extra dimension represent? 
+%2. Why is sigma = sqrt(U*U')?
+
+%% Part 3: Predicting the probability of error from the model
+% %simulate eta
+% etas = randn([2,1,NUM_DIMS + EXTRA_DIMS, NUM_MC_SAMPLES]);
+
+%for debugging purpose, load etas.mat exported from Alex's code see if I
+%cna get exactly the same answer
+load('etas.mat', 'etas')
+%test a very simple example: x = 0 and xbar = 1
+predict_error_prob(zeros(1,1,NUM_DIMS), ones(1,1,NUM_DIMS),...
+    Basis_chebyshev, W_true, etas)
+
+%let's set a grid for x and xbar
+XBAR = NaN(NUM_GRID_PTS, NUM_GRID_PTS, 2);
+XBAR(:,:,1) = XT; XBAR(:,:,2) = XV;
+nX = 4;
+[XVAL_1, XVAL_2] = meshgrid(linspace(-1,1,nX), linspace(-1,1,nX));
+probs = NaN(nX,nX, NUM_GRID_PTS, NUM_GRID_PTS);
+for a = 1:nX
+    for b = 1:nX
+        X = NaN(size(XT,1),size(XT,2),2);
+        X(:,:,1) = XVAL_1(a,b).*ones(size(XT)); 
+        X(:,:,2) = XVAL_2(a,b).*ones(size(XT));
+        probs(a,b,:,:) = predict_error_prob(X, XBAR, Basis_chebyshev,...
+            W_true, etas);
     end
 end
 
-function [W, sum_logpriorW] = sample_W_prior(max_degree, num_dims,...
-    extra_dims, var_scale, decay_rate)
-    degs = repmat(0:(max_degree-1),[max_degree,1]) +...
-        repmat((0:(max_degree-1))',[1,max_degree]);
+% visualize it
+figure
+colormap(sky)
+for a = 1:nX
+    for b = 1:nX
+        subplot(nX,nX,b+nX*(a-1)); 
+        imagesc(linspace(-1,1,NUM_GRID_PTS),linspace(-1,1,NUM_GRID_PTS),...
+            squeeze(probs(a,b,:,:))); 
+        axis square; hold on; xticks([]); yticks([])
+        scatter(XVAL_1(a,b), XVAL_2(a,b),15,'mo','filled');
+    end
+end
+sgtitle("Error probability (relative to megenta star)")
+
+%% helping function
+function coeffs = compute_chebyshev_basis_coeffs
+    global MAX_DEGREE
+    syms x
+    T = chebyshevT(0:MAX_DEGREE-1, x);
+    coeffs = zeros(MAX_DEGREE, MAX_DEGREE);
+    for p = 1:MAX_DEGREE
+        coeffs_p = sym2poly(T(p));
+        coeffs(p,(MAX_DEGREE-length(coeffs_p)+1):end) = coeffs_p;
+    end
+end
+
+function [W, sum_logpriorW] = sample_W_prior(var_scale, decay_rate)
+    global MAX_DEGREE NUM_DIMS EXTRA_DIMS 
+    degs = repmat(0:(MAX_DEGREE-1),[MAX_DEGREE,1]) +...
+        repmat((0:(MAX_DEGREE-1))',[1,MAX_DEGREE]);
     vars = var_scale.*(decay_rate.^degs);
     stds = sqrt(vars);
-    W = repmat(stds,[1,1,num_dims, num_dims+extra_dims]).*...
-        randn(max_degree, max_degree, num_dims, num_dims+extra_dims);
-    logpriorW = lognpdf(W, repmat(stds,[1,1,num_dims, num_dims+extra_dims]));
+    W = repmat(stds,[1,1,NUM_DIMS, NUM_DIMS+EXTRA_DIMS]).*...
+        randn(MAX_DEGREE, MAX_DEGREE, NUM_DIMS, NUM_DIMS+EXTRA_DIMS);
+    logpriorW = lognpdf(W, repmat(stds,[1,1,NUM_DIMS, NUM_DIMS+EXTRA_DIMS]));
     sum_logpriorW = sum(logpriorW(:));
 end
 
 function [U, phi] = compute_U(poly_chebyshev, W,xt,xv)
-    [val_xt, val_xv] = deal(NaN(size(xt,1), size(xt,2),size(poly_chebyshev,1)));
-    for d = 1:size(poly_chebyshev,1)
+    global MAX_DEGREE 
+    NUM_GRID_PTS = size(xt,1);
+    [val_xt, val_xv] = deal(NaN(NUM_GRID_PTS, NUM_GRID_PTS, MAX_DEGREE));
+    for d = 1:MAX_DEGREE 
         val_xt(:,:,d) = polyval(poly_chebyshev(d,:),xt);
         val_xv(:,:,d) = polyval(poly_chebyshev(d,:),xv);
     end
@@ -196,14 +244,49 @@ function [U, phi] = compute_U(poly_chebyshev, W,xt,xv)
     val_xxv = permute(repmat(val_xv, [1,1,1,size(poly_chebyshev,2)]),[1,2,4,3]);
     % val_xxv = repmat(val_xv, [1,1,1,size(poly_chebyshev,2)]);
 
-    %size of phi: 28 x 28 x 5 x 5
-    %size of W: 5 x 5 x 2 x 3
+    %size of phi: NUM_GRID_PTS x NUM_GRID_PTS x MAX_DEGREE x MAX_DEGREE
+    %size of W: MAX_DEGREE x MAX_DEGREE x NUM_DIMS x (NUM_DIMS+EXTRA_DIMS)
     phi = val_xxt.*val_xxv;
     %equivalent of np.einsum(ij,jk-ik',A,B)
     U = tensorprod(phi,W,[3,4],[1,2]);
 end
 
+function prob = predict_error_prob(x, xbar, Basis_chebyshev,W_true, etas)
+    global NUM_DIMS EXTRA_DIMS NUM_MC_SAMPLES
+    NUM_GRID_PTS   = size(x,1);
+    etas_s         = etas(1,:,:,:); 
+    etas_s         = reshape(etas_s, [1, NUM_DIMS+EXTRA_DIMS,NUM_MC_SAMPLES,1]);
+    etas_sbar      = etas(2,:,:,:); 
+    etas_sbar      = reshape(etas_sbar, [1,NUM_DIMS+EXTRA_DIMS,NUM_MC_SAMPLES,1]);
+    U              = compute_U(Basis_chebyshev,W_true, x(:,:,1), x(:,:,2)); 
+    Ubar           = compute_U(Basis_chebyshev,W_true, xbar(:,:,1), xbar(:,:,2)); 
+    
+    [S, Sbar] = deal(NaN(NUM_GRID_PTS, NUM_GRID_PTS, NUM_DIMS, NUM_DIMS));
+    for i = 1:NUM_DIMS
+        for j = 1:NUM_DIMS
+            S(:,:,i,j) = sum(U(:,:,i,:).*U(:,:,j,:),4); 
+            Sbar(:,:,i,j) = sum(Ubar(:,:,i,:).*Ubar(:,:,j,:),4); 
+        end
+    end
 
+    z_s    = repmat(x,[1,1,1,NUM_MC_SAMPLES]) + tensorprod(U, squeeze(etas_s), 4, 1); 
+    z_s    = permute(z_s,[1,2,4,3]);
+    z_sbar = repmat(xbar,[1,1,1,NUM_MC_SAMPLES]) + tensorprod(Ubar, squeeze(etas_sbar), 4, 1);
+    z_sbar = permute(z_sbar,[1,2,4,3]);
+    z      = NaN(NUM_GRID_PTS, NUM_GRID_PTS, 2*NUM_MC_SAMPLES, NUM_DIMS);
+    z(:,:,1:NUM_MC_SAMPLES,:) = z_s;
+    z(:,:,(NUM_MC_SAMPLES+1):end,:) = z_sbar;
+    
+    %compute prob
+    prob = NaN(NUM_GRID_PTS, NUM_GRID_PTS);
+    for t = 1:NUM_GRID_PTS
+        for v = 1:NUM_GRID_PTS
+            p = mvnpdf(squeeze(z(t,v,:,:)), squeeze(x(t,v,:))', squeeze(S(t,v,:,:)));
+            q = mvnpdf(squeeze(z(t,v,:,:)), squeeze(xbar(t,v,:))', squeeze(Sbar(t,v,:,:)));
+            prob(t,v) = mean(min(p,q)./(p+q));
+        end
+    end
+end
 
 
 
