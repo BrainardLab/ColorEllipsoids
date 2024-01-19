@@ -25,7 +25,7 @@ disp(T)
 xg = linspace(-1,1,NUM_MC_SAMPLES);
 yg = linspace(-1,1,NUM_MC_SAMPLES);
 figure
-fplot(T); axis([-1, 1, -1, 1]);
+fplot(T,'LineWidth',2); axis([-1, 1, -1, 1]);
 ylabel('T_n(x)')
 legend('T_0(x)','T_1(x)','T_2(x)','T_3(x)','T_4(x)','Location','Best')
 title('Chebyshev polynomials of the first kind')
@@ -71,6 +71,7 @@ W_true = sample_W_prior(VARIANCE_SCALE, DECAY_RATE);
 %test if the code below works as expected.
 clear W_true                 %comment it out after debugging
 load('W_true.mat','W_true')
+plot_heatmap(W_true)
 
 %Compute U, which is essentially the weighted sum of basis functions
 [XT, YT] = meshgrid(linspace(-1,1, NUM_GRID_PTS), linspace(-1,1, NUM_GRID_PTS));
@@ -94,6 +95,7 @@ plot_heatmap(U_true)
 Sigmas_true = NaN(NUM_GRID_PTS, NUM_GRID_PTS, NUM_DIMS, NUM_DIMS);
 for i = 1:NUM_DIMS
     for j = 1:NUM_DIMS
+        %size of U_true: NUM_GRID_PTS x NUM_GRID_PTS x NUM_DIMS x (NUM_DIMS + EXTRA_DIMS)
         Sigmas_true(:,:,i,j) = sum(U_true(:,:,i,:).*U_true(:,:,j,:),4);
     end
 end
@@ -151,11 +153,13 @@ end
 sgtitle("Error probability (relative to megenta star)")
 
 %% Part 4a: Simulating data
-%first simulate 50*50 trials
+%first simulate 50*50 pairs of reference and comparison stimuli
 NUM_TRIALS  = 50; 
-x_sim_range = [-0.9, 0.9];
+x_sim_range = [-1, 1];
 x_sim       = rand([NUM_TRIALS,NUM_TRIALS, NUM_DIMS]).*diff(x_sim_range) + x_sim_range(1);
-xbar_sim    = rand([NUM_TRIALS,NUM_TRIALS, NUM_DIMS]).*diff(x_sim_range) + x_sim_range(1); %x_sim + 0.1.*randn(NUM_TRIALS,NUM_TRIALS, NUM_DIMS);
+% xbar_sim    = rand([NUM_TRIALS,NUM_TRIALS, NUM_DIMS]).*diff(x_sim_range) + x_sim_range(1);
+xbar_sim    = x_sim + 0.2.*randn(NUM_TRIALS,NUM_TRIALS, NUM_DIMS);
+xbar_sim(xbar_sim <-1) = -1; xbar_sim(xbar_sim >1) = 1;
 %compute the predicted percent correct
 pCorrect_sim = 1-predict_error_prob(x_sim, xbar_sim, coeffs_chebyshev,...
             W_true, etas);
@@ -175,7 +179,7 @@ N_runs  = 2;
 init    = rand(N_runs,MAX_DEGREE*MAX_DEGREE*NUM_DIMS*(NUM_DIMS+EXTRA_DIMS)).*(ub-lb) + lb;
 %fix some values
 W_true_colvec        = W_true(:);
-param_idx            = [1,2];%[1:5,6,11,16,21];%[6:9, 12:14,17:19];
+param_idx            = [1:5];%[6:9, 12:14,17:19];
 nonParam_idx         = setdiff(1:length(W_true_colvec),param_idx); 
 lb(nonParam_idx)     = W_true_colvec(nonParam_idx);
 ub(nonParam_idx)     = W_true_colvec(nonParam_idx);
@@ -228,6 +232,8 @@ function W = sample_W_prior(var_scale, decay_rate)
         repmat((0:(MAX_DEGREE-1))',[1,MAX_DEGREE]);
     vars = var_scale.*(decay_rate.^degs);
     stds = sqrt(vars);
+    %visualize it
+    %plot_heatmap(stds);colorbar
     W = repmat(stds,[1,1,NUM_DIMS, NUM_DIMS+EXTRA_DIMS]).*...
         randn(MAX_DEGREE, MAX_DEGREE, NUM_DIMS, NUM_DIMS+EXTRA_DIMS);
 end
@@ -246,10 +252,12 @@ function [U, phi] = compute_U(poly_chebyshev, W,xt,yt)
 
     val_xt_repmat = repmat(val_xt, [1,1,1,size(poly_chebyshev,2)]);
     val_yt_repmat = permute(repmat(val_yt, [1,1,1,size(poly_chebyshev,2)]),[1,2,4,3]);
-    %visualize it
+    phi = val_xt_repmat.*val_yt_repmat;
+    % %visualize it
     % plot_heatmap(val_xt_repmat)
     % plot_heatmap(val_yt_repmat)
-    phi = val_xt_repmat.*val_yt_repmat;
+    % plot_heatmap(phi)
+    % plot_heatmap(W)
     
     %equivalent of np.einsum(ij,jk-ik',A,B)
     %size of phi: NUM_GRID_PTS x NUM_GRID_PTS x MAX_DEGREE x MAX_DEGREE
@@ -289,6 +297,9 @@ function pIncorrect = predict_error_prob(x, xbar, coeffs_chebyshev,W_true, etas)
     %simulate values for the reference and the comparison stimuli
     etas_s       = etas(1,:,:,:); 
     etas_s       = reshape(etas_s, [1, NUM_DIMS+EXTRA_DIMS,NUM_MC_SAMPLES,1]);
+    %Q: why is the noise generated this way?
+    %size of U: NUM_GRID_PTS x NUM_GRID_PTS x NUM_DIMS x (NUM_DIMS + EXTRA_DIMS)
+    %size of etas_bar: 1 x NUM_DIMS X (NUM_DIMS + EXTRA_DIMS)
     z_s_noise    = tensorprod(U, squeeze(etas_s), 4, 1);
     z_s          = repmat(x,[1,1,1,NUM_MC_SAMPLES]) + z_s_noise; 
     z_s          = permute(z_s,[1,2,4,3]);
@@ -300,8 +311,9 @@ function pIncorrect = predict_error_prob(x, xbar, coeffs_chebyshev,W_true, etas)
     z_sbar       = permute(z_sbar,[1,2,4,3]);
     %visualize it
     % plot_heatmap(x); plot_heatmap(z_s_noise(:,:,:,1));
+    % plot_heatmap(z_s(:,:,1,:));
     % plot_heatmap(xbar); plot_heatmap(z_sbar_noise(:,:,:,1));
-    %Q: why is the noise generated this way?
+    % plot_heatmap(z_sbar(:,:,1,:));
 
     %concatenate z_s and z_sbar
     z = NaN(NUM_GRID_PTS1, NUM_GRID_PTS2, 2*NUM_MC_SAMPLES, NUM_DIMS);
@@ -313,24 +325,24 @@ function pIncorrect = predict_error_prob(x, xbar, coeffs_chebyshev,W_true, etas)
     for t = 1:NUM_GRID_PTS1
         for v = 1:NUM_GRID_PTS2
             %predicting error probability
-            % p = mvnpdf(squeeze(z(t,v,:,:)), squeeze(x(t,v,:))', ...
-            %     squeeze(Sigma(t,v,:,:)));
-            % q = mvnpdf(squeeze(z(t,v,:,:)), squeeze(xbar(t,v,:))', ...
-            %     squeeze(Sigma_bar(t,v,:,:)));
-            % pIncorrect(t,v) = mean(min(p,q)./(p+q));
+            p = mvnpdf(squeeze(z(t,v,:,:)), squeeze(x(t,v,:))', ...
+                squeeze(Sigma(t,v,:,:)));
+            q = mvnpdf(squeeze(z(t,v,:,:)), squeeze(xbar(t,v,:))', ...
+                squeeze(Sigma_bar(t,v,:,:)));
+            pIncorrect(t,v) = mean(min(p,q)./(p+q));
             
-            pC_x = mvnpdf(squeeze(z_s(t,v,:,:)), squeeze(x(t,v,:))',...
-                squeeze(Sigma(t,v,:,:)));
-            pInc_x = mvnpdf(squeeze(z_sbar(t,v,:,:)), squeeze(x(t,v,:))',...
-                squeeze(Sigma(t,v,:,:)));
-            pC_xbar = mvnpdf(squeeze(z_sbar(t,v,:,:)), squeeze(xbar(t,v,:))',...
-                squeeze(Sigma_bar(t,v,:,:)));
-            pInc_xbar = mvnpdf(squeeze(z_s(t,v,:,:)), squeeze(xbar(t,v,:))',...
-                squeeze(Sigma_bar(t,v,:,:)));
-            pC = pC_x.*pC_xbar;
-            pInc = pInc_x.*pInc_xbar;
-            p_normalization = pC + pInc;
-            pIncorrect(t,v) = mean(pInc./p_normalization);
+            % pC_x = mvnpdf(squeeze(z_s(t,v,:,:)), squeeze(x(t,v,:))',...
+            %     squeeze(Sigma(t,v,:,:)));
+            % pInc_x = mvnpdf(squeeze(z_sbar(t,v,:,:)), squeeze(x(t,v,:))',...
+            %     squeeze(Sigma(t,v,:,:)));
+            % pC_xbar = mvnpdf(squeeze(z_sbar(t,v,:,:)), squeeze(xbar(t,v,:))',...
+            %     squeeze(Sigma_bar(t,v,:,:)));
+            % pInc_xbar = mvnpdf(squeeze(z_s(t,v,:,:)), squeeze(xbar(t,v,:))',...
+            %     squeeze(Sigma_bar(t,v,:,:)));
+            % pC = pC_x.*pC_xbar;
+            % pInc = pInc_x.*pInc_xbar;
+            % p_normalization = pC + pInc;
+            % pIncorrect(t,v) = mean(pInc./p_normalization);
         end
     end
 end
