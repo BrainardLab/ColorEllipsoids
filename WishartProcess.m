@@ -42,30 +42,30 @@ title('Chebyshev polynomials of the first kind')
 %T(2) = 2x^2 - 1        -> [0, 0, 2, 0,-1]
 %T(3) = 4x^3 - 3x       -> [0, 4, 0,-3, 0]
 %T(4) = 8x^4 - 8x^2 + 1 -> [8, 0,-8, 0, 1]
-Basis_chebyshev = compute_chebyshev_basis_coeffs;
-disp(Basis_chebyshev)
+coeffs_chebyshev = compute_chebyshev_basis_coeffs;
+disp(coeffs_chebyshev)
 
 [XG, YG]    = meshgrid(xg, yg);
-[~, M_chebyshev] = compute_U(Basis_chebyshev,[],XG,YG);
+[~, M_chebyshev] = compute_U(coeffs_chebyshev,[],XG,YG);
 
 %visualize it
 plot_heatmap(M_chebyshev)
 
 %% randomly generate linear combinations of the basis function
 %try 4 instances
-nInstances = 4;
+nInstances = 4; 
 %draw values from Gaussian distributions and use them as weights for the
 %basis functions
-w = randn(MAX_DEGREE,MAX_DEGREE,nInstances,1);
-M_chebyshev_rand = compute_U(Basis_chebyshev, w, XG, YG);
+w = randn(MAX_DEGREE,MAX_DEGREE,1, nInstances);
+U_rand = compute_U(coeffs_chebyshev, w, XG, YG);
 
 %visualize it
-plot_heatmap(M_chebyshev_rand)
+plot_heatmap(U_rand)
 
 %% PART2: Sampling from the Wishart Process prior
 %Sample W. As the degree of polynomial increases, the std of weights
 %decreases. 
-[W_true, logprior_W] = sample_W_prior(VARIANCE_SCALE, DECAY_RATE);
+W_true = sample_W_prior(VARIANCE_SCALE, DECAY_RATE);
 
 %For debugging, load W_true.m exported from Alex's code. This way, we can
 %test if the code below works as expected.
@@ -74,7 +74,7 @@ load('W_true.mat','W_true')
 
 %Compute U, which is essentially the weighted sum of basis functions
 [XT, YT] = meshgrid(linspace(-1,1, NUM_GRID_PTS), linspace(-1,1, NUM_GRID_PTS));
-[U_true,Phi] = compute_U(Basis_chebyshev, W_true, XT, YT);
+[U_true,Phi] = compute_U(coeffs_chebyshev, W_true, XT, YT);
 
 %Sanity check: if I didn't mess up with dimensions, then the following
 %figure should look identical to the ones generated before (except the
@@ -98,45 +98,40 @@ for i = 1:NUM_DIMS
     end
 end
 
-% visualize
-thetas = linspace(0,2*pi, 50);
-sinusoids = [cos(thetas); sin(thetas)];
-figure
-for i = 1:2:NUM_GRID_PTS
-    for j = 1:2:NUM_GRID_PTS
-        sig_ij = sqrtm(squeeze(Sigmas_true(i,j,:,:)))*sinusoids;
-        plot(sig_ij(1,:)+XT(i,j), sig_ij(2,:)+YT(i,j),'k'); hold on
-    end
-end
-title('Sample from Wishart process prior');
+% visualize it
+plot_Sigma(Sigmas_true, XT, YT)
 
 %Questions so far:
 %1. what does the extra dimension represent? 
 %2. the scaler for variance is not expressed in the function of phi
+%3. when plotting samples from wishart process prior, why do we take a 
+%   matrix square root of Sigmas_true
 
 %% Part 3: Predicting the probability of error from the model
 % %simulate eta
 % etas = randn([2,1,NUM_DIMS + EXTRA_DIMS, NUM_MC_SAMPLES]);
 
 %for debugging purpose, load etas.mat exported from Alex's code see if I
-%cna get exactly the same answer
+%can get exactly the same answer
 load('etas.mat', 'etas')
 %test a very simple example: x = 0 and xbar = 1
-predict_error_prob(zeros(1,1,NUM_DIMS), ones(1,1,NUM_DIMS),...
-    Basis_chebyshev, W_true, etas)
+predict_error_prob(zeros(1,1,NUM_DIMS), ones(1,1,NUM_DIMS), coeffs_chebyshev, W_true, etas)
 
-%let's set a grid for x and xbar
-XBAR = NaN(NUM_GRID_PTS, NUM_GRID_PTS, 2);
-XBAR(:,:,1) = XT; XBAR(:,:,2) = YT;
+%% define the property of comparison stimuli
+XBAR        = NaN(NUM_GRID_PTS, NUM_GRID_PTS, 2);
+XBAR(:,:,1) = XT; 
+XBAR(:,:,2) = YT;
+
 nX = 4;
-[XVAL_1, XVAL_2] = meshgrid(linspace(-1,1,nX), linspace(-1,1,nX));
-probs = NaN(nX,nX, NUM_GRID_PTS, NUM_GRID_PTS);
+[X1,X2] = meshgrid(linspace(-1,1,nX), linspace(-1,1,nX));
+pIncorrect = NaN(nX,nX, NUM_GRID_PTS, NUM_GRID_PTS);
 for a = 1:nX
     for b = 1:nX
+        %define the property of reference stimuli 
         X = NaN(size(XT,1),size(XT,2),2);
-        X(:,:,1) = XVAL_1(a,b).*ones(size(XT)); 
-        X(:,:,2) = XVAL_2(a,b).*ones(size(XT));
-        probs(a,b,:,:) = predict_error_prob(X, XBAR, Basis_chebyshev,...
+        X(:,:,1) = X1(a,b).*ones(size(XT)); 
+        X(:,:,2) = X2(a,b).*ones(size(XT));
+        pIncorrect(a,b,:,:) = predict_error_prob(X, XBAR, coeffs_chebyshev,...
             W_true, etas);
     end
 end
@@ -148,12 +143,72 @@ for a = 1:nX
     for b = 1:nX
         subplot(nX,nX,b+nX*(a-1)); 
         imagesc(linspace(-1,1,NUM_GRID_PTS),linspace(-1,1,NUM_GRID_PTS),...
-            squeeze(probs(a,b,:,:))); 
+            squeeze(pIncorrect(a,b,:,:))); 
         axis square; hold on; xticks([]); yticks([])
-        scatter(XVAL_1(a,b), XVAL_2(a,b),15,'mo','filled');
+        scatter(X1(a,b), X2(a,b),15,'mo','filled');
     end
 end
 sgtitle("Error probability (relative to megenta star)")
+
+%% Part 4a: Simulating data
+%first simulate 50*50 trials
+NUM_TRIALS  = 50; 
+x_sim_range = [-0.9, 0.9];
+x_sim       = rand([NUM_TRIALS,NUM_TRIALS, NUM_DIMS]).*diff(x_sim_range) + x_sim_range(1);
+xbar_sim    = rand([NUM_TRIALS,NUM_TRIALS, NUM_DIMS]).*diff(x_sim_range) + x_sim_range(1); %x_sim + 0.1.*randn(NUM_TRIALS,NUM_TRIALS, NUM_DIMS);
+%compute the predicted percent correct
+pCorrect_sim = 1-predict_error_prob(x_sim, xbar_sim, coeffs_chebyshev,...
+            W_true, etas);
+resp_sim = binornd(1, pCorrect_sim(:),size(pCorrect_sim(:)));
+fprintf('Num correct trials: %.d\n', sum(resp_sim));
+fprintf('Num error trials: %.d\n', NUM_TRIALS*NUM_TRIALS - sum(resp_sim));
+
+%% Part 4b: Fitting the model to the data
+objectiveFunc = @(w_colvec) estimate_loglikelihood(w_colvec, x_sim, ...
+    xbar_sim, resp_sim, coeffs_chebyshev, etas);
+
+%have different initial points to avoid fmincon from getting stuck at
+%some places
+lb      = -1.*ones(1, MAX_DEGREE*MAX_DEGREE*NUM_DIMS*(NUM_DIMS+EXTRA_DIMS));
+ub      = ones(1, MAX_DEGREE*MAX_DEGREE*NUM_DIMS*(NUM_DIMS+EXTRA_DIMS));
+N_runs  = 2;
+init    = rand(N_runs,MAX_DEGREE*MAX_DEGREE*NUM_DIMS*(NUM_DIMS+EXTRA_DIMS)).*(ub-lb) + lb;
+%fix some values
+W_true_colvec        = W_true(:);
+param_idx            = [1,2];%[1:5,6,11,16,21];%[6:9, 12:14,17:19];
+nonParam_idx         = setdiff(1:length(W_true_colvec),param_idx); 
+lb(nonParam_idx)     = W_true_colvec(nonParam_idx);
+ub(nonParam_idx)     = W_true_colvec(nonParam_idx);
+init(:,nonParam_idx) = repmat(W_true_colvec(nonParam_idx)',[N_runs,1]);
+
+options = optimoptions(@fmincon, 'MaxIterations', 1e5, 'Display','off');
+w_colvec_est = NaN(N_runs, MAX_DEGREE*MAX_DEGREE*NUM_DIMS*(NUM_DIMS+EXTRA_DIMS));
+minVal       = NaN(1, N_runs);
+for n = 1:N_runs
+    disp(n)
+    %use fmincon to search for the optimal defocus
+    [w_colvec_est(n,:), minVal(n)] = fmincon(objectiveFunc, init(n,:), ...
+        [],[],[],[],lb,ub,[],options);
+end
+%find the index that corresponds to the minimum value
+[~,idx_min] = min(minVal);
+%find the corresponding optimal focus that leads to the highest peak of
+%the psf's
+w_colvec_est_best  = w_colvec_est(idx_min,:);
+w_est_best = reshape(w_colvec_est_best, [MAX_DEGREE, MAX_DEGREE, NUM_DIMS, NUM_DIMS+EXTRA_DIMS]);
+
+%% Recover
+[U_recover,Phi_recover] = compute_U(coeffs_chebyshev, w_est_best, XT, YT);
+Sigmas_recover = NaN(NUM_GRID_PTS, NUM_GRID_PTS, NUM_DIMS, NUM_DIMS);
+for i = 1:NUM_DIMS
+    for j = 1:NUM_DIMS
+        Sigmas_recover(:,:,i,j) = sum(U_recover(:,:,i,:).*U_recover(:,:,j,:),4);
+    end
+end
+
+%visualize it
+plot_Sigma(Sigmas_true, XT, YT)
+plot_Sigma(Sigmas_recover, XT, YT)
 
 %% helping function
 function coeffs = compute_chebyshev_basis_coeffs
@@ -167,7 +222,7 @@ function coeffs = compute_chebyshev_basis_coeffs
     end
 end
 
-function [W, sum_logpriorW] = sample_W_prior(var_scale, decay_rate)
+function W = sample_W_prior(var_scale, decay_rate)
     global MAX_DEGREE NUM_DIMS EXTRA_DIMS 
     degs = repmat(0:(MAX_DEGREE-1),[MAX_DEGREE,1]) +...
         repmat((0:(MAX_DEGREE-1))',[1,MAX_DEGREE]);
@@ -175,14 +230,15 @@ function [W, sum_logpriorW] = sample_W_prior(var_scale, decay_rate)
     stds = sqrt(vars);
     W = repmat(stds,[1,1,NUM_DIMS, NUM_DIMS+EXTRA_DIMS]).*...
         randn(MAX_DEGREE, MAX_DEGREE, NUM_DIMS, NUM_DIMS+EXTRA_DIMS);
-    logpriorW = lognpdf(W, repmat(stds,[1,1,NUM_DIMS, NUM_DIMS+EXTRA_DIMS]));
-    sum_logpriorW = sum(logpriorW(:));
 end
 
 function [U, phi] = compute_U(poly_chebyshev, W,xt,yt)
     global MAX_DEGREE 
-    NUM_GRID_PTS = size(xt,1);
-    [val_xt, val_yt] = deal(NaN(NUM_GRID_PTS, NUM_GRID_PTS, MAX_DEGREE));
+    NUM_GRID_PTS1 = size(xt,1);
+    NUM_GRID_PTS2 = size(xt,2);
+    NUM_DIMS     = size(W,3);
+    EXTRA_DIMS   = size(W,4)-NUM_DIMS;
+    [val_xt, val_yt] = deal(NaN(NUM_GRID_PTS1, NUM_GRID_PTS2, MAX_DEGREE));
     for d = 1:MAX_DEGREE 
         val_xt(:,:,d) = polyval(poly_chebyshev(d,:),xt);
         val_yt(:,:,d) = polyval(poly_chebyshev(d,:),yt);
@@ -193,56 +249,104 @@ function [U, phi] = compute_U(poly_chebyshev, W,xt,yt)
     %visualize it
     % plot_heatmap(val_xt_repmat)
     % plot_heatmap(val_yt_repmat)
-
-    %size of phi: NUM_GRID_PTS x NUM_GRID_PTS x MAX_DEGREE x MAX_DEGREE
-    %size of W: MAX_DEGREE x MAX_DEGREE x NUM_DIMS x (NUM_DIMS+EXTRA_DIMS)
     phi = val_xt_repmat.*val_yt_repmat;
     
     %equivalent of np.einsum(ij,jk-ik',A,B)
+    %size of phi: NUM_GRID_PTS x NUM_GRID_PTS x MAX_DEGREE x MAX_DEGREE
+    %size of W:   MAX_DEGREE   x MAX_DEGREE   x NUM_DIMS   x (NUM_DIMS+EXTRA_DIMS)
     if ~isempty(W)
         U = tensorprod(phi,W,[3,4],[1,2]); %w is eta in some of the equations
+        % U = NaN(NUM_GRID_PTS,NUM_GRID_PTS,NUM_DIMS,NUM_DIMS+EXTRA_DIMS);
+        % for i = 1:NUM_GRID_PTS
+        %     for j = 1:NUM_GRID_PTS
+        %         for k = 1:NUM_DIMS
+        %             for l = 1:(NUM_DIMS+EXTRA_DIMS)
+        %                 U(i,j,k,l) = sum(sum(squeeze(phi(i,j,:,:)).*squeeze(W(:,:,k,l))));
+        %             end
+        %         end
+        %     end
+        % end
     else
         U = [];
     end
 end
 
-function prob = predict_error_prob(x, xbar, Basis_chebyshev,W_true, etas)
+function pIncorrect = predict_error_prob(x, xbar, coeffs_chebyshev,W_true, etas)
     global NUM_DIMS EXTRA_DIMS NUM_MC_SAMPLES
-    NUM_GRID_PTS   = size(x,1);
-    etas_s         = etas(1,:,:,:); 
-    etas_s         = reshape(etas_s, [1, NUM_DIMS+EXTRA_DIMS,NUM_MC_SAMPLES,1]);
-    etas_sbar      = etas(2,:,:,:); 
-    etas_sbar      = reshape(etas_sbar, [1,NUM_DIMS+EXTRA_DIMS,NUM_MC_SAMPLES,1]);
-    U              = compute_U(Basis_chebyshev,W_true, x(:,:,1), x(:,:,2)); 
-    Ubar           = compute_U(Basis_chebyshev,W_true, xbar(:,:,1), xbar(:,:,2)); 
-    
-    [S, Sbar] = deal(NaN(NUM_GRID_PTS, NUM_GRID_PTS, NUM_DIMS, NUM_DIMS));
+    NUM_GRID_PTS1   = size(x,1);
+    NUM_GRID_PTS2   = size(x,2);
+    %compute Sigma for the reference and the comparison stimuli
+    U              = compute_U(coeffs_chebyshev,W_true, x(:,:,1), x(:,:,2)); 
+    Ubar           = compute_U(coeffs_chebyshev,W_true, xbar(:,:,1), xbar(:,:,2)); 
+    [Sigma, Sigma_bar] = deal(NaN(NUM_GRID_PTS1, NUM_GRID_PTS2, NUM_DIMS, NUM_DIMS));
     for i = 1:NUM_DIMS
         for j = 1:NUM_DIMS
-            S(:,:,i,j) = sum(U(:,:,i,:).*U(:,:,j,:),4); 
-            Sbar(:,:,i,j) = sum(Ubar(:,:,i,:).*Ubar(:,:,j,:),4); 
+            Sigma(:,:,i,j) = sum(U(:,:,i,:).*U(:,:,j,:),4); 
+            Sigma_bar(:,:,i,j) = sum(Ubar(:,:,i,:).*Ubar(:,:,j,:),4); 
         end
     end
 
-    z_s    = repmat(x,[1,1,1,NUM_MC_SAMPLES]) + tensorprod(U, squeeze(etas_s), 4, 1); 
-    z_s    = permute(z_s,[1,2,4,3]);
-    z_sbar = repmat(xbar,[1,1,1,NUM_MC_SAMPLES]) + tensorprod(Ubar, squeeze(etas_sbar), 4, 1);
-    z_sbar = permute(z_sbar,[1,2,4,3]);
-    z      = NaN(NUM_GRID_PTS, NUM_GRID_PTS, 2*NUM_MC_SAMPLES, NUM_DIMS);
+    %simulate values for the reference and the comparison stimuli
+    etas_s       = etas(1,:,:,:); 
+    etas_s       = reshape(etas_s, [1, NUM_DIMS+EXTRA_DIMS,NUM_MC_SAMPLES,1]);
+    z_s_noise    = tensorprod(U, squeeze(etas_s), 4, 1);
+    z_s          = repmat(x,[1,1,1,NUM_MC_SAMPLES]) + z_s_noise; 
+    z_s          = permute(z_s,[1,2,4,3]);
+
+    etas_sbar    = etas(2,:,:,:); 
+    etas_sbar    = reshape(etas_sbar, [1,NUM_DIMS+EXTRA_DIMS,NUM_MC_SAMPLES,1]);
+    z_sbar_noise = tensorprod(Ubar, squeeze(etas_sbar), 4, 1);
+    z_sbar       = repmat(xbar,[1,1,1,NUM_MC_SAMPLES]) + z_sbar_noise;
+    z_sbar       = permute(z_sbar,[1,2,4,3]);
+    %visualize it
+    % plot_heatmap(x); plot_heatmap(z_s_noise(:,:,:,1));
+    % plot_heatmap(xbar); plot_heatmap(z_sbar_noise(:,:,:,1));
+    %Q: why is the noise generated this way?
+
+    %concatenate z_s and z_sbar
+    z = NaN(NUM_GRID_PTS1, NUM_GRID_PTS2, 2*NUM_MC_SAMPLES, NUM_DIMS);
     z(:,:,1:NUM_MC_SAMPLES,:) = z_s;
     z(:,:,(NUM_MC_SAMPLES+1):end,:) = z_sbar;
     
     %compute prob
-    prob = NaN(NUM_GRID_PTS, NUM_GRID_PTS);
-    for t = 1:NUM_GRID_PTS
-        for v = 1:NUM_GRID_PTS
-            p = mvnpdf(squeeze(z(t,v,:,:)), squeeze(x(t,v,:))', squeeze(S(t,v,:,:)));
-            q = mvnpdf(squeeze(z(t,v,:,:)), squeeze(xbar(t,v,:))', squeeze(Sbar(t,v,:,:)));
-            prob(t,v) = mean(min(p,q)./(p+q));
+    pIncorrect = NaN(NUM_GRID_PTS1, NUM_GRID_PTS2);
+    for t = 1:NUM_GRID_PTS1
+        for v = 1:NUM_GRID_PTS2
+            %predicting error probability
+            % p = mvnpdf(squeeze(z(t,v,:,:)), squeeze(x(t,v,:))', ...
+            %     squeeze(Sigma(t,v,:,:)));
+            % q = mvnpdf(squeeze(z(t,v,:,:)), squeeze(xbar(t,v,:))', ...
+            %     squeeze(Sigma_bar(t,v,:,:)));
+            % pIncorrect(t,v) = mean(min(p,q)./(p+q));
+            
+            pC_x = mvnpdf(squeeze(z_s(t,v,:,:)), squeeze(x(t,v,:))',...
+                squeeze(Sigma(t,v,:,:)));
+            pInc_x = mvnpdf(squeeze(z_sbar(t,v,:,:)), squeeze(x(t,v,:))',...
+                squeeze(Sigma(t,v,:,:)));
+            pC_xbar = mvnpdf(squeeze(z_sbar(t,v,:,:)), squeeze(xbar(t,v,:))',...
+                squeeze(Sigma_bar(t,v,:,:)));
+            pInc_xbar = mvnpdf(squeeze(z_s(t,v,:,:)), squeeze(xbar(t,v,:))',...
+                squeeze(Sigma_bar(t,v,:,:)));
+            pC = pC_x.*pC_xbar;
+            pInc = pInc_x.*pInc_xbar;
+            p_normalization = pC + pInc;
+            pIncorrect(t,v) = mean(pInc./p_normalization);
         end
     end
 end
 
+function nLogL = estimate_loglikelihood(w_colvec, x, xbar, y, poly_chebyshev, etas)
+    global MAX_DEGREE NUM_DIMS EXTRA_DIMS
+    W = reshape(w_colvec, [MAX_DEGREE, MAX_DEGREE, NUM_DIMS,NUM_DIMS+ EXTRA_DIMS]);
+    pInc = predict_error_prob(x, xbar, poly_chebyshev, W, etas);
+    pC = 1 - pInc;
+    logL = y.*log(pC(:)) + (1-y).*log(1-pInc(:));
+    nLogL = -sum(logL(:));
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%                           PLOTING FUNCTIONS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 function plot_heatmap(M)
     nRows = size(M,3);
     nCols = size(M,4);
@@ -255,6 +359,20 @@ function plot_heatmap(M)
             xticks([]); yticks([]); axis square;
         end
     end
+end
+
+function plot_Sigma(Sigma, X, Y)
+    global NUM_GRID_PTS
+    thetas = linspace(0,2*pi, 50);
+    sinusoids = [cos(thetas); sin(thetas)];
+    figure
+    for i = 1:2:NUM_GRID_PTS
+        for j = 1:2:NUM_GRID_PTS
+            sig_ij = sqrtm(squeeze(Sigma(i,j,:,:)))*sinusoids;
+            plot(sig_ij(1,:)+X(i,j), sig_ij(2,:)+Y(i,j),'k'); hold on
+        end
+    end
+    title('Sample from Wishart process prior');
 end
 
 
