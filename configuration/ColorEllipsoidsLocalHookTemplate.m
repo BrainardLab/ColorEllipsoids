@@ -28,27 +28,18 @@ projectBaseDir = tbLocateProject(projectName);
 
 % If we ever needed some user/machine specific preferences, this is one way
 % we could do that.
-sysInfo = GetComputerInfo();
-switch (sysInfo.localHostName)
-    otherwise
-        % Some unspecified machine, try user specific customization
-        switch(sysInfo.userShortName)
-            % Could put user specific things in, but at the moment generic
-            % is good enough
-                
-            otherwise
-                if ismac
-                    dbJsonConfigFile = '~/.dropbox/info.json';
-                    fid = fopen(dbJsonConfigFile);
-                    raw = fread(fid,inf);
-                    str = char(raw');
-                    fclose(fid);
-                    val = jsondecode(str);
-                    baseDir = val.business.path;
-                end
-        end
+if ismac
+    dbJsonConfigFile = '~/.dropbox/info.json';
+    fid = fopen(dbJsonConfigFile);
+    raw = fread(fid,inf);
+    str = char(raw');
+    fclose(fid);
+    val = jsondecode(str);
+    baseDir = val.business.path;
+else
+    error('Need to configure how to find the data base directory for the computer you are on');
 end
-
+ 
 %% Project prefs
 setpref(projectName,'LEDSpectraDir',fullfile(baseDir,'COLE_materials','JandJProjector','LEDSpectrumMeasurements'));
 
