@@ -1,11 +1,12 @@
 clear all; close all; clc; 
+% https://colab.research.google.com/drive/1oJGaDMElkiBkWgr3X0DkBf7Cr41pa8sX?usp=sharing#scrollTo=eGSlr-WH8xrA
 %define some parameters
 global MAX_DEGREE NUM_DIMS EXTRA_DIMS NUM_GRID_PTS NUM_MC_SAMPLES
 MAX_DEGREE     = 5;     %corresponds to p in Alex's document
 NUM_DIMS       = 2;     %corresponds to a = 1, a = 2 
 EXTRA_DIMS     = 1;
 NUM_GRID_PTS   = 28;
-NUM_MC_SAMPLES = 100;
+NUM_MC_SAMPLES = 100;   %number of monte carlo simulation
 DECAY_RATE     = 0.4;
 VARIANCE_SCALE = 0.004;
 
@@ -34,7 +35,7 @@ title('Chebyshev polynomials of the first kind')
 %[T(0)T(0), T(0)T(1), ... , T(0)T(4);
 % T(1)T(0), T(1)T(1), ... , T(1)T(4);
 % ...       ...       ...   ...
-% T(4)T(0), T(4)T(1), ... , T(4)T(4)];
+% T(4)T(0), T(4)T(1), ... , T(4)T(4)]; General formula: T(m)T(n), m -> row - 1, n -> col - 1
 
 %get the polynomial coefficients of the basis function
 %T(0) = 1               -> [0, 0, 0, 0, 1] corresponds to coefficients to [x^5, x^4, x^3, x^2, x^1, x^0]
@@ -44,7 +45,7 @@ title('Chebyshev polynomials of the first kind')
 %T(4) = 8x^4 - 8x^2 + 1 -> [8, 0,-8, 0, 1]
 coeffs_chebyshev = compute_chebyshev_basis_coeffs;
 disp(coeffs_chebyshev)
-
+%%
 [XG, YG]    = meshgrid(xg, yg);
 [~, M_chebyshev] = compute_U(coeffs_chebyshev,[],XG,YG);
 
@@ -100,6 +101,16 @@ for i = 1:NUM_DIMS
     end
 end
 
+%test for positive semi-definity
+Sigmas_true_reshape = reshape(Sigmas_true, [NUM_GRID_PTS*NUM_GRID_PTS, NUM_DIMS, NUM_DIMS]);
+nTest_pd = 0; 
+for t = 1:NUM_GRID_PTS*NUM_GRID_PTS
+    v_rand = rand(2,1);
+    vSv = v_rand'*squeeze(Sigmas_true_reshape(t,:,:))*v_rand;
+    if vSv >= 0; nTest_pd = nTest_pd + 1; end    
+end
+assert(nTest_pd==NUM_GRID_PTS*NUM_GRID_PTS,'Sigma is not positive semi-definite!');
+
 % visualize it
 plot_Sigma(Sigmas_true, XT, YT)
 
@@ -111,7 +122,7 @@ plot_Sigma(Sigmas_true, XT, YT)
 
 %% Part 3: Predicting the probability of error from the model
 % %simulate eta
-% etas = randn([2,1,NUM_DIMS + EXTRA_DIMS, NUM_MC_SAMPLES]);
+etas = randn([2,1,NUM_DIMS + EXTRA_DIMS, NUM_MC_SAMPLES]);
 
 %for debugging purpose, load etas.mat exported from Alex's code see if I
 %can get exactly the same answer
@@ -157,9 +168,9 @@ sgtitle("Error probability (relative to megenta star)")
 NUM_TRIALS  = 50; 
 x_sim_range = [-1, 1];
 x_sim       = rand([NUM_TRIALS,NUM_TRIALS, NUM_DIMS]).*diff(x_sim_range) + x_sim_range(1);
-% xbar_sim    = rand([NUM_TRIALS,NUM_TRIALS, NUM_DIMS]).*diff(x_sim_range) + x_sim_range(1);
-xbar_sim    = x_sim + 0.2.*randn(NUM_TRIALS,NUM_TRIALS, NUM_DIMS);
-xbar_sim(xbar_sim <-1) = -1; xbar_sim(xbar_sim >1) = 1;
+xbar_sim    = rand([NUM_TRIALS,NUM_TRIALS, NUM_DIMS]).*diff(x_sim_range) + x_sim_range(1);
+% xbar_sim    = x_sim + 0.2.*randn(NUM_TRIALS,NUM_TRIALS, NUM_DIMS);
+% xbar_sim(xbar_sim <-1) = -1; xbar_sim(xbar_sim >1) = 1;
 %compute the predicted percent correct
 pCorrect_sim = 1-predict_error_prob(x_sim, xbar_sim, coeffs_chebyshev,...
             W_true, etas);
