@@ -45,7 +45,7 @@ title('Chebyshev polynomials of the first kind')
 %T(4) = 8x^4 - 8x^2 + 1 -> [8, 0,-8, 0, 1]
 coeffs_chebyshev = compute_chebyshev_basis_coeffs;
 disp(coeffs_chebyshev)
-%%
+
 [XG, YG]    = meshgrid(xg, yg);
 [~, M_chebyshev] = compute_U(coeffs_chebyshev,[],XG,YG);
 
@@ -72,7 +72,7 @@ W_true = sample_W_prior(VARIANCE_SCALE, DECAY_RATE);
 %test if the code below works as expected.
 clear W_true                 %comment it out after debugging
 load('W_true.mat','W_true')
-plot_heatmap(W_true)
+plot_heatmap(W_true); colorbar
 
 %Compute U, which is essentially the weighted sum of basis functions
 [XT, YT] = meshgrid(linspace(-1,1, NUM_GRID_PTS), linspace(-1,1, NUM_GRID_PTS));
@@ -122,7 +122,7 @@ plot_Sigma(Sigmas_true, XT, YT)
 
 %% Part 3: Predicting the probability of error from the model
 % %simulate eta
-etas = randn([2,1,NUM_DIMS + EXTRA_DIMS, NUM_MC_SAMPLES]);
+% etas = randn([2,1,NUM_DIMS + EXTRA_DIMS, NUM_MC_SAMPLES]); %NUM_MC_SAMPLES
 
 %for debugging purpose, load etas.mat exported from Alex's code see if I
 %can get exactly the same answer
@@ -308,9 +308,6 @@ function pIncorrect = predict_error_prob(x, xbar, coeffs_chebyshev,W_true, etas)
     %simulate values for the reference and the comparison stimuli
     etas_s       = etas(1,:,:,:); 
     etas_s       = reshape(etas_s, [1, NUM_DIMS+EXTRA_DIMS,NUM_MC_SAMPLES,1]);
-    %Q: why is the noise generated this way?
-    %size of U: NUM_GRID_PTS x NUM_GRID_PTS x NUM_DIMS x (NUM_DIMS + EXTRA_DIMS)
-    %size of etas_bar: 1 x NUM_DIMS X (NUM_DIMS + EXTRA_DIMS)
     z_s_noise    = tensorprod(U, squeeze(etas_s), 4, 1);
     z_s          = repmat(x,[1,1,1,NUM_MC_SAMPLES]) + z_s_noise; 
     z_s          = permute(z_s,[1,2,4,3]);
