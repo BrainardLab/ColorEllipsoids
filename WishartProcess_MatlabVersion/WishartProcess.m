@@ -117,8 +117,6 @@ plot_Sigma(Sigmas_true, XT, YT)
 %Questions so far:
 %1. what does the extra dimension represent? 
 %2. the scaler for variance is not expressed in the function of phi
-%3. when plotting samples from wishart process prior, why do we take a 
-%   matrix square root of Sigmas_true
 
 %% Part 3: Predicting the probability of error from the model
 % %simulate eta
