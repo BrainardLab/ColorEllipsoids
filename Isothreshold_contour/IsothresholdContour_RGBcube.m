@@ -210,23 +210,5 @@ function opt_vecLen = find_vecLen(ref_RGB, ref_Lab, vecDir)
     opt_vecLen = vecLen_n(idx_min);
 end
 
-function RMSE_ellipse = compute_RMSE(sig11, sig12, sig21, sig22, dir, D, N)
-    sig = [sig11, sig12; sig21, sig22];
-    sig_posDef_sym = sig*sig';
-    RMSE_ellipse = sqrt(sum(sum((sig_posDef_sym*dir - D).^2))/N);
-end
-
-function opt_ellipse = fit_ellipse(sig11, sig12, sig21, sig22)
-    lb = [0,0,0,0];
-    ub = [1,1,1,1];
-    N_runs = 2;
-    init    = rand(1,N_runs).*(ub-lb) + lb;
-    options = optimoptions(@fmincon, 'MaxIterations', 1e5, 'Display','off');
-    cov_n = NaN(4,N_runs); RMSE_n = NaN(1, N_runs);
-
-end
-
-
-
 
 
