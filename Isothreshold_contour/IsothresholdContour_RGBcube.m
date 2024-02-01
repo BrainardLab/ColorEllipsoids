@@ -40,8 +40,11 @@ stim.ref_points = get_gridPts(stim.x_grid_ref, stim.y_grid_ref,...
 plt.ttl = {'GB plane', 'RB plane', 'RG plane'};
 plt.colormapMatrix = param.plane_points;
 
-%visualize the color planes
+%% visualize the color planes
 plot_3D_RGBplanes(param, stim, plt)
+set(gcf,'PaperUnits','centimeters','PaperSize',[40 15]);
+saveas(gcf, 'RGB_cube.pdf');
+
 
 %% compute iso-threshold contour
 %sample directions evenly
@@ -50,9 +53,9 @@ stim.numDirPts      = 17;
 stim.grid_theta     = linspace(0, 2*pi,stim.numDirPts);
 stim.grid_theta_xy  = [cos(stim.grid_theta(1:end-1)); ...
                        sin(stim.grid_theta(1:end-1))];
-stim.deltaE_1JND    = 1;
+stim.deltaE_1JND    = 0.5;
 
-results.contour_scaler = 5;
+results.contour_scaler = 10;
 nThetaEllipse  = 200;
 circleIn2D     = UnitCircleGenerate(nThetaEllipse);
 
@@ -95,7 +98,8 @@ end
 
 %% visualize the iso-threshold contour
 plot_isothreshold_contour(param, stim, results, plt)
-
+set(gcf,'PaperUnits','centimeters','PaperSize',[30 12]);
+saveas(gcf, 'Isothreshold_contour.pdf');
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                           HELPING FUNCTIONS
