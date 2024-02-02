@@ -1,137 +1,168 @@
+%This script simulates isothreshold contours 
 clear all; close all; clc
 
-%% load stuff from psychtoolbox
-% We'll spline all spectral functions to this common
-% wavlength axis after loading them in.
-S = [400 5 61];
-
+%% load data from psychtoolbox
 % Load in LMS cone fundamentals
+S = [400 5 61];
 load T_cones_ss2.mat
-param.T_cones = SplineCmf(S_cones_ss2,T_cones_ss2,S);
+param.T_cones = SplineCmf(S_cones_ss2,T_cones_ss2,S); 
+%size: 3 (cone types) x 61 (sampled wavelengths)
 
 % Load in primaries for a monitor
 load B_monitor.mat
 param.B_monitor = SplineSpd(S_monitor,B_monitor,S);
+%size: 61 (sampled wavelengths) x 3 (primaries)
 % M_RGBToLMS = T_cones*B_monitor;
 
-% Load in XYZ CMFs 
+% Load in XYZ color matching functions
 load T_xyzCIEPhys2.mat
 T_xyz = SplineCmf(S_xyzCIEPhys2,T_xyzCIEPhys2,S);
 param.M_LMSToXYZ = ((param.T_cones)'\(T_xyz)')';
+%T_xyz = (param.M_LMSToXYZ * param.T_cones)'
 
-%% First create a cube and select RG, RB and GB planes
+%% First create a cube and select the RG, the RB and the GB planes
+%discretize RGB values
 param.nGridPts               = 100;
 param.grid                   = linspace(0, 1, param.nGridPts);
 [param.x_grid, param.y_grid] = meshgrid(param.grid, param.grid);
+
+%number of selected planes
 param.nPlanes                = 3;
+%for RG / RB / GB plane, we fix the B / G / R value to be one of the
+%following
 stim.fixed_RGBvec            = 0.1:0.1:0.9;
 stim.len_fixed_RGBvec        = length(stim.fixed_RGBvec);
 
-%1st plane: GB; 2nd plane: RB; 3rd plane: RG
+%get the grid points for those three planes with one dimension having a
+%specific fixed value
 for l = 1:stim.len_fixed_RGBvec
     param.plane_points{l} = get_gridPts(param.x_grid, param.y_grid,...
         1:param.nPlanes, stim.fixed_RGBvec(l).*ones(1, param.nPlanes));
 end
 
-%% set a grid for reference stimulus
+%% set a grid for the reference stimulus
+%pick 5 x 5 reference points 
 stim.nGridPts_ref = 5;
 stim.grid_ref     = linspace(0.2, 0.8, stim.nGridPts_ref);
 [stim.x_grid_ref, stim.y_grid_ref] = meshgrid(stim.grid_ref,stim.grid_ref);
+
+%get the grid points for the reference stimuli of each plane
 for l = 1:stim.len_fixed_RGBvec
     stim.ref_points{l} = get_gridPts(stim.x_grid_ref, stim.y_grid_ref,...
         1:param.nPlanes, stim.fixed_RGBvec(l).*ones(1, param.nPlanes));
 end
 
 %% visualize the color planes
+%select the slices we want to visualize 
 fixed_RGB_slc = 0.1:0.1:0.9;
 plt.idx_fixed_RGB_slc = arrayfun(@(idx) find(stim.fixed_RGBvec == ...
     fixed_RGB_slc(idx)), 1:length(fixed_RGB_slc));
-% Concatenate the R, G, B matrices
 plt.ttl = {'GB plane', 'RB plane', 'RG plane'};
 plt.colormapMatrix = param.plane_points;
 plt.flag_save = false;
 
+%visualize
 plot_3D_RGBplanes(param, stim, plt)
 
 %% compute iso-threshold contour
-%sample directions evenly
-stim.background_RGB = ones(param.nPlanes,1).*stim.fixed_RGBvec;
-stim.numDirPts      = 17;
-stim.grid_theta     = linspace(0, 2*pi,stim.numDirPts);
-stim.grid_theta_xy  = [cos(stim.grid_theta(1:end-1)); ...
-                       sin(stim.grid_theta(1:end-1))];
-stim.deltaE_1JND    = 0.5;
+%set the background RGB
+% stim.background_RGB    = ones(param.nPlanes, length(fixed_RGB_slc)).*0.5;
+stim.background_RGB    = ones(param.nPlanes,1).*stim.fixed_RGBvec;
 
+%sample total of 17 directions (0 to 360 deg) but the 1st and the last are the same
+stim.numDirPts         = 17;
+stim.grid_theta        = linspace(0, 2*pi,stim.numDirPts);
+stim.grid_theta_xy     = [cos(stim.grid_theta(1:end-1)); ...
+                          sin(stim.grid_theta(1:end-1))];
+%define threshold as deltaE = 0.5
+stim.deltaE_1JND       = 0.5;
+
+%the raw isothreshold contour is very tiny, we can amplify it by 10 times
+%for the purpose of visualization
 results.contour_scaler = 10;
+%make a finer grid for the direction (just for the purpose of
+%visualization)
 plt.nThetaEllipse      = 200;
 plt.circleIn2D         = UnitCircleGenerate(plt.nThetaEllipse);
 
+%for each fixed R / G / B value in the BG / RB / RG plane
 for l = 1:stim.len_fixed_RGBvec
+    disp(l)
+    %set the background RGB 
     background_RGB_l = stim.background_RGB(:,l);
+    %for each plane
     for p = 1:param.nPlanes
-        disp(p)
+        %vecDir is a vector that tells us how far we move along a specific direction 
         vecDir = NaN(param.nPlanes,1); vecDir(p) = 0; 
-        varChromDir = setdiff(1:param.nPlanes,p);
+        %indices for the varying chromatic directions 
+        %GB plane: [2,3]; RB plane: [1,3]; RG plane: [1,2]
+        idx_varyingDim = setdiff(1:param.nPlanes,p);
+
+        %for each reference stimulus
         for i = 1:stim.nGridPts_ref
-            disp(i)
             for j = 1:stim.nGridPts_ref
                 %grab the reference stimulus's RGB
                 rgb_ref_pij = squeeze(stim.ref_points{l}{p}(i,j,:));
+                %convert it to Lab
                 [ref_Lab_lpij, ~, ~] = convert_rgb_lab(param,...
                     background_RGB_l, rgb_ref_pij);
                 results.ref_Lab(l,p,i,j,:) = ref_Lab_lpij;
+                
                 %for each chromatic direction
                 for k = 1:stim.numDirPts-1
-                    vecDir(varChromDir) = stim.grid_theta_xy(:,k);
+                    %determine the direction we are going 
+                    vecDir(idx_varyingDim) = stim.grid_theta_xy(:,k);
     
                     %run fmincon to search for the magnitude of vector that
-                    %leads to a deltaE of 1
+                    %leads to a pre-determined deltaE
                     results.opt_vecLen(l,p,i,j,k) = find_vecLen(...
                         background_RGB_l, rgb_ref_pij, ref_Lab_lpij, ...
                         vecDir, param,stim);
                 end
+
                 % compute the iso-threshold contour 
-                rgb_contour_lpij = rgb_ref_pij(varChromDir)' + ...
+                rgb_contour_lpij = rgb_ref_pij(idx_varyingDim)' + ...
                     repmat(squeeze(results.opt_vecLen(l,p,i,j,:).*...
                     results.contour_scaler), [1,2]).*stim.grid_theta_xy';
                 results.rgb_contour(l,p,i,j,:,:) = rgb_contour_lpij;
+
                 %fit an ellipse
-                [~,~,~,fitQ_lpij] = FitEllipseQ(gb_contour_lpij' - ...
-                    rgb_ref_pij(varChromDir),'lockAngleAt0',false);
+                [~,~,~,fitQ_lpij] = FitEllipseQ(rgb_contour_lpij' - ...
+                    rgb_ref_pij(idx_varyingDim),'lockAngleAt0',false);
                 results.fitQ(l,p,i,j,:,:) = fitQ_lpij;
                 results.fitEllipse(l,p,i,j,:,:) = (PointsOnEllipseQ(...
-                    fitQ_lpij,plt.circleIn2D) + rgb_ref_pij(varChromDir))';
+                    fitQ_lpij,plt.circleIn2D) + rgb_ref_pij(idx_varyingDim))';
             end
         end
     end
 end
 
 %% visualize the iso-threshold contour
+plt.flag_visualizeRawData = false;
 plot_isothreshold_contour(param, stim, results, plt)
 % set(gcf,'PaperUnits','centimeters','PaperSize',[30 12]);
 % saveas(gcf, 'Isothreshold_contour.pdf');
 
 %% see if there exists analytical solutions
-lab_temp = NaN(param.nGridPts,param.nGridPts,3);
-for i = 1:param.nGridPts
-    for j = 1:param.nGridPts
-        lab_temp(i,j,:) = convert_rgb_lab(param,...
-            stim.background_RGB, squeeze(param.plane_points{1}(i,j,:)));
+slc_fixedVal = 5;
+lab_temp = cell(1,param.nPlanes);
+for p = 1:param.nPlanes
+    for i = 1:param.nGridPts
+        for j = 1:param.nGridPts
+            lab_temp{p}(i,j,:) = convert_rgb_lab(param,...
+                squeeze(stim.background_RGB(:,slc_fixedVal)),...
+                squeeze(param.plane_points{slc_fixedVal}{p}(i,j,:)));
+        end
     end
 end
 
 figure
-subplot(1,2,1)
-surf(param.plane_points{1}(:,:,1), param.plane_points{1}(:,:,2),...
-    param.plane_points{1}(:,:,3), plt.colormapMatrix{1},...
-            'EdgeColor','none');
-axis square; xlim([0,1]); ylim([0,1]); zlim([0,1])
-xlabel('R'); ylabel('G'); zlabel('B');
-
-subplot(1,2,2)
-surf(lab_temp(:,:,1), lab_temp(:,:,2), lab_temp(:,:,3),...
-    plt.colormapMatrix{1},'EdgeColor','none')
-axis square; xlabel('L'); ylabel('a'); zlabel('b');
+for p = 1:param.nPlanes
+    subplot(1,param.nPlanes,p)
+    surf(lab_temp{p}(:,:,1), lab_temp{p}(:,:,2), lab_temp{p}(:,:,3),...
+        plt.colormapMatrix{slc_fixedVal}{p},'EdgeColor','none')
+    axis square; xlabel('L'); ylabel('a'); zlabel('b');
+end
 
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -153,15 +184,18 @@ end
 
 function [color_Lab, color_XYZ, color_LMS] = convert_rgb_lab(param,...
     background_RGB, color_RGB)
-    %convert
     background_Spd = param.B_monitor*background_RGB;
     background_LMS = param.T_cones*background_Spd;
     background_XYZ = param.M_LMSToXYZ*background_LMS;
 
-    color_Spd = param.B_monitor*color_RGB;
-    color_LMS = param.T_cones*color_Spd;
-    color_XYZ = param.M_LMSToXYZ*color_LMS;
-    color_Lab = XYZToLab(color_XYZ, background_XYZ);
+    %RGB -> SPD
+    color_Spd      = param.B_monitor*color_RGB;
+    %SPD -> LMS
+    color_LMS      = param.T_cones*color_Spd;
+    %LMS -> XYZ
+    color_XYZ      = param.M_LMSToXYZ*color_LMS;
+    %XYZ -> Lab
+    color_Lab      = XYZToLab(color_XYZ, background_XYZ);
 end
 
 function deltaE = compute_deltaE(vecLen, background_RGB, ...
@@ -255,12 +289,18 @@ function plot_isothreshold_contour(param, stim, results, plt)
     len_frames = length(idx);
     figure
     for l = 1:len_frames
-        colormapMatrix2 = {[stim.fixed_RGBvec(idx(l)), 0, 1; stim.fixed_RGBvec(idx(l)), 0,0;...
-                            stim.fixed_RGBvec(idx(l)), 1,0; stim.fixed_RGBvec(idx(l)), 1,1],...
-                           [0, stim.fixed_RGBvec(idx(l)), 1; 0,stim.fixed_RGBvec(idx(l)), 0;...
-                            1,stim.fixed_RGBvec(idx(l)), 0; 1,stim.fixed_RGBvec(idx(l)), 1],...
-                           [0, 1, stim.fixed_RGBvec(idx(l)); 0,0, stim.fixed_RGBvec(idx(l));...
-                           1,0, stim.fixed_RGBvec(idx(l)); 1,1, stim.fixed_RGBvec(idx(l))]};
+        colormapMatrix2 = {[stim.fixed_RGBvec(idx(l)), 0, 1; 
+                            stim.fixed_RGBvec(idx(l)), 0,0;...
+                            stim.fixed_RGBvec(idx(l)), 1,0; 
+                            stim.fixed_RGBvec(idx(l)), 1,1],...
+                           [0, stim.fixed_RGBvec(idx(l)), 1; 
+                            0,stim.fixed_RGBvec(idx(l)), 0;...
+                            1,stim.fixed_RGBvec(idx(l)), 0; 
+                            1,stim.fixed_RGBvec(idx(l)), 1],...
+                           [0, 1, stim.fixed_RGBvec(idx(l)); 
+                            0,0, stim.fixed_RGBvec(idx(l));...
+                            1,0, stim.fixed_RGBvec(idx(l)); 
+                            1,1, stim.fixed_RGBvec(idx(l))]};
         x = [0; 0; 1; 1];
         y = [1; 0; 0; 1];
         
@@ -270,12 +310,14 @@ function plot_isothreshold_contour(param, stim, results, plt)
                 colormapMatrix2{p}, 'FaceColor', 'interp'); hold on
             scatter(stim.x_grid_ref(:), stim.y_grid_ref(:), 20,'white','Marker','+');
         
-            varChromDir = setdiff(1:param.nPlanes,p);
             for i = 1:stim.nGridPts_ref
                 for j = 1:stim.nGridPts_ref
                     %visualize the individual thresholds 
-                    % scatter(squeeze(results.rgb_contour(p,i,j,:,1)),...
-                    % squeeze(resutls.rgb_contour(p,i,j,:,2)),5,'ko','filled');
+                    if plt.flag_visualizeRawData
+                        scatter(squeeze(results.rgb_contour(idx(l),p,i,j,:,1)),...
+                            squeeze(results.rgb_contour(idx(l),p,i,j,:,2)),10,...
+                            'ko','filled');
+                    end
                     %visualize the best-fitting ellipse
                     plot(squeeze(results.fitEllipse(idx(l),p,i,j,:,1)),...
                         squeeze(results.fitEllipse(idx(l),p,i,j,:,2)),...
