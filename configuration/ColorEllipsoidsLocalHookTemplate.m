@@ -41,33 +41,22 @@ else
 end
  
 %% Project prefs
-setpref(projectName,'LEDSpectraDir',fullfile(baseDir,'COLE_materials','JandJProjector','LEDSpectrumMeasurements'));
+setpref(projectName,'LEDSpectraDir',fullfile(baseDir,'ELPS_materials','JandJProjector','LEDSpectrumMeasurements'));
 
 % Calibration
-setpref('BrainardLabToolbox','CalDataFolder',fullfile(baseDir,'COLE_materials','Calibration'));
+setpref('BrainardLabToolbox','CalDataFolder',fullfile(baseDir,'ELPS_materials','Calibration'));
 
 % Data dir
-setpref(projectName,'TestDataFolder',fullfile(baseDir,'COLE_datadev','TestData'));
+setpref(projectName,'TestDataFolder',fullfile(baseDir,'ELPS_datadev','TestData'));
 
 % Main experiment data dir (as of 10/14/22)
-setpref(projectName,'COLEData',fullfile(baseDir,'COLE_data'));
+setpref(projectName,'ELPSData',fullfile(baseDir,'ELPS_data'));
 
 % Experiment analysis data dir (as of 10/19/22)
-setpref(projectName,'COLEAnalysis',fullfile(baseDir,'COLE_analysis'));
+setpref(projectName,'ELPSAnalysis',fullfile(baseDir,'ELPS_analysis'));
 
-% Check data dir (This is for screen stability and channel additivity data)
-setpref(projectName,'CheckDataFolder',fullfile(baseDir,'COLE_materials','JandJProjector','CheckData'));
-setpref(projectName,'CheckDataFolderSACC',fullfile(baseDir,'COLE_materials','FromSACCMeasurements','JandJProjector','CheckData'));
+% ELPS materials.
+setpref(projectName,'ELPSMaterials',fullfile(baseDir,'ELPS_materials'));
 
-% COLE materials.
-setpref(projectName,'COLEMaterials',fullfile(baseDir,'COLE_materials'));
 
-% David's melanopsion work
-setpref(projectName,'COLEMelanopsin',fullfile(baseDir,'COLE_melanopsin'));
-
-% New experiment analysis data dir (as of 10/03/23).
-setpref(projectName,'COLEAnalysisRefit',fullfile(baseDir,'COLE_analysis_refit'));
-
-% We will save the final results in this directory (as of 10/13/23).
-setpref(projectName,'COLEAnalysisFinal',fullfile(baseDir,'COLE_analysis_final'));
 
