@@ -1,5 +1,6 @@
 %This script simulates isothreshold contours 
 clear all; close all; clc
+addpath(genpath('/Users/fangfang/Documents/MATLAB/toolboxes/gif/'))
 
 %% load data from psychtoolbox
 % Load in LMS cone fundamentals
@@ -59,7 +60,7 @@ plt.idx_fixed_RGB_slc = arrayfun(@(idx) find(stim.fixed_RGBvec == ...
     fixed_RGB_slc(idx)), 1:length(fixed_RGB_slc));
 plt.ttl = {'GB plane', 'RB plane', 'RG plane'};
 plt.colormapMatrix = param.plane_points;
-plt.flag_save = false;
+plt.flag_save = true;
 
 %visualize
 plot_3D_RGBplanes(param, stim, plt)
@@ -138,10 +139,12 @@ for l = 1:stim.len_fixed_RGBvec
 end
 
 %% visualize the iso-threshold contour
-plt.flag_visualizeRawData = false;
+plt.flag_visualizeRawData = true;
 plot_isothreshold_contour(param, stim, results, plt)
-% set(gcf,'PaperUnits','centimeters','PaperSize',[30 12]);
-% saveas(gcf, 'Isothreshold_contour.pdf');
+
+%% save the data
+D = {param, stim, results, plt};
+save("Isothreshold_contour_CIELABderived.mat","D");
 
 %% see if there exists analytical solutions
 slc_fixedVal = 5;
@@ -276,6 +279,12 @@ function plot_3D_RGBplanes(para, stm, plt)
             title(plt.ttl{p});
         end
         set(gcf,'Units','normalized','Position',[0,0.1,0.7,0.4])
+        set(gcf,'PaperUnits','centimeters','PaperSize',[30 12]);
+        if plt.flag_save && len_frames > 1
+            if l == 1; gif('RGB_cube.gif')
+            else; gif
+            end
+        end
         pause(0.5)
     end
     if plt.flag_save && len_frames == 1 %1 frame
@@ -316,7 +325,8 @@ function plot_isothreshold_contour(param, stim, results, plt)
                     if plt.flag_visualizeRawData
                         scatter(squeeze(results.rgb_contour(idx(l),p,i,j,:,1)),...
                             squeeze(results.rgb_contour(idx(l),p,i,j,:,2)),10,...
-                            'ko','filled');
+                            'o','filled','MarkerEdgeColor',0.5.*ones(1,3),...
+                            'MarkerFaceColor',0.5.*ones(1,3));
                     end
                     %visualize the best-fitting ellipse
                     plot(squeeze(results.fitEllipse(idx(l),p,i,j,:,1)),...
@@ -331,7 +341,17 @@ function plot_isothreshold_contour(param, stim, results, plt)
         end
         sgtitle(['The fixed other plane = ',num2str(stim.fixed_RGBvec(idx(l)))]);
         set(gcf,'Units','normalized','Position',[0,0.1,0.55,0.4]);
+        set(gcf,'PaperUnits','centimeters','PaperSize',[30 12]);
+        if plt.flag_save && len_frames > 1
+            if l == 1; gif('Isothreshold_contour.gif')
+            else; gif
+            end
+        end
         pause(1)
+    end
+    if plt.flag_save && len_frames == 1 %1 frame
+        set(gcf,'PaperUnits','centimeters','PaperSize',[30 12]);
+        saveas(gcf, 'Isothreshold_contour.pdf');
     end
 end
 

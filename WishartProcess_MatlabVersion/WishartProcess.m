@@ -72,7 +72,7 @@ W_true = sample_W_prior(VARIANCE_SCALE, DECAY_RATE);
 %test if the code below works as expected.
 clear W_true                 %comment it out after debugging
 load('W_true.mat','W_true')
-plot_heatmap(W_true); colorbar
+plot_heatmap(W_true); 
 
 %Compute U, which is essentially the weighted sum of basis functions
 [XT, YT] = meshgrid(linspace(-1,1, NUM_GRID_PTS), linspace(-1,1, NUM_GRID_PTS));
@@ -116,7 +116,6 @@ plot_Sigma(Sigmas_true, XT, YT)
 
 %Questions so far:
 %1. what does the extra dimension represent? 
-%2. the scaler for variance is not expressed in the function of phi
 
 %% Part 3: Predicting the probability of error from the model
 % %simulate eta
@@ -358,7 +357,7 @@ function nLogL = estimate_loglikelihood(w_colvec, x, xbar, y, poly_chebyshev, et
     W = reshape(w_colvec, [MAX_DEGREE, MAX_DEGREE, NUM_DIMS,NUM_DIMS+ EXTRA_DIMS]);
     pInc = predict_error_prob(x, xbar, poly_chebyshev, W, etas);
     pC = 1 - pInc;
-    logL = y.*log(pC(:)) + (1-y).*log(1-pInc(:));
+    logL = y.*log(pC(:)) + (1-y).*log(pInc(:));
     nLogL = -sum(logL(:));
 end
 
