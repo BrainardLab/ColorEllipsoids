@@ -166,12 +166,13 @@ end
 title(sprintf(['Predicted iso-threshold contours \nin the ', plt.ttl{sim.slc_RGBplane},...
     ' based on the Wishart process']));
 set(gcf,'PaperUnits','centimeters','PaperSize',[20 20]);
-% saveas(gcf, ['Fitted_Isothreshold_contour_',plt.ttl{sim.slc_RGBplane},'.pdf']);
+saveas(gcf, ['Fitted_Isothreshold_contour_',plt.ttl{sim.slc_RGBplane},...
+    '_sim',num2str(sim.nSims), 'perCond.pdf']);
 
 %% save the data
-% D = {param, stim, results, M_chebyshev, w_est_best};
 E = {param, stim, results, fits};
-save(['Fits_isothreshold_',plt.ttl{sim.slc_RGBplane},'.mat'],'E');
+save(['Fits_isothreshold_',plt.ttl{sim.slc_RGBplane},'_sim',...
+    num2str(sim.nSims), 'perCond.mat'],'E');
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                           HELPING FUNCTIONS
