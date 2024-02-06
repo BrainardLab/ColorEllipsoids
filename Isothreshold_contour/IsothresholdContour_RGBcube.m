@@ -1,6 +1,6 @@
 %This script simulates isothreshold contours 
 clear all; close all; clc
-addpath(genpath('/Users/fangfang/Documents/MATLAB/toolboxes/gif/'))
+% addpath(genpath('/Users/fangfang/Documents/MATLAB/toolboxes/gif/'))
 
 %% load data from psychtoolbox
 % Load in LMS cone fundamentals
@@ -63,7 +63,7 @@ plt.colormapMatrix = param.plane_points;
 plt.flag_save = true;
 
 %visualize
-plot_3D_RGBplanes(param, stim, plt)
+% plot_3D_RGBplanes(param, stim, plt)
 
 %% compute iso-threshold contour
 %set the background RGB
@@ -86,6 +86,7 @@ results.contour_scaler = 10;
 plt.nThetaEllipse      = 200;
 plt.circleIn2D         = UnitCircleGenerate(plt.nThetaEllipse);
 
+%%
 %for each fixed R / G / B value in the BG / RB / RG plane
 for l = 1:stim.len_fixed_RGBvec
     disp(l)
