@@ -5,11 +5,12 @@ load('Isothreshold_contour_CIELABderived.mat', 'D');
 param   = D{1};
 stim    = D{2};
 results = D{3};
+plt     = D{4};
 
 %% First create a cube and select the RG, the RB and the GB planes
 sim.slc_fixedVal     = 0.5; %the level of the fixed plane
 sim.slc_fixedVal_idx = find(stim.fixed_RGBvec == sim.slc_fixedVal);
-sim.slc_RGBplane     = 2; %GB plane with a fixed R value
+sim.slc_RGBplane     = 1; %GB plane with a fixed R value
 sim.varying_RGBplane = setdiff(1:3, sim.slc_RGBplane);
 sim.plane_points     = param.plane_points{sim.slc_fixedVal_idx}{sim.slc_RGBplane};
 sim.ref_points       = stim.ref_points{sim.slc_fixedVal_idx}{sim.slc_RGBplane};
@@ -61,19 +62,18 @@ end
 %% define model specificity for the wishart process
 model.max_deg        = 3;     %corresponds to p in Alex's document
 model.nDims          = 2;     %corresponds to a = 1, a = 2 
-model.eDims          = 0; %extra dimensions
+model.eDims          = 0;     %extra dimensions
 model.num_grid_pts   = 100;
-model.num_MC_samples = 200;   %number of monte carlo simulation
+model.num_MC_samples = 100;   %number of monte carlo simulation
 
 model.coeffs_chebyshev = compute_chebyshev_basis_coeffs(model.max_deg);
 disp(model.coeffs_chebyshev)
 
 model.xt = linspace(-1,1,model.num_MC_samples);
 model.yt = linspace(-1,1,model.num_MC_samples);
-[model.XT, model.YT]    = meshgrid(model.xt, model.yt);
+[model.XT, model.YT]   = meshgrid(model.xt, model.yt);
 [~, model.M_chebyshev] = compute_U(model.coeffs_chebyshev,[],...
     model.XT,model.YT, model.max_deg);
-
 %visualize it
 plot_heatmap(model.M_chebyshev)
 
@@ -92,9 +92,8 @@ xbar_sim_d1      = squeeze(xbar_sim(:,:,1,:));
 xbar_sim_d2      = squeeze(xbar_sim(:,:,2,:));
 sim.xbar_sim_org(1,:,1) = xbar_sim_d1(:); 
 sim.xbar_sim_org(1,:,2) = xbar_sim_d2(:);
-
-%random draws
-sim.etas = 0.01.*randn([2,1,model.nDims + model.eDims, model.num_MC_samples]);
+% if we just want to use one set of randomly drawn samples
+% sim.etas = 0.01.*randn([2,1,model.nDims + model.eDims, model.num_MC_samples]);
 
 %define objective functions
 objectiveFunc = @(w_colvec) estimate_loglikelihood(w_colvec, model, sim);
@@ -110,53 +109,69 @@ fits.pub     =  0.01.*ones(1, fits.nFreeParams);
 fits.N_runs  = 1;
 fits.init    = rand(fits.N_runs,fits.nFreeParams).*(fits.pub-fits.plb) + fits.plb;
 
-% options = optimoptions(@fmincon, 'MaxIterations', 1e5, 'Display','iter-detailed');
 for n = 1:fits.N_runs
     disp(n)
     %use fmincon to search for the optimal defocus
     [fits.w_colvec_est(n,:), fits.minVal(n)] = bads(objectiveFunc,...
         fits.init(n,:), fits.lb, fits.ub, fits.plb, fits.pub);
-    % [w_colvec_est(n,:), minVal(n)] = fmincon(objectiveFunc, init(n,:), ...
-    %     [],[],[],[],lb,ub,[],options);
 end
 %find the index that corresponds to the minimum value
-[~,idx_min] = min(minVal);
+[~,idx_min] = min(fits.minVal);
 %find the corresponding optimal focus that leads to the highest peak of
 %the psf's
 fits.w_colvec_est_best  = fits.w_colvec_est(idx_min,:);
 fits.w_est_best = reshape(fits.w_colvec_est_best, [model.max_deg,...
     model.max_deg, model.nDims, model.nDims+model.eDims]);
 
-%% save the data
-D = {param, stim, results, M_chebyshev, w_est_best};
-save("Fits_isothreshold_GBplane.mat","D");
-
 %% recover
-[XT, YT] = meshgrid(linspace(0,1, num_grid_pts), linspace(0,1, num_grid_pts));
-
-[U_recover,Phi_recover] = compute_U(coeffs_chebyshev, w_est_best, XT, YT);
-Sigmas_recover = NaN(num_grid_pts, num_grid_pts, nDims, nDims);
-for i = 1:nDims
-    for j = 1:nDims
-        Sigmas_recover(:,:,i,j) = sum(U_recover(:,:,i,:).*U_recover(:,:,j,:),4);
+[fits.U_recover,~] = compute_U(model.coeffs_chebyshev, fits.w_est_best, ...
+    param.x_grid, param.y_grid, model.max_deg); 
+for i = 1:model.nDims
+    for j = 1:model.nDims
+        fits.Sigmas_recover(:,:,i,j) = sum(fits.U_recover(:,:,i,:).*...
+            fits.U_recover(:,:,j,:),4);
     end
 end
 
-thetas = linspace(0,2*pi, 50);
+% %make predictions on the probability of correct
+% probC_recovered = NaN(stim.nGridPts_ref, stim.nGridPts_ref, param.nGridPts, param.nGridPts);
+% for  i = 1:stim.nGridPts_ref
+%     for j = 1:stim.nGridPts_ref
+%         %grab the reference stimulus's RGB
+%         rgb_ref_pij = squeeze(sim.ref_points(i,j,sim.varying_RGBplane));
+%         sim.xbar_sim_org = NaN(param.nGridPts, param.nGridPts, 2);
+%         sim.xbar_sim_org(:,:,1) = rgb_ref_pij(1); sim.xbar_sim_org(:,:,2) = rgb_ref_pij(2);
+%         sim.x_sim_org(:,:,1) = param.x_grid; sim.x_sim_org(:,:,2) = param.y_grid;   
+%         probC_recovered(i,j,:,:) = 1 - predict_error_prob(fits.w_est_best, model, sim);
+%     end
+% end
+
+%% visualize
+thetas = linspace(0,2*pi, plt.nThetaEllipse);
 sinusoids = [cos(thetas); sin(thetas)];
 figure
 for i = 20:15:80
     for j = 20:15:80
-        scatter(XT(i,j), YT(i,j), 20,'black','Marker','+'); hold on
-        sig_ij = sqrtm(squeeze(Sigmas_recover(i,j,:,:)))*sinusoids;
-        plot(sig_ij(1,:).*5+XT(i,j), sig_ij(2,:).*5+YT(i,j),'k');
+        scatter(param.x_grid(i,j), param.y_grid(i,j), 20,'black','Marker','+'); hold on
+        sig_ij = sqrtm(squeeze(fits.Sigmas_recover(i,j,:,:)))*plt.circleIn2D;
+        plot(sig_ij(1,:).*5+param.x_grid(i,j), sig_ij(2,:).*5+param.y_grid(i,j),'k');
     end
 end
 xlim([0,1]); ylim([0,1]); axis square; hold off
-xticks(0:0.2:1); yticks(0:0.2:1); xlabel('G'); ylabel('B'); 
-title(sprintf('Predicted iso-threshold contours\nbased on the Wishard process'));
+xticks(0:0.2:1); yticks(0:0.2:1); 
+if sim.slc_RGBplane == 1; xlabel('G'); ylabel('B'); 
+elseif sim.slc_RGBplane == 2; xlabel('R'); ylabel('B');
+else; xlabel('R'); ylabel('G');
+end
+title(sprintf(['Predicted iso-threshold contours \nin the ', plt.ttl{sim.slc_RGBplane},...
+    ' based on the Wishart process']));
 set(gcf,'PaperUnits','centimeters','PaperSize',[20 20]);
-saveas(gcf, 'Fitted_Isothreshold_contour.pdf');
+% saveas(gcf, ['Fitted_Isothreshold_contour_',plt.ttl{sim.slc_RGBplane},'.pdf']);
+
+%% save the data
+% D = {param, stim, results, M_chebyshev, w_est_best};
+E = {param, stim, results, fits};
+save(['Fits_isothreshold_',plt.ttl{sim.slc_RGBplane},'.mat'],'E');
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                           HELPING FUNCTIONS
@@ -189,11 +204,11 @@ function coeffs = compute_chebyshev_basis_coeffs(max_deg)
 end
 
 function [U, phi] = compute_U(poly_chebyshev, W,xt,yt, max_deg)
-    num_grid_pts1 = size(xt,1);
-    num_grid_pts2 = size(xt,2);
+    n_pts1 = size(xt,1);
+    n_pts2 = size(xt,2);
     nDims     = size(W,3);
     eDims   = size(W,4)-nDims;
-    [val_xt, val_yt] = deal(NaN(num_grid_pts1, num_grid_pts2, max_deg));
+    [val_xt, val_yt] = deal(NaN(n_pts1, n_pts2, max_deg));
     for d = 1:max_deg 
         val_xt(:,:,d) = polyval(poly_chebyshev(d,:),xt);
         val_yt(:,:,d) = polyval(poly_chebyshev(d,:),yt);
@@ -201,8 +216,9 @@ function [U, phi] = compute_U(poly_chebyshev, W,xt,yt, max_deg)
 
     val_xt_repmat = repmat(val_xt, [1,1,1,size(poly_chebyshev,2)]);
     val_yt_repmat = permute(repmat(val_yt, [1,1,1,size(poly_chebyshev,2)]),[1,2,4,3]);
-    phi = val_xt_repmat.*val_yt_repmat;
-    
+    phi_raw = val_xt_repmat.*val_yt_repmat;
+    phi = (phi_raw + 1)./2; %rescale it: [-1 1] in chebyshev space to [0 1] in RGB space
+
     %equivalent of np.einsum(ij,jk-ik',A,B)
     %size of phi: num_grid_pts x num_grid_pts x max_deg x max_deg
     %size of W:   max_deg   x max_deg   x nDims   x (nDims+eDims)
@@ -214,14 +230,14 @@ function [U, phi] = compute_U(poly_chebyshev, W,xt,yt, max_deg)
 end
 
 function pIncorrect = predict_error_prob(W_true, model, sim)
-    num_grid_pts1   = size(sim.x_sim_org,1);
-    num_grid_pts2   = size(sim.x_sim_org,2);
+    n_pts1   = size(sim.x_sim_org,1);
+    n_pts2   = size(sim.x_sim_org,2);
     %compute Sigma for the reference and the comparison stimuli
     U              = compute_U(model.coeffs_chebyshev,W_true, ...
                         sim.x_sim_org(:,:,1), sim.x_sim_org(:,:,2), model.max_deg); 
     Ubar           = compute_U(model.coeffs_chebyshev,W_true, ...
                         sim.xbar_sim_org(:,:,1), sim.xbar_sim_org(:,:,2), model.max_deg); 
-    [Sigma, Sigma_bar] = deal(NaN(num_grid_pts1, num_grid_pts2, ...
+    [Sigma, Sigma_bar] = deal(NaN(n_pts1, n_pts2, ...
         model.nDims, model.nDims));
     for i = 1:model.nDims
         for j = 1:model.nDims
@@ -230,17 +246,18 @@ function pIncorrect = predict_error_prob(W_true, model, sim)
         end
     end
 
+    if isfield(sim,'etas') %DETERMINISTIC
+        etas_s       = sim.etas(1,:,:,:); 
+        etas_s       = reshape(etas_s, [1, model.nDims+model.eDims,...
+                        model.num_MC_samples,1]);
+        etas_sbar    = sim.etas(2,:,:,:); 
+        etas_sbar    = reshape(etas_sbar, [1,model.nDims+model.eDims,...
+                        model.num_MC_samples,1]);
+    else %STOCHASTIC
+        etas_s = 0.01.*randn([1,model.nDims+model.eDims, model.num_MC_samples,1]);
+        etas_sbar = 0.01.*randn([1,model.nDims+model.eDims, model.num_MC_samples,1]);
+    end
     %simulate values for the reference and the comparison stimuli
-    % etas_s       = sim.etas(1,:,:,:); 
-    % etas_s       = reshape(etas_s, [1, model.nDims+model.eDims,...
-    %                 model.num_MC_samples,1]);
-    % etas_sbar    = sim.etas(2,:,:,:); 
-    % etas_sbar    = reshape(etas_sbar, [1,model.nDims+model.eDims,...
-    %                 model.num_MC_samples,1]);
-
-    etas_s = 0.01.*randn([1,model.nDims+model.eDims, model.num_MC_samples,1]);
-    etas_sbar = 0.01.*randn([1,model.nDims+model.eDims, model.num_MC_samples,1]);
-
     z_s_noise    = tensorprod(U, squeeze(etas_s), 4, 1);
     z_s          = repmat(sim.x_sim_org,[1,1,1,model.num_MC_samples]) + z_s_noise; 
     z_s          = permute(z_s,[1,2,4,3]);
@@ -255,14 +272,14 @@ function pIncorrect = predict_error_prob(W_true, model, sim)
     % plot_heatmap(z_sbar(:,:,1,:));
 
     %concatenate z_s and z_sbar
-    z = NaN(num_grid_pts1, num_grid_pts2, 2*model.num_MC_samples, model.nDims);
+    z = NaN(n_pts1, n_pts2, 2*model.num_MC_samples, model.nDims);
     z(:,:,1:model.num_MC_samples,:) = z_s;
     z(:,:,(model.num_MC_samples+1):end,:) = z_sbar;
     
     %compute prob
-    pIncorrect = NaN(num_grid_pts1, num_grid_pts2);
-    for t = 1:num_grid_pts1
-        for v = 1:num_grid_pts2
+    pIncorrect = NaN(n_pts1, n_pts2);
+    for t = 1:n_pts1
+        for v = 1:n_pts2
             %predicting error probability
             % p = mvnpdf(squeeze(z(t,v,:,:)), squeeze(x(t,v,:))', ...
             %     squeeze(Sigma(t,v,:,:)));
