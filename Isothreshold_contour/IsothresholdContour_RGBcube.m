@@ -1,6 +1,6 @@
 %This script simulates isothreshold contours 
 clear all; close all; clc
-% addpath(genpath('/Users/fangfang/Documents/MATLAB/toolboxes/gif/'))
+addpath(genpath('/Users/fangfang/Documents/MATLAB/toolboxes/gif/'))
 
 %% load data from psychtoolbox
 % Load in LMS cone fundamentals
@@ -55,7 +55,7 @@ end
 
 %% visualize the color planes
 %select the slices we want to visualize 
-fixed_RGB_slc = 0.1:0.1:0.9;
+fixed_RGB_slc = [0.5];%0.1:0.1:0.9;
 plt.idx_fixed_RGB_slc = arrayfun(@(idx) find(stim.fixed_RGBvec == ...
     fixed_RGB_slc(idx)), 1:length(fixed_RGB_slc));
 plt.ttl = {'GB plane', 'RB plane', 'RG plane'};
@@ -63,7 +63,7 @@ plt.colormapMatrix = param.plane_points;
 plt.flag_save = true;
 
 %visualize
-% plot_3D_RGBplanes(param, stim, plt)
+plot_3D_RGBplanes(param, stim, plt)
 
 %% compute iso-threshold contour
 %set the background RGB
@@ -76,11 +76,11 @@ stim.grid_theta        = linspace(0, 2*pi,stim.numDirPts);
 stim.grid_theta_xy     = [cos(stim.grid_theta(1:end-1)); ...
                           sin(stim.grid_theta(1:end-1))];
 %define threshold as deltaE = 0.5
-stim.deltaE_1JND       = 0.5;
+stim.deltaE_1JND       = 1;
 
 %the raw isothreshold contour is very tiny, we can amplify it by 10 times
 %for the purpose of visualization
-results.contour_scaler = 10;
+results.contour_scaler = 5;
 %make a finer grid for the direction (just for the purpose of
 %visualization)
 plt.nThetaEllipse      = 200;
@@ -127,10 +127,12 @@ for l = 1:stim.len_fixed_RGBvec
                     repmat(squeeze(results.opt_vecLen(l,p,i,j,:).*...
                     results.contour_scaler), [1,2]).*stim.grid_theta_xy';
                 results.rgb_contour(l,p,i,j,:,:) = rgb_contour_lpij;
+                results.rgb_contour_cov(l,p,i,j,:,:) = cov(rgb_contour_lpij);
 
                 %fit an ellipse
-                [~,~,~,fitQ_lpij] = FitEllipseQ(rgb_contour_lpij' - ...
+                [~,fitA_lpij,~,fitQ_lpij] = FitEllipseQ(rgb_contour_lpij' - ...
                     rgb_ref_pij(idx_varyingDim),'lockAngleAt0',false);
+                results.fitA(l,p,i,j,:,:) = fitA_lpij;
                 results.fitQ(l,p,i,j,:,:) = fitQ_lpij;
                 results.fitEllipse(l,p,i,j,:,:) = (PointsOnEllipseQ(...
                     fitQ_lpij,plt.circleIn2D) + rgb_ref_pij(idx_varyingDim))';
@@ -202,7 +204,7 @@ function [color_Lab, color_XYZ, color_LMS] = convert_rgb_lab(param,...
     color_Lab      = XYZToLab(color_XYZ, background_XYZ);
 end
 
-function deltaE = compute_deltaE(vecLen, background_RGB, ...
+function [deltaE, comp_RGB] = compute_deltaE(vecLen, background_RGB, ...
     ref_RGB, ref_Lab, vecDir, param)
     %compute comparison RGB
     comp_RGB = ref_RGB + vecDir.*vecLen;
