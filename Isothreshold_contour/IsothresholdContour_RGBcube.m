@@ -55,15 +55,13 @@ end
 
 %% visualize the color planes
 %select the slices we want to visualize 
-fixed_RGB_slc = [0.5];%0.1:0.1:0.9;
-plt.idx_fixed_RGB_slc = arrayfun(@(idx) find(stim.fixed_RGBvec == ...
-    fixed_RGB_slc(idx)), 1:length(fixed_RGB_slc));
-plt.ttl = {'GB plane', 'RB plane', 'RG plane'};
 plt.colormapMatrix = param.plane_points;
-plt.flag_save = true;
+plot_3D_RGBplanes({param.plane_points{5}}, {plt.colormapMatrix{5}},...
+    'ref_points', {stim.ref_points{5}}, 'saveFig', false)
 
-%visualize
-% plot_3D_RGBplanes(param, stim, plt)
+%visualize all slices
+plot_3D_RGBplanes(param.plane_points, plt.colormapMatrix,...
+    'ref_points', stim.ref_points, 'saveFig', false)
 
 %% compute iso-threshold contour
 %set the background RGB
@@ -142,34 +140,18 @@ for l = 1:stim.len_fixed_RGBvec
 end
 
 %% visualize the iso-threshold contour
-plt.flag_visualizeRawData = true;
-plot_isothreshold_contour(param, stim, results, plt)
+plot_2D_isothreshold_contour(stim.x_grid_ref, stim.y_grid_ref, ...
+    results.fitEllipse, stim.fixed_RGBvec, 'rgb_contour',...
+    results.rgb_contour, 'visualizeRawData',true,'saveFig',false)
+
+%visualize just one slice
+plot_2D_isothreshold_contour(stim.x_grid_ref, stim.y_grid_ref, ...
+    results.fitEllipse(5,:,:,:,:,:), stim.fixed_RGBvec(5), 'rgb_contour',...
+    results.rgb_contour(5,:,:,:,:,:), 'visualizeRawData',true,'saveFig',false)
 
 %% save the data
 D = {param, stim, results, plt};
 save("Isothreshold_contour_CIELABderived.mat","D");
-
-%% see if there exists analytical solutions
-slc_fixedVal = 5;
-lab_temp = cell(1,param.nPlanes);
-for p = 1:param.nPlanes
-    for i = 1:param.nGridPts
-        for j = 1:param.nGridPts
-            lab_temp{p}(i,j,:) = convert_rgb_lab(param,...
-                squeeze(stim.background_RGB(:,slc_fixedVal)),...
-                squeeze(param.plane_points{slc_fixedVal}{p}(i,j,:)));
-        end
-    end
-end
-
-figure
-for p = 1:param.nPlanes
-    subplot(1,param.nPlanes,p)
-    surf(lab_temp{p}(:,:,1), lab_temp{p}(:,:,2), lab_temp{p}(:,:,3),...
-        plt.colormapMatrix{slc_fixedVal}{p},'EdgeColor','none')
-    axis square; xlabel('L'); ylabel('a'); zlabel('b');
-end
-
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                           HELPING FUNCTIONS
@@ -236,127 +218,4 @@ function opt_vecLen = find_vecLen(background_RGB, ref_RGB, ref_Lab, ...
     %the psf's
     opt_vecLen = vecLen_n(idx_min);
 end
-
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                           PLOTTING FUNCTIONS
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-function plot_3D_RGBplanes(para, stm, plt)
-    idx = plt.idx_fixed_RGB_slc;
-    len_frames = length(idx);
-    figure
-    for l = 1:len_frames
-        for p = 1:para.nPlanes
-            subplot(1,para.nPlanes,p)
-            %floor of the cube
-            surf(para.x_grid, para.y_grid, zeros(para.nGridPts, para.nGridPts),...
-                'FaceColor','k','EdgeColor','none','FaceAlpha',0.01); hold on
-            %ceiling of the cube 
-            surf(para.x_grid, para.y_grid, ones(para.nGridPts, para.nGridPts),...
-                'FaceColor','k','EdgeColor','none','FaceAlpha',0.01);
-            %walls of the cube
-            surf(para.x_grid, ones(para.nGridPts, para.nGridPts), para.y_grid,...
-                'FaceColor','k','EdgeColor','none','FaceAlpha',0.05);
-            surf(para.x_grid, zeros(para.nGridPts, para.nGridPts), para.y_grid,...
-                'FaceColor','k','EdgeColor','none','FaceAlpha',0.05);
-            surf(zeros(para.nGridPts, para.nGridPts), para.x_grid, para.y_grid,...
-                'FaceColor','k','EdgeColor','none','FaceAlpha',0.05);
-            surf(ones(para.nGridPts, para.nGridPts), para.x_grid, para.y_grid,...
-                'FaceColor','k','EdgeColor','none','FaceAlpha',0.05);
-            %wall edges
-            plot3(zeros(1,para.nGridPts),zeros(1,para.nGridPts), para.grid,'k-');
-            plot3(zeros(1,para.nGridPts),ones(1,para.nGridPts), para.grid,'k-');
-            plot3(ones(1,para.nGridPts),zeros(1,para.nGridPts), para.grid,'k-');
-            plot3(ones(1,para.nGridPts),ones(1,para.nGridPts), para.grid,'k-');
-        
-            %p = 1: GB plane; p = 2: RB plane; p = 3: RG plane
-            surf(para.plane_points{idx(l)}{p}(:,:,1),para.plane_points{idx(l)}{p}(:,:,2),...
-                para.plane_points{idx(l)}{p}(:,:,3), plt.colormapMatrix{idx(l)}{p},...
-                'EdgeColor','none');
-            %reference points
-            scatter3(stm.ref_points{idx(l)}{p}(:,:,1),stm.ref_points{idx(l)}{p}(:,:,2),...
-                stm.ref_points{idx(l)}{p}(:,:,3), 20,'k','Marker','+'); hold off
-            xlim([0,1]); ylim([0,1]); zlim([0,1]); axis equal
-            xlabel('R'); ylabel('G'); zlabel('B')
-            xticks(0:0.2:1); yticks(0:0.2:1); zticks(0:0.2:1);
-            title(plt.ttl{p});
-        end
-        set(gcf,'Units','normalized','Position',[0,0.1,0.7,0.4])
-        set(gcf,'PaperUnits','centimeters','PaperSize',[30 12]);
-        if plt.flag_save && len_frames > 1
-            if l == 1; gif('RGB_cube.gif')
-            else; gif
-            end
-        end
-        pause(0.5)
-    end
-    if plt.flag_save && len_frames == 1 %1 frame
-        set(gcf,'PaperUnits','centimeters','PaperSize',[30 12]);
-        saveas(gcf, 'RGB_cube.pdf');
-    end
-end
-
-function plot_isothreshold_contour(param, stim, results, plt)
-    idx = plt.idx_fixed_RGB_slc;
-    len_frames = length(idx);
-    figure
-    for l = 1:len_frames
-        colormapMatrix2 = {[stim.fixed_RGBvec(idx(l)), 0, 1; 
-                            stim.fixed_RGBvec(idx(l)), 0,0;...
-                            stim.fixed_RGBvec(idx(l)), 1,0; 
-                            stim.fixed_RGBvec(idx(l)), 1,1],...
-                           [0, stim.fixed_RGBvec(idx(l)), 1; 
-                            0,stim.fixed_RGBvec(idx(l)), 0;...
-                            1,stim.fixed_RGBvec(idx(l)), 0; 
-                            1,stim.fixed_RGBvec(idx(l)), 1],...
-                           [0, 1, stim.fixed_RGBvec(idx(l)); 
-                            0,0, stim.fixed_RGBvec(idx(l));...
-                            1,0, stim.fixed_RGBvec(idx(l)); 
-                            1,1, stim.fixed_RGBvec(idx(l))]};
-        x = [0; 0; 1; 1];
-        y = [1; 0; 0; 1];
-        
-        for p = 1:param.nPlanes
-            subplot(1, param.nPlanes, p)
-            patch('Vertices', [x,y],'Faces', [1 2 3 4], 'FaceVertexCData', ...
-                colormapMatrix2{p}, 'FaceColor', 'interp'); hold on
-            scatter(stim.x_grid_ref(:), stim.y_grid_ref(:), 20,'white','Marker','+');
-        
-            for i = 1:stim.nGridPts_ref
-                for j = 1:stim.nGridPts_ref
-                    %visualize the individual thresholds 
-                    if plt.flag_visualizeRawData
-                        scatter(squeeze(results.rgb_contour(idx(l),p,i,j,:,1)),...
-                            squeeze(results.rgb_contour(idx(l),p,i,j,:,2)),10,...
-                            'o','filled','MarkerEdgeColor',0.5.*ones(1,3),...
-                            'MarkerFaceColor',0.5.*ones(1,3));
-                    end
-                    %visualize the best-fitting ellipse
-                    plot(squeeze(results.fitEllipse(idx(l),p,i,j,:,1)),...
-                        squeeze(results.fitEllipse(idx(l),p,i,j,:,2)),...
-                        'white-','lineWidth',1.5)
-                end
-            end
-            xlim([0,1]); ylim([0,1]); axis square; hold off
-            xticks(0:0.2:1); yticks(0:0.2:1);
-            title(plt.ttl{p})
-            xlabel(plt.ttl{p}(1)); ylabel(plt.ttl{p}(2));
-        end
-        sgtitle(['The fixed other plane = ',num2str(stim.fixed_RGBvec(idx(l)))]);
-        set(gcf,'Units','normalized','Position',[0,0.1,0.55,0.4]);
-        set(gcf,'PaperUnits','centimeters','PaperSize',[40 12]);
-        if plt.flag_save && len_frames > 1
-            if l == 1; gif('Isothreshold_contour.gif')
-            else; gif
-            end
-        end
-        pause(1)
-    end
-    if plt.flag_save && len_frames == 1 %1 frame
-        set(gcf,'PaperUnits','centimeters','PaperSize',[40 12]);
-        saveas(gcf, 'Isothreshold_contour.pdf');
-    end
-end
-
-
 
