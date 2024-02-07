@@ -24,7 +24,7 @@ sim.pC_given_alpha_beta = ComputeWeibTAFC(stim.deltaE_1JND,sim.alpha,sim.beta);%
 sim.nSims_perDir        = 50; %5 x 16 = 80; 15 x 16 = 240; 50 x 16 = 800
 sim.nSims               = sim.nSims_perDir * (stim.numDirPts -1);
 sim.perturb_factor      = 1; %1: no perturbation
-sim.method_sampling     = 'Random';
+sim.method_sampling     = 'NearContour';
 
 %for each reference stimulus
 for i = 1:stim.nGridPts_ref
@@ -199,6 +199,16 @@ for i = 1:stim.nGridPts_ref
         % plot(sig_ij(1,:).*5+param.x_grid(i,j), sig_ij(2,:).*5+param.y_grid(i,j),'k');
     end
 end
+
+% for i = 1:4
+%     for j = 1:4
+%         scatter(extrap_nGridPts_ref(i),extrap_nGridPts_ref(j),20,'black','Marker','+'); hold on
+%         plot(squeeze(extrap_recover_fitEllipse(i,j,:,1)),...
+%              squeeze(extrap_recover_fitEllipse(i,j,:,2)),...
+%              ':','lineWidth',1.5,'Color',[0.5,0.5,0.5]); hold on
+%     end
+% end
+
 xlim([0,1]); ylim([0,1]); axis square; hold off
 xticks(0:0.2:1); yticks(0:0.2:1); 
 if sim.slc_RGBplane == 1; xlabel('G'); ylabel('B'); 
@@ -208,8 +218,8 @@ end
 title(sprintf(['Predicted iso-threshold contours \nin the ', plt.ttl{sim.slc_RGBplane},...
     ' based on the Wishart process']));
 set(gcf,'PaperUnits','centimeters','PaperSize',[20 20]);
-% saveas(gcf, ['Fitted_Isothreshold_contour_',plt.ttl{sim.slc_RGBplane},...
-%     '_sim',num2str(sim.nSims), 'perCond.pdf']);
+saveas(gcf, ['Fitted_Isothreshold_contour_',plt.ttl{sim.slc_RGBplane},...
+    '_sim',num2str(sim.nSims), 'perCond.pdf']);
 
 %% visualize the fits on top of the data
 figure; cmap = colormap("gray"); colormap(flipud(cmap))
