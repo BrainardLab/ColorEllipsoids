@@ -21,9 +21,10 @@ sim.fitA             = squeeze(results.fitA(sim.slc_fixedVal_idx,sim.slc_RGBplan
 sim.alpha               = 1.1729;
 sim.beta                = 1.2286;
 sim.pC_given_alpha_beta = ComputeWeibTAFC(stim.deltaE_1JND,sim.alpha,sim.beta);%0.8;
-sim.nSims_perDir        = 5; %5 x 16 = 80; 15 x 16 = 240; 50 x 16 = 800
+sim.nSims_perDir        = 50; %5 x 16 = 80; 15 x 16 = 240; 50 x 16 = 800
 sim.nSims               = sim.nSims_perDir * (stim.numDirPts -1);
 sim.perturb_factor      = 1; %1: no perturbation
+sim.method_sampling     = 'Random';
 
 %for each reference stimulus
 for i = 1:stim.nGridPts_ref
@@ -35,10 +36,17 @@ for i = 1:stim.nGridPts_ref
         sim.ref_Lab(i,j,:) = ref_Lab_lpij;
         
         %simulate comparison stimulus
-        sim.rgb_comp(i,j,:,:) = draw_rgb_comp(stim, sim, ...
-            squeeze(results.opt_vecLen(sim.slc_fixedVal_idx, sim.slc_RGBplane, i, j, :, :)),...
-            squeeze(results.rgb_contour_cov(sim.slc_fixedVal_idx, sim.slc_RGBplane, i, j, :, :,:)),...
-            rgb_ref_pij(sim.varying_RGBplane));
+        if strcmp(sim.method_sampling, 'NearContour')
+            sim.rgb_comp(i,j,:,:) = draw_rgb_comp(stim, sim, ...
+                squeeze(results.opt_vecLen(sim.slc_fixedVal_idx,...
+                sim.slc_RGBplane, i, j, :, :)),...
+                squeeze(results.rgb_contour_cov(sim.slc_fixedVal_idx,...
+                sim.slc_RGBplane, i, j, :, :,:)),...
+                rgb_ref_pij(sim.varying_RGBplane));
+        elseif strcmp(sim.method_sampling, 'Random')
+            sim.rgb_comp(i,j,:,:) = draw_rgb_comp_random(sim, ...
+                rgb_ref_pij(sim.varying_RGBplane), [-0.025, 0.025]);
+        end
         
         %simulate binary responses
         for n = 1:sim.nSims
@@ -211,25 +219,37 @@ for i = stim.nGridPts_ref:-1:1  %row: B
         x_axis = linspace(-0.025,0.025,50)+stim.grid_ref(j);
         y_axis = linspace(-0.025,0.025,50)+stim.grid_ref(i);
 
-        h = histcounts2(squeeze(sim.rgb_comp(i,j,sim.varying_RGBplane(2),:)),...
-            squeeze(sim.rgb_comp(i,j, sim.varying_RGBplane(1),:)),...
-            y_axis,x_axis);
-
         nexttile
         %simulated trials
-        imagesc(x_axis, y_axis, h); axis square; hold on;
+        if strcmp(sim.method_sampling,'NearContour')
+            h = histcounts2(squeeze(sim.rgb_comp(i,j,sim.varying_RGBplane(2),:)),...
+                squeeze(sim.rgb_comp(i,j, sim.varying_RGBplane(1),:)),...
+                y_axis,x_axis);
+            imagesc(x_axis, y_axis, h); axis square; hold on;
+        elseif strcmp(sim.method_sampling, 'Random')
+            idx_1 = find(sim.resp_binary(i,j,:)==1);
+            idx_0 = find(sim.resp_binary(i,j,:)==0);
+            scatter(squeeze(sim.rgb_comp(i,j,sim.varying_RGBplane(1),idx_1)),...
+                squeeze(sim.rgb_comp(i,j, sim.varying_RGBplane(2),idx_1)),'.',...
+                'MarkerFaceColor',[173,216,230]./255,'MarkerEdgeColor',[173,216,230]./255); hold on
+            scatter(squeeze(sim.rgb_comp(i,j,sim.varying_RGBplane(1),idx_0)),...
+                squeeze(sim.rgb_comp(i,j, sim.varying_RGBplane(2),idx_0)),'*',...
+                'MarkerFaceColor',[255,179,138]./255,'MarkerEdgeColor',[255,179,138]./255);
+        end
+
         % fits
         plot(squeeze(fits.recover_fitEllipse_unscaled(i,j,:,1)),...
              squeeze(fits.recover_fitEllipse_unscaled(i,j,:,2)),...
              '-','lineWidth',1,'Color',[76,153,0]./255); 
         % ground truth
-        fitEllipse_unscaled = (squeeze(results.fitEllipse(sim.slc_fixedVal_idx,sim.slc_RGBplane, i,j,:,:)) -...
+        fitEllipse_unscaled = (squeeze(results.fitEllipse(...
+            sim.slc_fixedVal_idx,sim.slc_RGBplane, i,j,:,:)) -...
             [stim.grid_ref(j), stim.grid_ref(i)])./results.contour_scaler +...
             [stim.grid_ref(j), stim.grid_ref(i)];
         plot(squeeze(fitEllipse_unscaled(:,1)),...
              squeeze(fitEllipse_unscaled(:,2)),...
              'r--','lineWidth',1);         
-        hold off
+        hold off; box on;
         xlim([x_axis(1), x_axis(end)]); ylim([y_axis(1), y_axis(end)]);
 
         if j == 1; yticks(stim.grid_ref(i));
@@ -242,13 +262,14 @@ for i = stim.nGridPts_ref:-1:1  %row: B
 end
 set(gcf,'Units','Normalized','Position',[0, 0.1,0.415,0.7]);
 set(gcf,'PaperUnits','centimeters','PaperSize',[35 35]);
-saveas(gcf, ['Fitted_Isothreshold_contour_wSamples_',plt.ttl{sim.slc_RGBplane},...
+saveas(gcf, ['Fitted_Isothreshold_contour_w',sim.method_sampling,...
+    'Samples_',plt.ttl{sim.slc_RGBplane},...
     '_sim',num2str(sim.nSims), 'perCond.pdf']);
 
 %% save the data
 E = {param, stim, results, fits};
 save(['Fits_isothreshold_',plt.ttl{sim.slc_RGBplane},'_sim',...
-    num2str(sim.nSims), 'perCond.mat'],'E');
+    num2str(sim.nSims), 'perCond_sampling',sim.method_sampling,'.mat'],'E');
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                           HELPING FUNCTIONS
@@ -391,12 +412,6 @@ function nLogL = estimate_loglikelihood(w_colvec, xbar, x, model, sim)
 end
 
 function rgb_comp_sim = draw_rgb_comp(stim, sim, vecLength, cov, ref)
-    % rgb_comp_sim                     = NaN(3, sim.nSims);
-    % rgb_comp_sim(sim.slc_RGBplane,:) = sim.slc_fixedVal;
-    % rgb_comp_sim(sim.varying_RGBplane,:) = mvnrnd([0,0], ...
-    %     squeeze(sim.fitQ(i,j,:,:)), sim.nSims)'+rgb_ref_pij(sim.varying_RGBplane);
-    % rgb_comp_sim(rgb_comp_sim <0)    = 0; 
-    % rgb_comp_sim(rgb_comp_sim >1)    = 1;
     rgb_comp = NaN(2,stim.numDirPts-1, sim.nSims_perDir);
     for d = 1:(stim.numDirPts-1)
         cov_proj = cov * stim.grid_theta_xy(:,d);
@@ -408,6 +423,12 @@ function rgb_comp_sim = draw_rgb_comp(stim, sim, vecLength, cov, ref)
     rgb_comp1 = rgb_comp(1,:,:); rgb_comp2 = rgb_comp(2,:,:);
     rgb_comp_sim(sim.varying_RGBplane(1),:) = rgb_comp1(:);
     rgb_comp_sim(sim.varying_RGBplane(2),:) = rgb_comp2(:);
+end
+
+function rgb_comp_sim = draw_rgb_comp_random(sim, ref, range)
+    rgb_comp_sim                     = rand(3, sim.nSims).*(range(2)-range(1))+range(1);
+    rgb_comp_sim(sim.slc_RGBplane,:) = sim.slc_fixedVal;
+    rgb_comp_sim(sim.varying_RGBplane,:) = rgb_comp_sim(sim.varying_RGBplane,:) + ref;
 end
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

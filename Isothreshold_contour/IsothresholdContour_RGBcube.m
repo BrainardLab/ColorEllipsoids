@@ -63,7 +63,7 @@ plt.colormapMatrix = param.plane_points;
 plt.flag_save = true;
 
 %visualize
-plot_3D_RGBplanes(param, stim, plt)
+% plot_3D_RGBplanes(param, stim, plt)
 
 %% compute iso-threshold contour
 %set the background RGB
@@ -344,7 +344,7 @@ function plot_isothreshold_contour(param, stim, results, plt)
         end
         sgtitle(['The fixed other plane = ',num2str(stim.fixed_RGBvec(idx(l)))]);
         set(gcf,'Units','normalized','Position',[0,0.1,0.55,0.4]);
-        set(gcf,'PaperUnits','centimeters','PaperSize',[30 12]);
+        set(gcf,'PaperUnits','centimeters','PaperSize',[40 12]);
         if plt.flag_save && len_frames > 1
             if l == 1; gif('Isothreshold_contour.gif')
             else; gif
@@ -353,7 +353,7 @@ function plot_isothreshold_contour(param, stim, results, plt)
         pause(1)
     end
     if plt.flag_save && len_frames == 1 %1 frame
-        set(gcf,'PaperUnits','centimeters','PaperSize',[30 12]);
+        set(gcf,'PaperUnits','centimeters','PaperSize',[40 12]);
         saveas(gcf, 'Isothreshold_contour.pdf');
     end
 end
