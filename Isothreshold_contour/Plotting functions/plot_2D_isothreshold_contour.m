@@ -9,6 +9,7 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
     p = inputParser;
     p.addParameter('visualizeRawData', false, @islogical);
     p.addParameter('rgb_contour', [], @(x)(isnumeric(x)));
+    p.addParameter('rgb_background',true, @islogical);
     p.addParameter('figTitle', {'GB plane', 'RB plane', 'RG plane'}, @(x)(ischar(x)));
     p.addParameter('normalizedFigPos', [0,0.1,0.55,0.4], @(x)(isnumeric(x) && numel(x)==4));
     p.addParameter('saveFig', false, @islogical);
@@ -16,11 +17,12 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
 
     parse(p, varargin{:});
     visualizeRawData = p.Results.visualizeRawData;
-    rgb_contour   = p.Results.rgb_contour;
-    figTitle      = p.Results.figTitle;
-    saveFig       = p.Results.saveFig;
-    figName       = p.Results.figName;
-    figPos        = p.Results.normalizedFigPos;
+    rgb_contour      = p.Results.rgb_contour;
+    rgb_background   = p.Results.rgb_background;
+    figTitle         = p.Results.figTitle;
+    saveFig          = p.Results.saveFig;
+    figName          = p.Results.figName;
+    figPos           = p.Results.normalizedFigPos;
     %throw an error is 
     assert(size(rgb_contour,1) == nFrames);
 
@@ -31,21 +33,27 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
     x = [0; 0; 1; 1];
     y = [1; 0; 0; 1];
 
+    if rgb_background; mk_color_contour = 'white'; 
+    else; mk_color_contour = 'black'; end
+
     figure
     for l = 1:nFrames        
         for p = 1:nPlanes
-            %define colormap
-            colormapMatrix = NaN(4,nPlanes); 
-            colormapMatrix(:,p) = fixed_RGBvec(l);
-            indices = setdiff(1:nPlanes,p);
-            colormapMatrix(:,indices(1)) = x;
-            colormapMatrix(:,indices(2)) = y;
+            subplot(1, nPlanes, p); 
 
-            subplot(1, nPlanes, p)
-            patch('Vertices', [x,y],'Faces', [1 2 3 4], 'FaceVertexCData', ...
-                colormapMatrix, 'FaceColor', 'interp'); hold on
-            scatter(x_grid_ref(:), y_grid_ref(:), 20,'white','Marker','+');
-        
+            %define colormap
+            if rgb_background
+                colormapMatrix = NaN(4,nPlanes); 
+                colormapMatrix(:,p) = fixed_RGBvec(l);
+                indices = setdiff(1:nPlanes,p);
+                colormapMatrix(:,indices(1)) = x;
+                colormapMatrix(:,indices(2)) = y;
+                patch('Vertices', [x,y],'Faces', [1 2 3 4], 'FaceVertexCData', ...
+                    colormapMatrix, 'FaceColor', 'interp'); hold on
+            end
+            
+            scatter(x_grid_ref(:), y_grid_ref(:), 20,mk_color_contour,'Marker','+');
+            hold on;
             for i = 1:nGridPts_ref_x
                 for j = 1:nGridPts_ref_y
                     %visualize the individual thresholds 
@@ -58,7 +66,7 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
                     %visualize the best-fitting ellipse
                     plot(squeeze(fitEllipse(l,p,i,j,:,1)),...
                         squeeze(fitEllipse(l,p,i,j,:,2)),...
-                        'white-','lineWidth',1.5)
+                        [mk_color_contour,'-'],'lineWidth',1.5)
                 end
             end
             xlim([0,1]); ylim([0,1]); axis square; hold off

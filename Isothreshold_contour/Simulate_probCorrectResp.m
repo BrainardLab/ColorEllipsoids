@@ -186,19 +186,29 @@ for i = 1:stim.nGridPts_ref
 end
 
 %% visualize
-thetas = linspace(0,2*pi, plt.nThetaEllipse);
-sinusoids = [cos(thetas); sin(thetas)];
-figure
-for i = 1:stim.nGridPts_ref
-    for j = 1:stim.nGridPts_ref
-        scatter(stim.grid_ref(i),stim.grid_ref(j), 20,'black','Marker','+'); hold on
-        plot(squeeze(fits.recover_fitEllipse(i,j,:,1)),...
-             squeeze(fits.recover_fitEllipse(i,j,:,2)),...
-             'k-','lineWidth',1.5); hold on
-        % sig_ij = sqrtm(squeeze(fits.Sigmas_recover(i,j,:,:)))*plt.circleIn2D;
-        % plot(sig_ij(1,:).*5+param.x_grid(i,j), sig_ij(2,:).*5+param.y_grid(i,j),'k');
-    end
-end
+%reshape the matrices for plotting
+recover_fitEllipse_plt = NaN([1,1,size(fits.recover_fitEllipse)]);
+recover_fitEllipse_plt(1,1,:,:,:,:) = fits.recover_fitEllipse;
+plot_2D_isothreshold_contour(stim.grid_ref, stim.grid_ref, recover_fitEllipse_plt,...
+    sim.slc_fixedVal, 'rgb_background',false,'figTitle',...
+    sprintf(['Predicted iso-threshold contours \nin the ', plt.ttl{sim.slc_RGBplane},...
+    ' based on the Wishart process']), 'figName',...
+    ['Fitted_Isothreshold_contour_',plt.ttl{sim.slc_RGBplane},...
+    '_sim',num2str(sim.nSims), 'perCond'])
+
+% thetas = linspace(0,2*pi, plt.nThetaEllipse);
+% sinusoids = [cos(thetas); sin(thetas)];
+% figure
+% for i = 1:stim.nGridPts_ref
+%     for j = 1:stim.nGridPts_ref
+%         scatter(stim.grid_ref(i),stim.grid_ref(j), 20,'black','Marker','+'); hold on
+%         plot(squeeze(fits.recover_fitEllipse(i,j,:,1)),...
+%              squeeze(fits.recover_fitEllipse(i,j,:,2)),...
+%              'k-','lineWidth',1.5); hold on
+%         % sig_ij = sqrtm(squeeze(fits.Sigmas_recover(i,j,:,:)))*plt.circleIn2D;
+%         % plot(sig_ij(1,:).*5+param.x_grid(i,j), sig_ij(2,:).*5+param.y_grid(i,j),'k');
+%     end
+% end
 
 % for i = 1:4
 %     for j = 1:4
@@ -209,17 +219,17 @@ end
 %     end
 % end
 
-xlim([0,1]); ylim([0,1]); axis square; hold off
-xticks(0:0.2:1); yticks(0:0.2:1); 
-if sim.slc_RGBplane == 1; xlabel('G'); ylabel('B'); 
-elseif sim.slc_RGBplane == 2; xlabel('R'); ylabel('B');
-else; xlabel('R'); ylabel('G');
-end
-title(sprintf(['Predicted iso-threshold contours \nin the ', plt.ttl{sim.slc_RGBplane},...
-    ' based on the Wishart process']));
-set(gcf,'PaperUnits','centimeters','PaperSize',[20 20]);
-saveas(gcf, ['Fitted_Isothreshold_contour_',plt.ttl{sim.slc_RGBplane},...
-    '_sim',num2str(sim.nSims), 'perCond.pdf']);
+% xlim([0,1]); ylim([0,1]); axis square; hold off
+% xticks(0:0.2:1); yticks(0:0.2:1); 
+% if sim.slc_RGBplane == 1; xlabel('G'); ylabel('B'); 
+% elseif sim.slc_RGBplane == 2; xlabel('R'); ylabel('B');
+% else; xlabel('R'); ylabel('G');
+% end
+% title(sprintf(['Predicted iso-threshold contours \nin the ', plt.ttl{sim.slc_RGBplane},...
+%     ' based on the Wishart process']));
+% set(gcf,'PaperUnits','centimeters','PaperSize',[20 20]);
+% saveas(gcf, ['Fitted_Isothreshold_contour_',plt.ttl{sim.slc_RGBplane},...
+%     '_sim',num2str(sim.nSims), 'perCond.pdf']);
 
 %% visualize the fits on top of the data
 figure; cmap = colormap("gray"); colormap(flipud(cmap))
