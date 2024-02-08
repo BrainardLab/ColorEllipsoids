@@ -14,12 +14,12 @@ function plot_3D_RGBplanes(plane_points, colormapMatrix, varargin)
     p.addParameter('figName', 'RGB_cube', @ischar);
 
     parse(p, varargin{:});
-    nGridPts      = p.Results.nGridPts;
-    ref_points    = p.Results.ref_points;
-    figTitle      = p.Results.figTitle;
-    saveFig       = p.Results.saveFig;
-    figName       = p.Results.figName;
-    figPos        = p.Results.normalizedFigPos;
+    nGridPts   = p.Results.nGridPts;
+    ref_points = p.Results.ref_points;
+    figTitle   = p.Results.figTitle;
+    saveFig    = p.Results.saveFig;
+    figName    = p.Results.figName;
+    figPos     = p.Results.normalizedFigPos;
 
     nPlanes = length(plane_points{1});
     grid    = linspace(0, 1,nGridPts);

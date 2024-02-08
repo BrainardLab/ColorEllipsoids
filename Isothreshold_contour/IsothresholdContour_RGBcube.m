@@ -104,8 +104,9 @@ for l = 1:stim.len_fixed_RGBvec
                 %grab the reference stimulus's RGB
                 rgb_ref_pij = squeeze(stim.ref_points{l}{p}(i,j,:));
                 %convert it to Lab
-                [ref_Lab_lpij, ~, ~] = convert_rgb_lab(param,...
-                    background_RGB_l, rgb_ref_pij);
+                [ref_Lab_lpij, ~, ~] = convert_rgb_lab(param.B_monitor,...
+                    background_RGB_l, param.T_cones, param.M_LMSToXYZ,... 
+                    rgb_ref_pij);
                 results.ref_Lab(l,p,i,j,:) = ref_Lab_lpij;
                 
                 %for each chromatic direction
@@ -119,7 +120,8 @@ for l = 1:stim.len_fixed_RGBvec
                         background_RGB_l, rgb_ref_pij, ref_Lab_lpij, ...
                         vecDir, param,stim);
                 end
-
+                
+                %fit an ellipse
                 [results.fitEllipse(l,p,i,j,:,:), ...
                     results.fitEllipse_unscaled(l,p,i,j,:,:), ...
                     results.rgb_contour(l,p,i,j,:,:), ...
@@ -137,7 +139,7 @@ end
 %% visualize the iso-threshold contour
 plot_2D_isothreshold_contour(stim.x_grid_ref, stim.y_grid_ref, ...
     results.fitEllipse, stim.fixed_RGBvec, 'rgb_contour',...
-    results.rgb_contour, 'visualizeRawData',true,'saveFig',false,'rgb_background',false)
+    results.rgb_contour, 'visualizeRawData',true,'saveFig',false,'rgb_background',true)
 
 %visualize just one slice
 plot_2D_isothreshold_contour(stim.x_grid_ref, stim.y_grid_ref, ...
@@ -165,29 +167,14 @@ function grid_pts = get_gridPts(X, Y, fixed_dim, val_fixed_dim)
     end
 end
 
-function [color_Lab, color_XYZ, color_LMS] = convert_rgb_lab(param,...
-    background_RGB, color_RGB)
-    background_Spd = param.B_monitor*background_RGB;
-    background_LMS = param.T_cones*background_Spd;
-    background_XYZ = param.M_LMSToXYZ*background_LMS;
-
-    %RGB -> SPD
-    color_Spd      = param.B_monitor*color_RGB;
-    %SPD -> LMS
-    color_LMS      = param.T_cones*color_Spd;
-    %LMS -> XYZ
-    color_XYZ      = param.M_LMSToXYZ*color_LMS;
-    %XYZ -> Lab
-    color_Lab      = XYZToLab(color_XYZ, background_XYZ);
-end
-
 function [deltaE, comp_RGB] = compute_deltaE(vecLen, background_RGB, ...
     ref_RGB, ref_Lab, vecDir, param)
     %compute comparison RGB
     comp_RGB = ref_RGB + vecDir.*vecLen;
 
     %convert it to Lab
-    [comp_Lab, ~, ~] = convert_rgb_lab(param, background_RGB, comp_RGB);
+    [comp_Lab, ~, ~] = convert_rgb_lab(param.B_monitor,background_RGB,...
+        param.T_cones, param.M_LMSToXYZ, comp_RGB);
     deltaE = norm(comp_Lab - ref_Lab);
 end
 

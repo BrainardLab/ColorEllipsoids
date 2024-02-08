@@ -32,7 +32,8 @@ for i = 1:stim.nGridPts_ref
         %grab the reference stimulus's RGB
         rgb_ref_pij = squeeze(sim.ref_points(i,j,:));
         %convert it to Lab
-        [ref_Lab_lpij, ~, ~] = convert_rgb_lab(param, sim.background_RGB, rgb_ref_pij);
+        [ref_Lab_lpij, ~, ~] = convert_rgb_lab(param.B_monitor, ...
+            sim.background_RGB, param.T_cones, param.M_LMSToXYZ, rgb_ref_pij);
         sim.ref_Lab(i,j,:) = ref_Lab_lpij;
         
         %simulate comparison stimulus
@@ -50,8 +51,9 @@ for i = 1:stim.nGridPts_ref
         
         %simulate binary responses
         for n = 1:sim.nSims
-            [sim.lab_comp(i,j,:,n), ~, ~] = convert_rgb_lab(param, ...
-                sim.background_RGB, squeeze(sim.rgb_comp(i,j,:,n)));
+            [sim.lab_comp(i,j,:,n), ~, ~] = convert_rgb_lab(param.B_monitor, ...
+                sim.background_RGB, param.T_cones, param.M_LMSToXYZ, ...
+                squeeze(sim.rgb_comp(i,j,:,n)));
             sim.deltaE(i,j,n) = norm(squeeze(sim.lab_comp(i,j,:,n)) - ref_Lab_lpij);
             sim.probC(i,j,n) = ComputeWeibTAFC(sim.deltaE(i,j,n), ...
                 sim.alpha, sim.beta);
@@ -74,9 +76,10 @@ model.xt = linspace(-1,1,model.num_MC_samples);
 model.yt = linspace(-1,1,model.num_MC_samples);
 [model.XT, model.YT]   = meshgrid(model.xt, model.yt);
 [~, model.M_chebyshev] = compute_U(model.coeffs_chebyshev,[],...
-    model.XT,model.YT, model.max_deg);
+    model.XT,model.YT, model.max_deg,'scaling_elevation',1,...
+    'scaling_stretching',1/2);
 %visualize it
-plot_heatmap(model.M_chebyshev)
+plot_multiHeatmap(model.M_chebyshev)
 
 %% Fit the model to the data
 %comparison stimulus
@@ -127,7 +130,8 @@ fits.w_est_best = reshape(fits.w_colvec_est_best, [model.max_deg,...
 
 %% recover covariance matrix
 [fits.U_recover,~] = compute_U(model.coeffs_chebyshev, fits.w_est_best, ...
-    param.x_grid, param.y_grid, model.max_deg); 
+    param.x_grid, param.y_grid, model.max_deg, 'scaling_elevation',1,...
+    'scaling_stretching',1/2); 
 for i = 1:model.nDims
     for j = 1:model.nDims
         fits.Sigmas_recover(:,:,i,j) = sum(fits.U_recover(:,:,i,:).*...
@@ -166,22 +170,31 @@ for i = 1:stim.nGridPts_ref
                 results.contour_scaler.*vecDir.*fits.vecLength(min_idx);
         end
 
-        % compute the iso-threshold contour 
-        rgb_contour_lpij = squeeze(fits.recover_rgb_comp_est(i,j,:,:));
-        fits.recover_rgb_contour(i,j,:,:) = rgb_contour_lpij';
-        fits.recover_rgb_contour_cov(i,j,:,:) = cov(rgb_contour_lpij);
+        [fits.recover_fitEllipse(i,j,:,:), ...
+            fits.recover_fitEllipse_unscaled(i,j,:,:), ...
+            fits.recover_rgb_contour(i,j,:,:), ...
+            fits.recover_rgb_contour_cov(i,j,:,:), ~,~,~,~] = ...
+            fit_2d_isothreshold_contour(rgb_ref_pij,fits.vecLength,...
+            sim.varying_RGBplane, stim.grid_theta_xy, ...
+            'nThetaEllipse',plt.nThetaEllipse,...
+            'ellipse_scaler',results.contour_scaler);
 
-        %fit an ellipse
-        [~,fitA_lpij,~,fitQ_lpij] = FitEllipseQ(rgb_contour_lpij' - ...
-            rgb_ref_ij_s,'lockAngleAt0',false);
-        fits.recover_fitA(i,j,:,:) = fitA_lpij;
-        fits.recover_fitQ(i,j,:,:) = fitQ_lpij;
-        fits.recover_fitEllipse(i,j,:,:) = (PointsOnEllipseQ(...
-            fitQ_lpij,plt.circleIn2D) + rgb_ref_ij_s)';
-
-        %un-scaled
-        fits.recover_fitEllipse_unscaled(i,j,:,:) = (squeeze(fits.recover_fitEllipse(i,j,:,:)) -...
-            rgb_ref_ij_s')./results.contour_scaler + rgb_ref_ij_s';
+        % % compute the iso-threshold contour 
+        % rgb_contour_lpij = squeeze(fits.recover_rgb_comp_est(i,j,:,:));
+        % fits.recover_rgb_contour(i,j,:,:) = rgb_contour_lpij';
+        % fits.recover_rgb_contour_cov(i,j,:,:) = cov(rgb_contour_lpij);
+        % 
+        % %fit an ellipse
+        % [~,fitA_lpij,~,fitQ_lpij] = FitEllipseQ(rgb_contour_lpij' - ...
+        %     rgb_ref_ij_s,'lockAngleAt0',false);
+        % fits.recover_fitA(i,j,:,:) = fitA_lpij;
+        % fits.recover_fitQ(i,j,:,:) = fitQ_lpij;
+        % fits.recover_fitEllipse(i,j,:,:) = (PointsOnEllipseQ(...
+        %     fitQ_lpij,plt.circleIn2D) + rgb_ref_ij_s)';
+        % 
+        % %un-scaled
+        % fits.recover_fitEllipse_unscaled(i,j,:,:) = (squeeze(fits.recover_fitEllipse(i,j,:,:)) -...
+        %     rgb_ref_ij_s')./results.contour_scaler + rgb_ref_ij_s';
     end
 end
 
@@ -294,59 +307,6 @@ save(['Fits_isothreshold_',plt.ttl{sim.slc_RGBplane},'_sim',...
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                           HELPING FUNCTIONS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-function [color_Lab, color_XYZ, color_LMS] = convert_rgb_lab(param,...
-    background_RGB, color_RGB)
-    background_Spd = param.B_monitor*background_RGB;
-    background_LMS = param.T_cones*background_Spd;
-    background_XYZ = param.M_LMSToXYZ*background_LMS;
-
-    %RGB -> SPD
-    color_Spd      = param.B_monitor*color_RGB;
-    %SPD -> LMS
-    color_LMS      = param.T_cones*color_Spd;
-    %LMS -> XYZ
-    color_XYZ      = param.M_LMSToXYZ*color_LMS;
-    %XYZ -> Lab
-    color_Lab      = XYZToLab(color_XYZ, background_XYZ);
-end
-
-function coeffs = compute_chebyshev_basis_coeffs(max_deg)
-    syms x
-    T = chebyshevT(0:max_deg-1, x);
-    coeffs = zeros(max_deg, max_deg);
-    for p = 1:max_deg
-        coeffs_p = sym2poly(T(p));
-        coeffs(p,(max_deg-length(coeffs_p)+1):end) = coeffs_p;
-    end
-end
-
-function [U, phi] = compute_U(poly_chebyshev, W,xt,yt, max_deg)
-    n_pts1 = size(xt,1);
-    n_pts2 = size(xt,2);
-    nDims     = size(W,3);
-    eDims   = size(W,4)-nDims;
-    [val_xt, val_yt] = deal(NaN(n_pts1, n_pts2, max_deg));
-    for d = 1:max_deg 
-        val_xt(:,:,d) = polyval(poly_chebyshev(d,:),xt);
-        val_yt(:,:,d) = polyval(poly_chebyshev(d,:),yt);
-    end
-
-    val_xt_repmat = repmat(val_xt, [1,1,1,size(poly_chebyshev,2)]);
-    val_yt_repmat = permute(repmat(val_yt, [1,1,1,size(poly_chebyshev,2)]),[1,2,4,3]);
-    phi_raw = val_xt_repmat.*val_yt_repmat;
-    phi = (phi_raw + 1)./2; %rescale it: [-1 1] in chebyshev space to [0 1] in RGB space
-
-    %equivalent of np.einsum(ij,jk-ik',A,B)
-    %size of phi: num_grid_pts x num_grid_pts x max_deg x max_deg
-    %size of W:   max_deg   x max_deg   x nDims   x (nDims+eDims)
-    if ~isempty(W)
-        U = tensorprod(phi,W,[3,4],[1,2]); %w is eta in some of the equations
-    else
-        U = [];
-    end
-end
-
 function pIncorrect = predict_error_prob(W_true, xbar, x, model, sim)
     n_pts1   = size(x,1);
     n_pts2   = size(x,2);
@@ -451,19 +411,3 @@ function rgb_comp_sim = draw_rgb_comp_random(sim, ref, range)
     rgb_comp_sim(sim.varying_RGBplane,:) = rgb_comp_sim(sim.varying_RGBplane,:) + ref;
 end
 
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                           PLOTING FUNCTIONS
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function plot_heatmap(M)
-    nRows = size(M,3);
-    nCols = size(M,4);
-    figure
-    for r = 1:nRows
-        for c = 1:nCols
-            colormap("summer")
-            subplot(nRows, nCols, c+nCols*(r-1))
-            imagesc(M(:,:,r,c));
-            xticks([]); yticks([]); axis square;
-        end
-    end
-end
