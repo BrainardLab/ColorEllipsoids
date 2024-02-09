@@ -1,7 +1,7 @@
 clear all; close all; clc; 
 % https://colab.research.google.com/drive/1oJGaDMElkiBkWgr3X0DkBf7Cr41pa8sX?usp=sharing#scrollTo=eGSlr-WH8xrA
 %define some parameters
-global MAX_DEGREE NUM_DIMS EXTRA_DIMS NUM_GRID_PTS NUM_MC_SAMPLES
+
 MAX_DEGREE     = 5;     %corresponds to p in Alex's document
 NUM_DIMS       = 2;     %corresponds to a = 1, a = 2 
 EXTRA_DIMS     = 1;
@@ -50,7 +50,7 @@ disp(coeffs_chebyshev)
 [~, M_chebyshev] = compute_U(coeffs_chebyshev,[],XG,YG, MAX_DEGREE);
 
 %visualize it
-plot_multiHeatmap(M_chebyshev)
+plot_multiHeatmap(M_chebyshev,'permute_M',true)
 
 %% randomly generate linear combinations of the basis function
 %try 4 instances
@@ -61,18 +61,18 @@ w = randn(MAX_DEGREE,MAX_DEGREE,1, nInstances);
 U_rand = compute_U(coeffs_chebyshev, w, XG, YG, MAX_DEGREE);
 
 %visualize it
-plot_multiHeatmap(U_rand)
+plot_multiHeatmap(U_rand,'permute_M',true)
 
 %% PART2: Sampling from the Wishart Process prior
 %Sample W. As the degree of polynomial increases, the std of weights
 %decreases. 
-% W_true = sample_W_prior(VARIANCE_SCALE, DECAY_RATE);
+W_true = sample_W_prior(MAX_DEGREE, NUM_DIMS, EXTRA_DIMS, VARIANCE_SCALE, DECAY_RATE);
 
 %For debugging, load W_true.m exported from Alex's code. This way, we can
 %test if the code below works as expected.
-clear W_true                 %comment it out after debugging
-load('W_true.mat','W_true')
-plot_multiHeatmap(W_true); 
+% clear W_true                 %comment it out after debugging
+% load('W_true.mat','W_true')
+plot_multiHeatmap(W_true,'permute_M',true); 
 
 %Compute U, which is essentially the weighted sum of basis functions
 [XT, YT] = meshgrid(linspace(-1,1, NUM_GRID_PTS), linspace(-1,1, NUM_GRID_PTS));
@@ -82,11 +82,11 @@ plot_multiHeatmap(W_true);
 %figure should look identical to the ones generated before (except the
 %sampling is coarser) 
 %visualize it
-plot_multiHeatmap(Phi)
+plot_multiHeatmap(Phi,'permute_M',true)
 
 %also visualize U. It shouldn't be that much different than the ones 
 %randomly generated before with randomly sampled weights
-plot_multiHeatmap(U_true)
+plot_multiHeatmap(U_true,'permute_M',true)
 
 %% At the end, compute Sigmas_true given U
 %the following code is equivalent to 
@@ -115,8 +115,8 @@ plot_Sigma(Sigmas_true, XT, YT)
 %can get exactly the same answer
 load('etas.mat', 'etas')
 %test a very simple example: x = 0 and xbar = 1
-predict_error_prob(W_true, coeffs_chebyshev, zeros(1,1,NUM_DIMS), ones(1,1,NUM_DIMS), ...
-    'etas',etas)
+predict_error_prob(W_true, coeffs_chebyshev, zeros(1,1,NUM_DIMS), ...
+    ones(1,1,NUM_DIMS), 'etas',etas)
 
 %% define the property of comparison stimuli
 XBAR        = NaN(NUM_GRID_PTS, NUM_GRID_PTS, 2);
@@ -138,18 +138,9 @@ for a = 1:nX
 end
 
 % visualize it
-figure
-colormap(sky)
-for a = 1:nX
-    for b = 1:nX
-        subplot(nX,nX,b+nX*(a-1)); 
-        imagesc(linspace(-1,1,NUM_GRID_PTS),linspace(-1,1,NUM_GRID_PTS),...
-            squeeze(pIncorrect(a,b,:,:))); 
-        axis square; hold on; xticks([]); yticks([])
-        scatter(X1(a,b), X2(a,b),15,'mo','filled');
-    end
-end
-sgtitle("Error probability (relative to megenta star)")
+plot_multiHeatmap(pIncorrect, 'X',linspace(-1,1,NUM_GRID_PTS),...
+    'Y',linspace(-1,1,NUM_GRID_PTS),'D',cat(3,X1,X2), 'cmap', "sky",...
+    'sgttl',"Error probability (relative to megenta star)");
 
 %% Part 4a: Simulating data
 %first simulate 50*50 pairs of reference and comparison stimuli
@@ -160,32 +151,34 @@ xbar_sim    = rand([NUM_TRIALS,NUM_TRIALS, NUM_DIMS]).*diff(x_sim_range) + x_sim
 % xbar_sim    = x_sim + 0.2.*randn(NUM_TRIALS,NUM_TRIALS, NUM_DIMS);
 % xbar_sim(xbar_sim <-1) = -1; xbar_sim(xbar_sim >1) = 1;
 %compute the predicted percent correct
-pCorrect_sim = 1-predict_error_prob(x_sim, xbar_sim, coeffs_chebyshev,...
-            W_true, etas);
+pCorrect_sim = 1- predict_error_prob(W_true, coeffs_chebyshev, x_sim, xbar_sim, ...
+            'etas',etas);
 resp_sim = binornd(1, pCorrect_sim(:),size(pCorrect_sim(:)));
 fprintf('Num correct trials: %.d\n', sum(resp_sim));
 fprintf('Num error trials: %.d\n', NUM_TRIALS*NUM_TRIALS - sum(resp_sim));
 
 %% Part 4b: Fitting the model to the data
-objectiveFunc = @(w_colvec) estimate_loglikelihood(w_colvec, x_sim, ...
-    xbar_sim, resp_sim, coeffs_chebyshev, etas);
+w_reshape_size = [MAX_DEGREE, MAX_DEGREE, NUM_DIMS,NUM_DIMS+EXTRA_DIMS];
+num_free_param_W = prod(w_reshape_size);
+objectiveFunc = @(w_colvec) estimate_loglikelihood(w_colvec,w_reshape_size,...
+    x_sim, xbar_sim, resp_sim, coeffs_chebyshev, etas);
 
 %have different initial points to avoid fmincon from getting stuck at
 %some places
-lb      = -1.*ones(1, MAX_DEGREE*MAX_DEGREE*NUM_DIMS*(NUM_DIMS+EXTRA_DIMS));
-ub      = ones(1, MAX_DEGREE*MAX_DEGREE*NUM_DIMS*(NUM_DIMS+EXTRA_DIMS));
+lb      = -1.*ones(1, num_free_param_W);
+ub      = ones(1, num_free_param_W);
 N_runs  = 2;
-init    = rand(N_runs,MAX_DEGREE*MAX_DEGREE*NUM_DIMS*(NUM_DIMS+EXTRA_DIMS)).*(ub-lb) + lb;
+init    = rand(N_runs,num_free_param_W).*(ub-lb) + lb;
 %fix some values
 W_true_colvec        = W_true(:);
-param_idx            = [1:5];%[6:9, 12:14,17:19];
+param_idx            = [1:2];%[6:9, 12:14,17:19];
 nonParam_idx         = setdiff(1:length(W_true_colvec),param_idx); 
 lb(nonParam_idx)     = W_true_colvec(nonParam_idx);
 ub(nonParam_idx)     = W_true_colvec(nonParam_idx);
 init(:,nonParam_idx) = repmat(W_true_colvec(nonParam_idx)',[N_runs,1]);
 
 options = optimoptions(@fmincon, 'MaxIterations', 1e5, 'Display','off');
-w_colvec_est = NaN(N_runs, MAX_DEGREE*MAX_DEGREE*NUM_DIMS*(NUM_DIMS+EXTRA_DIMS));
+w_colvec_est = NaN(N_runs, num_free_param_W);
 minVal       = NaN(1, N_runs);
 for n = 1:N_runs
     disp(n)
@@ -198,7 +191,7 @@ end
 %find the corresponding optimal focus that leads to the highest peak of
 %the psf's
 w_colvec_est_best  = w_colvec_est(idx_min,:);
-w_est_best = reshape(w_colvec_est_best, [MAX_DEGREE, MAX_DEGREE, NUM_DIMS, NUM_DIMS+EXTRA_DIMS]);
+w_est_best = reshape(w_colvec_est_best, w_reshape_size);
 
 %% Recover
 [U_recover,Phi_recover] = compute_U(coeffs_chebyshev, w_est_best, XT, YT, MAX_DEGREE);
@@ -213,38 +206,13 @@ end
 plot_Sigma(Sigmas_true, XT, YT)
 plot_Sigma(Sigmas_recover, XT, YT)
 
-%% helping function
-function W = sample_W_prior(var_scale, decay_rate)
-    global MAX_DEGREE NUM_DIMS EXTRA_DIMS 
-    degs = repmat(0:(MAX_DEGREE-1),[MAX_DEGREE,1]) +...
-        repmat((0:(MAX_DEGREE-1))',[1,MAX_DEGREE]);
-    vars = var_scale.*(decay_rate.^degs);
-    stds = sqrt(vars);
-    %visualize it
-    %plot_multiHeatmap(stds);colorbar
-    W = repmat(stds,[1,1,NUM_DIMS, NUM_DIMS+EXTRA_DIMS]).*...
-        randn(MAX_DEGREE, MAX_DEGREE, NUM_DIMS, NUM_DIMS+EXTRA_DIMS);
-end
-
-function nLogL = estimate_loglikelihood(w_colvec, x, xbar, y, poly_chebyshev, etas)
-    global MAX_DEGREE NUM_DIMS EXTRA_DIMS
-    W = reshape(w_colvec, [MAX_DEGREE, MAX_DEGREE, NUM_DIMS,NUM_DIMS+ EXTRA_DIMS]);
-    pInc = predict_error_prob(x, xbar, poly_chebyshev, W, etas);
-    pC = 1 - pInc;
-    logL = y.*log(pC(:)) + (1-y).*log(pInc(:));
-    nLogL = -sum(logL(:));
-end
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                           PLOTING FUNCTIONS
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% local plotting function
 function plot_Sigma(Sigma, X, Y)
-    global NUM_GRID_PTS
     thetas = linspace(0,2*pi, 50);
     sinusoids = [cos(thetas); sin(thetas)];
     figure
-    for i = 1:2:NUM_GRID_PTS
-        for j = 1:2:NUM_GRID_PTS
+    for i = 1:2:size(X,1)
+        for j = 1:2:size(X,2)
             sig_ij = sqrtm(squeeze(Sigma(i,j,:,:)))*sinusoids;
             plot(sig_ij(1,:)+X(i,j), sig_ij(2,:)+Y(i,j),'k'); hold on
         end

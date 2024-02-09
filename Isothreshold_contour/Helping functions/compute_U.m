@@ -1,15 +1,11 @@
 function [U, phi] = compute_U(poly_chebyshev, W,xt,yt, max_deg, varargin)
     p = inputParser;
-    p.addParameter('scaling_elevation', 0, @isnumeric);
-    p.addParameter('scaling_stretching', 1, @isnumeric);
     p.addParameter('visualize_xt', false, @islogical);
     p.addParameter('visualize_yt', false, @islogical);
     p.addParameter('visualize_phi', false, @islogical);
     p.addParameter('visualize_W', false, @islogical);
 
     parse(p, varargin{:});
-    scaling_elevation    = p.Results.scaling_elevation;
-    scaling_stretching   = p.Results.scaling_stretching;
     visualize_xt         = p.Results.visualize_xt;
     visualize_yt         = p.Results.visualize_yt;
     visualize_phi        = p.Results.visualize_phi;
@@ -31,13 +27,13 @@ function [U, phi] = compute_U(poly_chebyshev, W,xt,yt, max_deg, varargin)
     phi_raw = val_xt_repmat.*val_yt_repmat;
     %sometimes we want to rescale phi so that its range is not -1 to 1, but
     %0 to 1 for example
-    phi = (phi_raw + scaling_elevation).*scaling_stretching; 
+    phi = (phi_raw + 1)./2; %rescale it: [-1 1] in chebyshev space to [0 1] in RGB space
 
     %visualize it
-    if visualize_xt; plot_multiHeatmap(val_xt_repmat); end
-    if visualize_yt; plot_multiHeatmap(val_yt_repmat); end
-    if visualize_phi; plot_multiHeatmap(phi); end
-    if visualize_W; plot_multiHeatmap(W); end
+    if visualize_xt; plot_multiHeatmap(val_xt_repmat,'permute_M',true); end
+    if visualize_yt; plot_multiHeatmap(val_yt_repmat,'permute_M',true); end
+    if visualize_phi; plot_multiHeatmap(phi,'permute_M',true); end
+    if visualize_W; plot_multiHeatmap(W,'permute_M',true); end
 
     %equivalent of np.einsum(ij,jk-ik',A,B)
     %size of phi: num_grid_pts x num_grid_pts x max_deg x max_deg

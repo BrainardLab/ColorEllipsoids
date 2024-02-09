@@ -5,7 +5,6 @@ function [fitEllipse_scaled, fitEllipse_unscaled, rgb_contour, ...
 
     %throw an error is 
     assert(length(rgb_ref) == 3);
-    assert(length(vecLen) == size(grid_theta_xy,2));
     assert(size(grid_theta_xy,1)==length(idx_varyingDim));
     
     p = inputParser;
