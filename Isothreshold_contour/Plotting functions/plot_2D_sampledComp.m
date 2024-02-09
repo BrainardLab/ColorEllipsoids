@@ -7,7 +7,7 @@ function plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, ...
     p.addParameter('xbds', [-0.025, 0.025], @(x)(isnumeric(x) && length(x)==2));
     p.addParameter('ybds', [-0.025, 0.025], @(x)(isnumeric(x) && length(x)==2));
     p.addParameter('nFinerGrid',50,@isnumeric);
-    p.addParameter('EllipsesColor',[1,1,1], @(x)(isnumeric(x)));
+    p.addParameter('EllipsesColor',[178,34,34]./255, @(x)(isnumeric(x)));
     p.addParameter('WishartEllipsesColor',[76,153,0]./255, @(x)(isnumeric(x)));
     p.addParameter('marker1',".",@ischar);
     p.addParameter('marker0','*',@ischar);
