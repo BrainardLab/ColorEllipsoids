@@ -17,6 +17,9 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
     p.addParameter('EllipsesColor',[1,1,1], @(x)(isnumeric(x)));
     p.addParameter('WishartEllipsesColor',[76,153,0]./255, @(x)(isnumeric(x)));
     p.addParameter('ExtrapEllipsesColor',[0.5,0.5,0.5],@(x)(isnumeric(x)));
+    p.addParameter('EllipsesLine','--',@ischar);
+    p.addParameter('WishartEllipsesLine','-',@ischar);
+    p.addParameter('ExtrapEllipsesLine',':',@ischar);
     p.addParameter('xlabel','',@ischar);
     p.addParameter('ylabel','',@ischar);
     p.addParameter('figPos', [0,0.1,0.55,0.4], @(x)(isnumeric(x) && numel(x)==4));
@@ -34,6 +37,9 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
     mc1              = p.Results.EllipsesColor;
     mc2              = p.Results.WishartEllipsesColor;
     mc3              = p.Results.ExtrapEllipsesColor;
+    ls1              = p.Results.EllipsesLine;
+    ls2              = p.Results.WishartEllipsesLine;
+    ls3              = p.Results.ExtrapEllipsesLine;
     xlbl             = p.Results.xlabel;
     ylbl             = p.Results.ylabel;
     saveFig          = p.Results.saveFig;
@@ -79,13 +85,13 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
                     %visualize the ground truth ellipse
                     h1 = plot(squeeze(fitEllipse(l,p,i,j,:,1)),...
                         squeeze(fitEllipse(l,p,i,j,:,2)),...
-                        'LineStyle','--','Color',mc1,'lineWidth',1.5);
+                        'LineStyle',ls1,'Color',mc1,'lineWidth',1.5);
 
                     %visualize the model-predicted ellipses
                     if ~isempty(WishartEllipses)
                         h2 = plot(squeeze(WishartEllipses(l,p,i,j,:,1)),...
                             squeeze(WishartEllipses(l,p,i,j,:,2)),...
-                            'lineStyle','-','Color',mc2,'lineWidth',1.5);
+                            'lineStyle',ls2,'Color',mc2,'lineWidth',1.5);
                     end
                 end
             end
@@ -98,14 +104,18 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
                     for j = 1:ncols
                         h3 = plot(squeeze(ExtrapEllipses(l,p,i,j,:,1)),...
                             squeeze(ExtrapEllipses(l,p,i,j,:,2)),...
-                            'lineStyle',':','Color',mc3,'lineWidth',1.5);
+                            'lineStyle',ls3,'Color',mc3,'lineWidth',1.5);
                     end
                 end
             end
 
             xlim([0,1]); ylim([0,1]); axis square; hold off
             xticks(0:0.2:1); yticks(0:0.2:1);
-            title(subTitle{p}); xlabel(xlbl); ylabel(ylbl);
+            title(subTitle{p}); 
+            if length(subTitle) > 1
+                xlabel(subTitle{p}(1)); ylabel(subTitle{p}(2));
+            else; xlabel(xlbl); ylabel(ylbl); 
+            end
             if exist('h2','var')
                 if exist('h3','var')
                     legend([h1, h2, h3], {'Ground truth',...
@@ -120,7 +130,7 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
         end
         if nFrames > 1; sgtitle(['The fixed other plane = ',num2str(fixed_RGBvec(l))]); end
         set(gcf,'Units','normalized','Position',figPos);
-        set(gcf,'PaperUnits','centimeters','PaperSize',[40 12]);
+        set(gcf,'PaperUnits','centimeters','PaperSize',[40 20]);
         if saveFig && nFrames > 1
             if l == 1; gif([figName, '.gif'])
             else; gif
@@ -129,7 +139,7 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
         pause(1)
     end
     if saveFig && nFrames == 1 %1 frame
-        set(gcf,'PaperUnits','centimeters','PaperSize',[40 12]);
+        set(gcf,'PaperUnits','centimeters','PaperSize',[40 20]);
         saveas(gcf, [figName, '.pdf']);
     end
 end

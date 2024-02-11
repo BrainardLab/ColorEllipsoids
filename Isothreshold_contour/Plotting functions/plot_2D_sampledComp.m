@@ -15,7 +15,7 @@ function plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, ...
     p.addParameter('markerColor0', [255,179,138]./255, @(x)(isnumeric(x) && length(x)==3));
     p.addParameter('figPos', [0, 0.1,0.415,0.7], @(x)(isnumeric(x) && length(x)==4));
     p.addParameter('saveFig',false,@islogical);
-    p.addParameter('title','Fitted_Isothreshold_contour', @ischar);
+    p.addParameter('figName','Sampled comparison stimuli', @ischar);
 
     parse(p, varargin{:});
     groundTruth      = p.Results.groundTruth;
@@ -32,7 +32,7 @@ function plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, ...
     mc0              = p.Results.markerColor0;
     figPos           = p.Results.figPos;
     saveFig          = p.Results.saveFig;
-    ttl              = p.Results.title;
+    figName          = p.Results.figName;
 
     nGrid_x = length(grid_ref_x);
     nGrid_y = length(grid_ref_y);
@@ -52,6 +52,7 @@ function plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, ...
                     squeeze(rgb_comp(i,j, varying_RGBplane(1),:)),...
                     y_axis,x_axis);
                 imagesc(x_axis, y_axis, h); axis square; hold on;
+                set(gca,'YDir','normal') 
             elseif strcmp(method_sampling, 'Random')
                 idx_1 = find(resp_binary(i,j,:)==1);
                 idx_0 = find(resp_binary(i,j,:)==0);
@@ -101,6 +102,6 @@ function plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, ...
     set(gcf,'Units','Normalized','Position',figPos);
     set(gcf,'PaperUnits','centimeters','PaperSize',[35 35]);
     if saveFig
-        saveas(gcf, [ttl,'.pdf']);
+        saveas(gcf, [figName,'.pdf']);
     end
 end

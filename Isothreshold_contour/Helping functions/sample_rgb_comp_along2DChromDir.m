@@ -1,20 +1,20 @@
 function rgb_comp_sim = sample_rgb_comp_along2DChromDir(rgb_ref,...
-    varying_RGBplane, slc_fixedVal, grid_theta_xy, nSims_perDir, vecLength, cov)
+    varying_RGBplane, slc_fixedVal, nSims, paramEllipse, jitter)
 
-    numDirPts      = size(grid_theta_xy,2);
     fixed_RGBplane = setdiff(1:3, varying_RGBplane);
-    nSims          = numDirPts*nSims_perDir;
-    rgb_comp       = NaN(2, numDirPts, nSims_perDir);
-    for d = 1:numDirPts
-        cov_proj = cov * grid_theta_xy(:,d);
-        noise = randn(2, nSims_perDir).*cov_proj;
-        rgb_comp(:,d,:) = rgb_ref + grid_theta_xy(:,d).*vecLength(d) + noise;
-    end
     rgb_comp_sim = NaN(3, nSims);
-    rgb_comp_sim(fixed_RGBplane,:) = slc_fixedVal;
-    rgb_comp1 = rgb_comp(1,:,:); 
-    rgb_comp2 = rgb_comp(2,:,:);
 
-    rgb_comp_sim(varying_RGBplane(1),:) = rgb_comp1(:);
-    rgb_comp_sim(varying_RGBplane(2),:) = rgb_comp2(:);
+    randtheta = rand(1,nSims).*2.*pi; 
+    randx = cos(randtheta) + randn(1,nSims).*jitter;
+    randy = sin(randtheta) + randn(1,nSims).*jitter;
+    randx_stretched = randx./paramEllipse(1);
+    randy_stretched = randy./paramEllipse(2);
+    rgb_comp_sim(varying_RGBplane(1),:) = ...
+        randx_stretched.*cosd(paramEllipse(3)) - ...
+        randy_stretched.*sind(paramEllipse(3)) + rgb_ref(1);
+    rgb_comp_sim(varying_RGBplane(2),:) = ...
+        randy_stretched.*cosd(paramEllipse(3)) + ...
+        randx_stretched.*sind(paramEllipse(3)) + rgb_ref(2);
+
+    rgb_comp_sim(fixed_RGBplane,:) = slc_fixedVal;
 end
