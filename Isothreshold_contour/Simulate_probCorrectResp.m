@@ -10,7 +10,17 @@ plt     = D{4};
 %% First create a cube and select the RG, the RB and the GB planes
 sim.slc_fixedVal     = 0.5; %the level of the fixed plane
 sim.slc_fixedVal_idx = find(stim.fixed_RGBvec == sim.slc_fixedVal);
-sim.slc_RGBplane     = 1; %GB plane with a fixed R value
+
+%get which plane to fix
+slc_RGBplane         = input('Which plane would you like to fix (R/G/B):','s');
+switch slc_RGBplane
+    %GB plane with a fixed R value
+    case 'R'; sim.slc_RGBplane = 1; 
+    %RB plane with a fixed G value
+    case 'G'; sim.slc_RGBplane = 2;
+    %RG plane with a fixed B value
+    case 'B'; sim.slc_RGBplane = 3;
+end
 sim.varying_RGBplane = setdiff(1:3, sim.slc_RGBplane);
 sim.plane_points     = param.plane_points{sim.slc_fixedVal_idx}{sim.slc_RGBplane};
 sim.ref_points       = stim.ref_points{sim.slc_fixedVal_idx}{sim.slc_RGBplane};
@@ -21,7 +31,7 @@ sim.alpha               = 1.1729;
 sim.beta                = 1.2286;
 sim.pC_given_alpha_beta = ComputeWeibTAFC(stim.deltaE_1JND,sim.alpha,sim.beta);%0.8;
 sim.nSims               = 240; %80; 240;
-sim.random_jitter       = 0.2;
+sim.random_jitter       = 0.1; %small jitter: 0.1; medium jitter: 0.2
 sim.range_randomSampling = [-0.025, 0.025];
 sim.method_sampling     = 'NearContour';
 
@@ -95,14 +105,22 @@ elseif strcmp(sim.method_sampling, 'Random')
 end
 
 %% save the data
-if strcmp(sim.method_sampling, 'NearContour')
-    save(['Sims_isothreshold_',strtrim(plt.ttl{sim.slc_RGBplane}),'_sim',...
-        num2str(sim.nSims), 'perCond_sampling',sim.method_sampling,...
-        '_jitter',num2str(sim.random_jitter),'.mat'],'sim');
-elseif strcmp(sim.method_sampling, 'Random')
-    save(['Sims_isothreshold_',strtrim(plt.ttl{sim.slc_RGBplane}),'_sim',...
-        num2str(sim.nSims), 'perCond_sampling',sim.method_sampling,...
-        '_range',num2str(sim.range_randomSampling(end)),'.mat'],'sim');
+analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
+myFigDir = 'Simulation_DataFiles';
+outputDir = fullfile(analysisDir,myFigDir);
+if (~exist('outputDir'))
+    mkdir(outputDir);
 end
 
+if strcmp(sim.method_sampling, 'NearContour')
+    fileName = ['Sims_isothreshold_',strtrim(plt.ttl{sim.slc_RGBplane}),'_sim',...
+        num2str(sim.nSims), 'perCond_sampling',sim.method_sampling,...
+        '_jitter',num2str(sim.random_jitter),'.mat'];
+elseif strcmp(sim.method_sampling, 'Random')
+    fileName = ['Sims_isothreshold_',strtrim(plt.ttl{sim.slc_RGBplane}),'_sim',...
+        num2str(sim.nSims), 'perCond_sampling',sim.method_sampling,...
+        '_range',num2str(sim.range_randomSampling(end)),'.mat'];
+end
+outputName = fullfile(outputDir, fileName);
+save(outputName,'sim');
 

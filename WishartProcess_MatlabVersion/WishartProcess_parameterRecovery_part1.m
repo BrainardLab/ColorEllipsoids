@@ -1,4 +1,4 @@
-clear all; close all; clc; rng(1)
+clear all; close all; clc; rng(2)
 % https://colab.research.google.com/drive/1oJGaDMElkiBkWgr3X0DkBf7Cr41pa8sX?usp=sharing#scrollTo=eGSlr-WH8xrA
 %define some parameters
 MAX_DEGREE     = 3;     %corresponds to p in Alex's document
@@ -25,46 +25,46 @@ disp(coeffs_chebyshev)
 %% PART2: Sampling from the Wishart Process prior
 %Sample W. As the degree of polynomial increases, the std of weights
 %decreases. 
-flag_plot   = false;
+flag_plot   = true;
 nInstances  = 10; 
 NUM_TRIALS  = 100; 
-x_sim_range = [-1, 1];
+x_sim_range = [-0.9, 0.9];
 [XT, YT]   = meshgrid(linspace(-1,1, NUM_GRID_PTS), linspace(-1,1, NUM_GRID_PTS));
-[W_true, U_true, Phi, Sigmas_true, etas, x_sim, xbar_sim, pCorrect_sim, resp_sim] = ...
+[etas, x_sim, xbar_sim, pCorrect_sim, resp_sim] = ...
     deal(cell(1,nInstances));
-for n = 1:nInstances
-    W_true{n} = sample_W_prior(MAX_DEGREE, NUM_DIMS, EXTRA_DIMS, ...
-        VARIANCE_SCALE, DECAY_RATE);
-    if flag_plot; plot_multiHeatmap(W_true{n},'permute_M',true); end
 
-    %Compute U, which is essentially the weighted sum of basis functions
-    [U_true{n},Phi{n}] = compute_U(coeffs_chebyshev, W_true{n}, XT, YT, MAX_DEGREE);
+W_true = sample_W_prior(MAX_DEGREE, NUM_DIMS, EXTRA_DIMS, ...
+    VARIANCE_SCALE, DECAY_RATE);
+if flag_plot; plot_multiHeatmap(W_true,'permute_M',true); end
 
-    % plot_multiHeatmap(Phi{n},'permute_M',true)
-    % plot_multiHeatmap(U_true{n},'permute_M',true)
+%Compute U, which is essentially the weighted sum of basis functions
+[U_true,Phi] = compute_U(coeffs_chebyshev, W_true, XT, YT, MAX_DEGREE);
 
-    Sigmas_true_ij = NaN(NUM_GRID_PTS, NUM_GRID_PTS, NUM_DIMS, NUM_DIMS);
-    for i = 1:NUM_DIMS
-        for j = 1:NUM_DIMS
-            %size of U_true: NUM_GRID_PTS x NUM_GRID_PTS x NUM_DIMS x (NUM_DIMS + EXTRA_DIMS)
-            Sigmas_true_ij(:,:,i,j) = sum(U_true{n}(:,:,i,:).*U_true{n}(:,:,j,:),4);
-        end
+% plot_multiHeatmap(Phi,'permute_M',true)
+% plot_multiHeatmap(U_true,'permute_M',true)
+
+Sigmas_true = NaN(NUM_GRID_PTS, NUM_GRID_PTS, NUM_DIMS, NUM_DIMS);
+for i = 1:NUM_DIMS
+    for j = 1:NUM_DIMS
+        %size of U_true: NUM_GRID_PTS x NUM_GRID_PTS x NUM_DIMS x (NUM_DIMS + EXTRA_DIMS)
+        Sigmas_true(:,:,i,j) = sum(U_true(:,:,i,:).*U_true(:,:,j,:),4);
     end
-    Sigmas_true{n} = Sigmas_true_ij;
+end
 
-    % visualize it
-    if flag_plot; plot_Sigma(Sigmas_true{n}, XT, YT); end
+% visualize it
+if flag_plot; plot_Sigma(Sigmas_true, XT, YT); end
 
+for n = 1:nInstances
     % Simulating data
     %first simulate 100*100 pairs of reference and comparison stimuli
     etas{n}        = randn([2,1,NUM_DIMS + EXTRA_DIMS, NUM_MC_SAMPLES]); %NUM_MC_SAMPLES
     x_sim{n}       = rand([NUM_TRIALS,NUM_TRIALS, NUM_DIMS]).*diff(x_sim_range) + x_sim_range(1);
-    xbar_sim_temp  = x_sim{n} + 0.1.*randn(NUM_TRIALS,NUM_TRIALS, NUM_DIMS);
+    xbar_sim_temp  = x_sim{n} + 0.01.*randn(NUM_TRIALS,NUM_TRIALS, NUM_DIMS);
     xbar_sim_temp(xbar_sim_temp <-1) = -1; xbar_sim_temp(xbar_sim_temp >1) = 1;
     xbar_sim{n} = xbar_sim_temp;
     
     %compute the predicted percent correct
-    pCorrect_sim{n} = 1- predict_error_prob(W_true{n}, coeffs_chebyshev, x_sim{n}, xbar_sim{n}, ...
+    pCorrect_sim{n} = 1- predict_error_prob(W_true, coeffs_chebyshev, x_sim{n}, xbar_sim{n}, ...
                 'etas',etas{n});
     resp_sim{n} = binornd(1, pCorrect_sim{n}(:),size(pCorrect_sim{n}(:)));
 end
@@ -84,8 +84,8 @@ function plot_Sigma(Sigma, X, Y)
     thetas = linspace(0,2*pi, 50);
     sinusoids = [cos(thetas); sin(thetas)];
     figure
-    for i = 1:2:size(X,1)
-        for j = 1:2:size(X,2)
+    for i = 1:3:size(X,1)
+        for j = 1:3:size(X,2)
             sig_ij = sqrtm(squeeze(Sigma(i,j,:,:)))*sinusoids;
             plot(sig_ij(1,:)+X(i,j), sig_ij(2,:)+Y(i,j),'k'); hold on
         end

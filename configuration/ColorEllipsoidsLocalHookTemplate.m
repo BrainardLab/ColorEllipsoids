@@ -1,4 +1,4 @@
-function ColorEllipsoidsLocalHook
+function ColorEllipsoidsLocalHookTemplate
 % ColorEllipsoidsLocalHook
 %
 % Configure things for working on the ColorEllipsoids project.

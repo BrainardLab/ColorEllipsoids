@@ -25,7 +25,7 @@ lb      = -0.2.*ones(1, num_free_param_W);
 ub      = 0.2.*ones(1, num_free_param_W);
 plb     = -0.1.*ones(1, num_free_param_W);
 pub     = 0.1.*ones(1, num_free_param_W);
-N_runs  = 1;
+N_runs  = 5;
 init    = rand(N_runs,num_free_param_W).*(ub-lb) + lb;
 
 w_colvec_est = NaN(N_runs, num_free_param_W);
