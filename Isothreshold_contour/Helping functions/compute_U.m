@@ -4,12 +4,14 @@ function [U, phi] = compute_U(poly_chebyshev, W,xt,yt, max_deg, varargin)
     p.addParameter('visualize_yt', false, @islogical);
     p.addParameter('visualize_phi', false, @islogical);
     p.addParameter('visualize_W', false, @islogical);
+    p.addParameter('scalePhi_toRGB',true, @islogical);
 
     parse(p, varargin{:});
     visualize_xt         = p.Results.visualize_xt;
     visualize_yt         = p.Results.visualize_yt;
     visualize_phi        = p.Results.visualize_phi;
     visualize_W          = p.Results.visualize_W;
+    scalePhi_toRGB       = p.Results.scalePhi_toRGB;
 
     n_pts1 = size(xt,1);
     n_pts2 = size(xt,2);
@@ -27,7 +29,11 @@ function [U, phi] = compute_U(poly_chebyshev, W,xt,yt, max_deg, varargin)
     phi_raw = val_xt_repmat.*val_yt_repmat;
     %sometimes we want to rescale phi so that its range is not -1 to 1, but
     %0 to 1 for example
-    phi = (phi_raw + 1)./2; %rescale it: [-1 1] in chebyshev space to [0 1] in RGB space
+    if scalePhi_toRGB
+        phi = (phi_raw + 1)./2; %rescale it: [-1 1] in chebyshev space to [0 1] in RGB space
+    else
+        phi = phi_raw;
+    end
 
     %visualize it
     if visualize_xt; plot_multiHeatmap(val_xt_repmat,'permute_M',true); end

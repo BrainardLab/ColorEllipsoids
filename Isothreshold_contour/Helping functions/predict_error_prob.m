@@ -4,10 +4,12 @@ function pIncorrect = predict_error_prob(W, coeffs_chebyshev, x,xbar, ...
     p = inputParser;
     p.addParameter('etas', [], @(x)(isnumeric(x)));
     p.addParameter('num_MC_samples',100,@isnumeric);
+    p.addParameter('scalePhi_toRGB',true,@islogical);
 
     parse(p, varargin{:});
     etas               = p.Results.etas;
     num_MC_samples     = p.Results.num_MC_samples;
+    scalePhi_toRGB     = p.Results.scalePhi_toRGB;
 
     n_pts1   = size(x,1);
     n_pts2   = size(x,2);
@@ -21,8 +23,10 @@ function pIncorrect = predict_error_prob(W, coeffs_chebyshev, x,xbar, ...
     end
 
     %compute Sigma for the reference and the comparison stimuli
-    U    = compute_U(coeffs_chebyshev,W, x(:,:,1), x(:,:,2), max_deg); 
-    Ubar = compute_U(coeffs_chebyshev,W, xbar(:,:,1), xbar(:,:,2), max_deg); 
+    U    = compute_U(coeffs_chebyshev,W, x(:,:,1), x(:,:,2), max_deg,...
+            'scalePhi_toRGB', scalePhi_toRGB); 
+    Ubar = compute_U(coeffs_chebyshev,W, xbar(:,:,1), xbar(:,:,2), max_deg,...
+            'scalePhi_toRGB', scalePhi_toRGB); 
     [Sigma, Sigma_bar] = deal(NaN(n_pts1, n_pts2, nDims, nDims));
     for i = 1:nDims
         for j = 1:nDims
