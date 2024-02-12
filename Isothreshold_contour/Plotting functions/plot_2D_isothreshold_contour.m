@@ -24,6 +24,7 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
     p.addParameter('ylabel','',@ischar);
     p.addParameter('figPos', [0,0.1,0.55,0.4], @(x)(isnumeric(x) && numel(x)==4));
     p.addParameter('saveFig', false, @islogical);
+    p.addParameter('paperSize',[40,20], @(x)(isnumeric(x)));
     p.addParameter('figName', 'Isothreshold_contour', @ischar);
 
     parse(p, varargin{:});
@@ -44,6 +45,7 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
     ylbl             = p.Results.ylabel;
     saveFig          = p.Results.saveFig;
     figName          = p.Results.figName;
+    paperSize        = p.Results.paperSize;
     figPos           = p.Results.figPos;
     %throw an error is 
     if ~isempty(rgb_contour); assert(size(rgb_contour,1) == nFrames); end
@@ -130,16 +132,33 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
         end
         if nFrames > 1; sgtitle(['The fixed other plane = ',num2str(fixed_RGBvec(l))]); end
         set(gcf,'Units','normalized','Position',figPos);
-        set(gcf,'PaperUnits','centimeters','PaperSize',[40 20]);
+        set(gcf,'PaperUnits','centimeters','PaperSize',paperSize);
         if saveFig && nFrames > 1
-            if l == 1; gif([figName, '.gif'])
+            if l == 1
+                analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
+                myFigDir = 'Simulation_FigFiles';
+                outputDir = fullfile(analysisDir, myFigDir);
+                if ~exist(outputDir, 'dir')
+                    mkdir(outputDir);
+                end
+                % Full path for the figure file
+                figFilePath = fullfile(outputDir, [figName, '.gif']);
+                gif(figFilePath)
             else; gif
             end
         end
         pause(1)
     end
     if saveFig && nFrames == 1 %1 frame
-        set(gcf,'PaperUnits','centimeters','PaperSize',[40 20]);
-        saveas(gcf, [figName, '.pdf']);
+        set(gcf,'PaperUnits','centimeters','PaperSize',paperSize);
+        analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
+        myFigDir = 'Simulation_FigFiles';
+        outputDir = fullfile(analysisDir, myFigDir);
+        if ~exist(outputDir, 'dir')
+            mkdir(outputDir);
+        end
+        % Full path for the figure file
+        figFilePath = fullfile(outputDir, [figName, '.pdf']);
+        saveas(gcf, figFilePath);
     end
 end

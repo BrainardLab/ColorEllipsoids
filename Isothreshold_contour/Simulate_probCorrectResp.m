@@ -1,6 +1,11 @@
 clear all; close all; clc
 
 %% load isothreshold contours simulated based on CIELAB
+analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
+myDataDir   = 'Simulation_DataFiles';
+intendedDir = fullfile(analysisDir, myDataDir);
+addpath(intendedDir);
+
 load('Isothreshold_contour_CIELABderived.mat', 'D');
 param   = D{1};
 stim    = D{2};
@@ -27,13 +32,13 @@ sim.ref_points       = stim.ref_points{sim.slc_fixedVal_idx}{sim.slc_RGBplane};
 sim.background_RGB   = stim.background_RGB(:,sim.slc_fixedVal_idx);
 
 %% Simulate data given the iso-threshold contours
-sim.alpha               = 1.1729;
-sim.beta                = 1.2286;
-sim.pC_given_alpha_beta = ComputeWeibTAFC(stim.deltaE_1JND,sim.alpha,sim.beta);%0.8;
-sim.nSims               = 240; %80; 240;
-sim.random_jitter       = 0.1; %small jitter: 0.1; medium jitter: 0.2
+sim.alpha                = 1.1729;
+sim.beta                 = 1.2286;
+sim.pC_given_alpha_beta  = ComputeWeibTAFC(stim.deltaE_1JND,sim.alpha,sim.beta);%0.8;
+sim.nSims                = 240; %80; 240;
+sim.random_jitter        = 0.1; %small jitter: 0.1; medium jitter: 0.2
 sim.range_randomSampling = [-0.025, 0.025];
-sim.method_sampling     = 'NearContour';
+sim.method_sampling      = 'NearContour';
 
 %for each reference stimulus
 for i = 1:stim.nGridPts_ref
@@ -84,6 +89,7 @@ for i = 1:stim.nGridPts_ref
 end
 
 %% visualize samples
+flag_saveFig = true;
 plt.ttl = {'GB plane', 'RB plane', 'RG plane'};
 groundTruth_slc = squeeze(results.fitEllipse_unscaled(sim.slc_fixedVal_idx,...
     sim.slc_RGBplane,:,:,:,:));
@@ -91,16 +97,14 @@ figName = ['Sims_Isothreshold_contour_', plt.ttl{sim.slc_RGBplane},...
     '_sim',num2str(sim.nSims), 'perCond_sampling', sim.method_sampling]; 
 if strcmp(sim.method_sampling, 'NearContour')
     plot_2D_sampledComp(stim.grid_ref, stim.grid_ref, sim.rgb_comp, ...
-        sim.varying_RGBplane, sim.method_sampling,...
-        'groundTruth', groundTruth_slc,...
-        'saveFig',true,...
+        sim.varying_RGBplane, sim.method_sampling,...%'groundTruth', groundTruth_slc,...
+        'saveFig',flag_saveFig,...
         'figName',[figName,'_jitter',num2str(sim.random_jitter)]);
 elseif strcmp(sim.method_sampling, 'Random')
     plot_2D_sampledComp(stim.grid_ref, stim.grid_ref, sim.rgb_comp, ...
-        sim.varying_RGBplane, sim.method_sampling,...
-        'groundTruth', groundTruth_slc,...
+        sim.varying_RGBplane, sim.method_sampling,...%'groundTruth', groundTruth_slc,...
         'responses',sim.resp_binary,...
-        'saveFig',true, ...
+        'saveFig',flag_saveFig, ...
         'figName',[figName,'_range',num2str(sim.range_randomSampling(end))]);    
 end
 

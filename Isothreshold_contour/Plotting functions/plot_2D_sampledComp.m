@@ -102,6 +102,14 @@ function plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, ...
     set(gcf,'Units','Normalized','Position',figPos);
     set(gcf,'PaperUnits','centimeters','PaperSize',[35 35]);
     if saveFig
-        saveas(gcf, [figName,'.pdf']);
+        analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
+        myFigDir = 'Simulation_FigFiles';
+        outputDir = fullfile(analysisDir, myFigDir);
+        if ~exist(outputDir, 'dir')
+            mkdir(outputDir);
+        end
+        % Full path for the figure file
+        figFilePath = fullfile(outputDir, [figName, '.pdf']);
+        saveas(gcf, figFilePath);
     end
 end

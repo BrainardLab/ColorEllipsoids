@@ -57,11 +57,11 @@ end
 %select the slices we want to visualize 
 plt.colormapMatrix = param.plane_points;
 plot_3D_RGBplanes({param.plane_points{5}}, {plt.colormapMatrix{5}},...
-    'ref_points', {stim.ref_points{5}}, 'saveFig', false)
+    'ref_points', {stim.ref_points{5}}, 'paperSize',[40,20],'saveFig', true)
 
 %visualize all slices
 plot_3D_RGBplanes(param.plane_points, plt.colormapMatrix,...
-    'ref_points', stim.ref_points, 'saveFig', false)
+    'ref_points', stim.ref_points,'paperSize',[40,20], 'saveFig', true)
 
 %% compute iso-threshold contour
 %set the background RGB
@@ -146,7 +146,7 @@ plot_2D_isothreshold_contour(stim.x_grid_ref, stim.y_grid_ref, ...
     'EllipsesLine','-',...
     'refColor',[1,1,1],...
     'visualizeRawData',true,...
-    'saveFig',false,...
+    'saveFig',true,...
     'rgb_background',true)
 
 %visualize just one slice
@@ -156,11 +156,18 @@ plot_2D_isothreshold_contour(stim.x_grid_ref, stim.y_grid_ref, ...
     'refColor',[1,1,1],...
     'EllipsesLine','-',...
     'visualizeRawData',true,...
-    'saveFig',false)
+    'saveFig',true)
 
 %% save the data
 D = {param, stim, results, plt};
-save("Isothreshold_contour_CIELABderived.mat","D");
+analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
+myFigDir = 'Simulation_DataFiles';
+outputDir = fullfile(analysisDir,myFigDir);
+if (~exist('outputDir'))
+    mkdir(outputDir);
+end
+outputName = fullfile(outputDir, "Isothreshold_contour_CIELABderived.mat");
+save(outputName,'D');
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %                           HELPING FUNCTIONS

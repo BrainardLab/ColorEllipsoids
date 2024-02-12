@@ -11,6 +11,7 @@ function plot_3D_RGBplanes(plane_points, colormapMatrix, varargin)
     p.addParameter('figTitle', {'GB plane', 'RB plane', 'RG plane'}, @(x)(ischar(x)));
     p.addParameter('normalizedFigPos', [0,0.1,0.7,0.4], @(x)(isnumeric(x) && numel(x)==4));
     p.addParameter('saveFig', false, @islogical);
+    p.addParameter('paperSize',[30,12], @(x)(isnumeric(x)));
     p.addParameter('figName', 'RGB_cube', @ischar);
 
     parse(p, varargin{:});
@@ -20,6 +21,7 @@ function plot_3D_RGBplanes(plane_points, colormapMatrix, varargin)
     saveFig    = p.Results.saveFig;
     figName    = p.Results.figName;
     figPos     = p.Results.normalizedFigPos;
+    paperSize  = p.Results.paperSize;
 
     nPlanes = length(plane_points{1});
     grid    = linspace(0, 1,nGridPts);
@@ -64,17 +66,35 @@ function plot_3D_RGBplanes(plane_points, colormapMatrix, varargin)
             title(figTitle{p});
         end
         set(gcf,'Units','normalized','Position',figPos)
-        set(gcf,'PaperUnits','centimeters','PaperSize',[30 12]);
+        set(gcf,'PaperUnits','centimeters','PaperSize',paperSize);
         if saveFig && nFrames > 1
-            if l == 1; gif([figName,'.gif'])
+            if l == 1
+                set(gcf,'PaperUnits','centimeters','PaperSize',paperSize);
+                analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
+                myFigDir = 'Simulation_FigFiles';
+                outputDir = fullfile(analysisDir, myFigDir);
+                if ~exist(outputDir, 'dir')
+                    mkdir(outputDir);
+                end
+                % Full path for the figure file
+                figFilePath = fullfile(outputDir, [figName, '.gif']);
+                gif(figFilePath)
             else; gif
             end
         end
         pause(0.5)
     end
     if saveFig && nFrames == 1 %1 frame
-        set(gcf,'PaperUnits','centimeters','PaperSize',[30 12]);
-        saveas(gcf, [figName,'.pdf']);
+        set(gcf,'PaperUnits','centimeters','PaperSize',paperSize);
+        analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
+        myFigDir = 'Simulation_FigFiles';
+        outputDir = fullfile(analysisDir, myFigDir);
+        if ~exist(outputDir, 'dir')
+            mkdir(outputDir);
+        end
+        % Full path for the figure file
+        figFilePath = fullfile(outputDir, [figName, '.pdf']);
+        saveas(gcf, figFilePath);
     end
 end
 
