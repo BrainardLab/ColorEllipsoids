@@ -136,7 +136,8 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
         if saveFig && nFrames > 1
             if l == 1
                 analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
-                myFigDir = 'Simulation_FigFiles';
+                if ~exist('h2','var'); myFigDir = 'Simulation_FigFiles';
+                else; myFigDir = 'ModelFitting_FigFiles'; end
                 outputDir = fullfile(analysisDir, myFigDir);
                 if ~exist(outputDir, 'dir')
                     mkdir(outputDir);
@@ -152,7 +153,8 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
     if saveFig && nFrames == 1 %1 frame
         set(gcf,'PaperUnits','centimeters','PaperSize',paperSize);
         analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
-        myFigDir = 'Simulation_FigFiles';
+        if ~exist('h2','var'); myFigDir = 'Simulation_FigFiles';
+        else; myFigDir = 'ModelFitting_FigFiles'; end
         outputDir = fullfile(analysisDir, myFigDir);
         if ~exist(outputDir, 'dir')
             mkdir(outputDir);

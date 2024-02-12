@@ -103,7 +103,8 @@ function plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, ...
     set(gcf,'PaperUnits','centimeters','PaperSize',[35 35]);
     if saveFig
         analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
-        myFigDir = 'Simulation_FigFiles';
+        if ~exist('h2','var'); myFigDir = 'Simulation_FigFiles';
+        else; myFigDir = 'ModelFitting_FigFiles'; end
         outputDir = fullfile(analysisDir, myFigDir);
         if ~exist(outputDir, 'dir')
             mkdir(outputDir);

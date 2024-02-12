@@ -1,7 +1,11 @@
 clear all; close all; clc
 
 %% load isothreshold contours simulated based on CIELAB
-load('Sims_isothreshold_GB plane_sim240perCond_samplingNearContour_jitter0.2.mat', 'sim')
+analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
+myDataDir   = 'Simulation_DataFiles';
+intendedDir = fullfile(analysisDir, myDataDir);
+addpath(intendedDir);
+load('Sims_isothreshold_RB plane_sim240perCond_samplingNearContour_jitter0.1.mat', 'sim')
 load('Isothreshold_contour_CIELABderived.mat', 'D');
 param   = D{1};
 stim    = D{2};
@@ -186,8 +190,8 @@ if strcmp(sim.method_sampling, 'NearContour')
         sim.varying_RGBplane, sim.method_sampling,...
         'EllipsesColor',[178,34,34]./255,...
         'WishartEllipsesColor',[76,153,0]./255,...
-        'groundTruth', [],...%groundTruth_slc,...
-        'modelPredictions',[],...%fits.recover_fitEllipse_unscaled,...
+        'groundTruth', groundTruth_slc,...
+        'modelPredictions',fits.recover_fitEllipse_unscaled,...
         'saveFig',true,...
         'figName',[figName, '_visualizeSamples'])
 elseif strcmp(sim.method_sampling, 'Random')
@@ -204,13 +208,22 @@ end
 
 %% save the data
 E = {param, stim, results, plt, sim, model, fits};
-if strcmp(sim.method_sampling, 'NearContour')
-    save(['Fits_isothreshold_',plt.ttl{sim.slc_RGBplane},'_sim',...
-        num2str(sim.nSims), 'perCond_sampling',sim.method_sampling,...
-        '_jitter',num2str(sim.random_jitter),'.mat'],'E');
-elseif strcmp(sim.method_sampling, 'Random')
-    save(['Fits_isothreshold_',plt.ttl{sim.slc_RGBplane},'_sim',...
-        num2str(sim.nSims), 'perCond_sampling',sim.method_sampling,...
-        '_range',num2str(sim.range_randomSampling(end)),'.mat'],'E');
+analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
+myFigDir = 'ModelFitting_DataFiles';
+outputDir = fullfile(analysisDir,myFigDir);
+if (~exist('outputDir'))
+    mkdir(outputDir);
 end
+
+if strcmp(sim.method_sampling, 'NearContour')
+    fileName = ['Fits_isothreshold_',plt.ttl{sim.slc_RGBplane},'_sim',...
+        num2str(sim.nSims), 'perCond_sampling',sim.method_sampling,...
+        '_jitter',num2str(sim.random_jitter),'.mat'];
+elseif strcmp(sim.method_sampling, 'Random')
+    fileName = ['Fits_isothreshold_',plt.ttl{sim.slc_RGBplane},'_sim',...
+        num2str(sim.nSims), 'perCond_sampling',sim.method_sampling,...
+        '_range',num2str(sim.range_randomSampling(end)),'.mat'];
+end
+outputName = fullfile(outputDir, fileName);
+save(outputName,'E');
 
