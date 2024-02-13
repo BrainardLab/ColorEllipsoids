@@ -5,7 +5,7 @@ analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
 myDataDir   = 'Simulation_DataFiles';
 intendedDir = fullfile(analysisDir, myDataDir);
 addpath(intendedDir);
-load('Sims_isothreshold_RB plane_sim240perCond_samplingNearContour_jitter0.1.mat', 'sim')
+load('Sims_isothreshold_GB plane_sim360perCond_samplingNearContour_jitter0.1.mat', 'sim')
 load('Isothreshold_contour_CIELABderived.mat', 'D');
 param   = D{1};
 stim    = D{2};
@@ -35,14 +35,18 @@ plot_multiHeatmap(model.M_chebyshev,'permute_M',true);
 %% Fit the model to the data
 %comparison stimulus
 %x_sim: stim.nGridPts_ref x stim.nGridPts_ref x dims x sim.nSims
-x_sim                   = sim.rgb_comp(:,:,sim.varying_RGBplane,:);
+
+% sim.slc_ref                 = 1:stim.nGridPts_ref;
+%select only a subset of reference stimulus
+sim.slc_ref             = 1:2:stim.nGridPts_ref;
+x_sim                   = sim.rgb_comp(sim.slc_ref,sim.slc_ref,sim.varying_RGBplane,:);
 x_sim_d1                = squeeze(x_sim(:,:,1,:));
 x_sim_d2                = squeeze(x_sim(:,:,2,:));
 sim.x_sim_org(1,:,1)    = x_sim_d1(:); 
 sim.x_sim_org(1,:,2)    = x_sim_d2(:);
 
 %reference stimulus
-xbar_sim                = repmat(sim.ref_points(:,:,sim.varying_RGBplane),...
+xbar_sim                = repmat(sim.ref_points(sim.slc_ref,sim.slc_ref,sim.varying_RGBplane),...
                              [1,1,1,sim.nSims]);
 xbar_sim_d1             = squeeze(xbar_sim(:,:,1,:));
 xbar_sim_d2             = squeeze(xbar_sim(:,:,2,:));
@@ -51,10 +55,13 @@ sim.xbar_sim_org(1,:,2) = xbar_sim_d2(:);
 % if we just want to use one set of randomly drawn samples
 % sim.etas = 0.01.*randn([2,1,model.nDims + model.eDims, model.num_MC_samples]);
 
+%response
+resp_binary = sim.resp_binary(sim.slc_ref, sim.slc_ref,:);
+
 %define objective functions
 w_reshape_size = [model.max_deg, model.max_deg, model.nDims, model.nDims+model.eDims];
 objectiveFunc = @(w_colvec) estimate_loglikelihood(w_colvec,w_reshape_size,...
-    sim.x_sim_org, sim.xbar_sim_org, sim.resp_binary(:), ...
+    sim.x_sim_org, sim.xbar_sim_org, resp_binary(:), ...
     model.coeffs_chebyshev,'num_MC_samples', model.num_MC_samples);
 
 %% call bads 
@@ -99,10 +106,10 @@ fits.ngrid_bruteforce = 2e3;
 fits.vecLength = linspace(0,max(results.opt_vecLen(:))*1.2,fits.ngrid_bruteforce);
 
 %for each reference stimulus
-for i = 1:stim.nGridPts_ref
-    for j = 1:stim.nGridPts_ref
+for i = 1:length(sim.slc_ref) %stim.nGridPts_ref
+    for j = 1:length(sim.slc_ref) %stim.nGridPts_ref
         %grab the reference stimulus's RGB
-        rgb_ref_ij = sim.ref_points(i,j,:);
+        rgb_ref_ij = sim.ref_points(sim.slc_ref(i),sim.slc_ref(j),:);
 
         [fits.recover_fitEllipse(i,j,:,:), ...
             fits.recover_fitEllipse_unscaled(i,j,:,:), ...
@@ -121,11 +128,18 @@ recover_fitEllipse_plt = NaN([1,1,size(fits.recover_fitEllipse)]);
 recover_fitEllipse_plt(1,1,:,:,:,:) = fits.recover_fitEllipse;
 
 %% extrapolate
-fits.grid_ref_extrap = stim.grid_ref(1:end-1) + diff(stim.grid_ref(1:2))/2;
+% fits.grid_ref_extrap = stim.grid_ref(1:end-1) + diff(stim.grid_ref(1:2))/2;
+% fits.nGridPts_ref = length(fits.grid_ref_extrap);
+% [fits.x_grid_ref_extrap, fits.y_grid_ref_extrap] = meshgrid(fits.grid_ref_extrap, fits.grid_ref_extrap);
+% fits.ref_points_extrap = get_gridPts(fits.x_grid_ref_extrap,...
+%     fits.y_grid_ref_extrap, sim.slc_RGBplane, sim.slc_fixedVal);
+
+fits.grid_ref_extrap = stim.grid_ref;
 fits.nGridPts_ref = length(fits.grid_ref_extrap);
 [fits.x_grid_ref_extrap, fits.y_grid_ref_extrap] = meshgrid(fits.grid_ref_extrap, fits.grid_ref_extrap);
 fits.ref_points_extrap = get_gridPts(fits.x_grid_ref_extrap,...
     fits.y_grid_ref_extrap, sim.slc_RGBplane, sim.slc_fixedVal);
+
 %for each reference stimulus
 for i = 1:fits.nGridPts_ref
     for j = 1:fits.nGridPts_ref
@@ -165,6 +179,8 @@ end
 plot_2D_isothreshold_contour(stim.x_grid_ref, stim.y_grid_ref, ...
     results.fitEllipse(sim.slc_fixedVal_idx,...
     sim.slc_RGBplane,:,:,:,:),sim.slc_fixedVal,...
+    'slc_x_grid_ref',sim.slc_ref,...
+    'slc_y_grid_ref',sim.slc_ref,...
     'WishartEllipses',recover_fitEllipse_plt, ... 
     'ExtrapEllipses',extrap_fitEllipse_plt,...
     'rgb_background',false,...
@@ -188,6 +204,8 @@ groundTruth_slc = squeeze(results.fitEllipse_unscaled(sim.slc_fixedVal_idx,...
 if strcmp(sim.method_sampling, 'NearContour')
     plot_2D_sampledComp(stim.grid_ref, stim.grid_ref, sim.rgb_comp, ...
         sim.varying_RGBplane, sim.method_sampling,...
+        'slc_x_grid_ref',sim.slc_ref,...
+        'slc_y_grid_ref',sim.slc_ref,...
         'EllipsesColor',[178,34,34]./255,...
         'WishartEllipsesColor',[76,153,0]./255,...
         'groundTruth', groundTruth_slc,...
@@ -215,14 +233,19 @@ if (~exist('outputDir'))
     mkdir(outputDir);
 end
 
+if length(sim.slc_ref) < stim.nGridPts_ref
+    str_extension = ['_subsetRef',num2str(sim.slc_ref)];
+else; str_extension = ''; 
+end
+
 if strcmp(sim.method_sampling, 'NearContour')
     fileName = ['Fits_isothreshold_',plt.ttl{sim.slc_RGBplane},'_sim',...
         num2str(sim.nSims), 'perCond_sampling',sim.method_sampling,...
-        '_jitter',num2str(sim.random_jitter),'.mat'];
+        '_jitter',num2str(sim.random_jitter),str_extension,'.mat'];
 elseif strcmp(sim.method_sampling, 'Random')
     fileName = ['Fits_isothreshold_',plt.ttl{sim.slc_RGBplane},'_sim',...
         num2str(sim.nSims), 'perCond_sampling',sim.method_sampling,...
-        '_range',num2str(sim.range_randomSampling(end)),'.mat'];
+        '_range',num2str(sim.range_randomSampling(end)),str_extension,'.mat'];
 end
 outputName = fullfile(outputDir, fileName);
 save(outputName,'E');

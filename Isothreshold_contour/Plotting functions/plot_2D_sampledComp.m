@@ -1,6 +1,8 @@
 function plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, ...
     varying_RGBplane, method_sampling, varargin)
     p = inputParser;
+    p.addParameter('slc_x_grid_ref',1:length(grid_ref_x),@(x)(isnumeric(x)));
+    p.addParameter('slc_y_grid_ref',1:length(grid_ref_y),@(x)(isnumeric(x)));
     p.addParameter('groundTruth',[],@(x)(isnumeric(x)));
     p.addParameter('modelPredictions',[],@(x)(isnumeric(x)));
     p.addParameter('responses',[],@(x)(isnumeric(x)));
@@ -18,6 +20,8 @@ function plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, ...
     p.addParameter('figName','Sampled comparison stimuli', @ischar);
 
     parse(p, varargin{:});
+    slc_x_grid_ref   = p.Results.slc_x_grid_ref;
+    slc_y_grid_ref   = p.Results.slc_y_grid_ref;
     groundTruth      = p.Results.groundTruth;
     modelPredictions = p.Results.modelPredictions;
     resp_binary      = p.Results.responses;
@@ -34,12 +38,14 @@ function plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, ...
     saveFig          = p.Results.saveFig;
     figName          = p.Results.figName;
 
-    nGrid_x = length(grid_ref_x);
-    nGrid_y = length(grid_ref_y);
+    nGrid_x     = length(grid_ref_x);
+    nGrid_y     = length(grid_ref_y);
+    nGrid_x_slc = length(slc_x_grid_ref);
+    nGrid_y_slc = length(slc_y_grid_ref);
 
     figure
     cmap = colormap("gray"); colormap(flipud(cmap))
-    t = tiledlayout(nGrid_x,nGrid_y,'TileSpacing','none');
+    tiledlayout(nGrid_x,nGrid_y,'TileSpacing','none');
     for i = nGrid_x:-1:1  %row: B
         for j = 1:nGrid_y %column: G
             x_axis = linspace(xbds(1),xbds(2),nFinerGrid)+grid_ref_x(j);
@@ -74,9 +80,13 @@ function plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, ...
 
             % fits
             if ~isempty(modelPredictions)
-                h2 = plot(squeeze(modelPredictions(i,j,:,1)),...
-                     squeeze(modelPredictions(i,j,:,2)),...
-                     'Color',mc_ellipseW,'lineStyle','-','lineWidth',1); 
+                if ismember(i,slc_x_grid_ref) && ismember(j,slc_y_grid_ref)
+                    ii = find(i == slc_x_grid_ref);
+                    jj = find(j == slc_y_grid_ref);
+                    h2 = plot(squeeze(modelPredictions(ii,jj,:,1)),...
+                         squeeze(modelPredictions(ii,jj,:,2)),...
+                         'Color',mc_ellipseW,'lineStyle','-','lineWidth',1); 
+                end
             end
             
             hold off; box on;

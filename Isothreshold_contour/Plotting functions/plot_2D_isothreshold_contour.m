@@ -7,6 +7,8 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
     assert(length(fixed_RGBvec) == nFrames);
     
     p = inputParser;
+    p.addParameter('slc_x_grid_ref',1:length(x_grid_ref),@(x)(isnumeric(x)));
+    p.addParameter('slc_y_grid_ref',1:length(y_grid_ref),@(x)(isnumeric(x)));
     p.addParameter('visualizeRawData', false, @islogical);
     p.addParameter('WishartEllipses',[],@(x)(isnumeric(x)));
     p.addParameter('ExtrapEllipses',[],@(x)(isnumeric(x)));
@@ -28,6 +30,8 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
     p.addParameter('figName', 'Isothreshold_contour', @ischar);
 
     parse(p, varargin{:});
+    slc_x_grid_ref   = p.Results.slc_x_grid_ref;
+    slc_y_grid_ref   = p.Results.slc_y_grid_ref;
     visualizeRawData = p.Results.visualizeRawData;
     WishartEllipses  = p.Results.WishartEllipses;
     ExtrapEllipses   = p.Results.ExtrapEllipses;
@@ -51,8 +55,8 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
     if ~isempty(rgb_contour); assert(size(rgb_contour,1) == nFrames); end
 
     nPlanes = size(fitEllipse,2);
-    nGridPts_ref_x = length(x_grid_ref);
-    nGridPts_ref_y = length(y_grid_ref);
+    nGridPts_ref_x = length(x_grid_ref(slc_x_grid_ref));
+    nGridPts_ref_y = length(y_grid_ref(slc_x_grid_ref));
     
     x = [0; 0; 1; 1];
     y = [1; 0; 0; 1];
@@ -73,21 +77,27 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
                     colormapMatrix, 'FaceColor', 'interp'); hold on
             end
             
-            scatter(x_grid_ref(:), y_grid_ref(:), 20,mc0,'Marker','+');
-            hold on;
-            for i = 1:nGridPts_ref_x
-                for j = 1:nGridPts_ref_y
+            for i = 1:length(x_grid_ref)
+                for j = 1:length(y_grid_ref)
                     %visualize the individual thresholds 
                     if visualizeRawData
                         scatter(squeeze(rgb_contour(l,p,i,j,:,1)),...
                             squeeze(rgb_contour(l,p,i,j,:,2)),10,...
                             'o','filled','MarkerEdgeColor',0.5.*ones(1,3),...
-                            'MarkerFaceColor',0.5.*ones(1,3));
+                            'MarkerFaceColor',0.5.*ones(1,3)); hold on
                     end
                     %visualize the ground truth ellipse
                     h1 = plot(squeeze(fitEllipse(l,p,i,j,:,1)),...
                         squeeze(fitEllipse(l,p,i,j,:,2)),...
-                        'LineStyle',ls1,'Color',mc1,'lineWidth',1.5);
+                        'LineStyle',ls1,'Color',mc1,'lineWidth',1.5); hold on
+                end
+            end
+
+            for i = 1:nGridPts_ref_x
+                for j = 1:nGridPts_ref_y
+                    %cross for reference stimulus
+                    scatter(x_grid_ref(slc_x_grid_ref(i),slc_y_grid_ref(j)),...
+                        y_grid_ref(slc_x_grid_ref(i), slc_y_grid_ref(j)), 20,mc0,'Marker','+'); hold on;
 
                     %visualize the model-predicted ellipses
                     if ~isempty(WishartEllipses)
@@ -124,12 +134,13 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
                         'Wishart model predictions','Extrapolations'},...
                         'Location','southeast'); 
                 else
-                legend([h1, h2], {'Ground truth','Wishart model predictions'},...
-                    'Location','southeast'); 
+                    legend([h1, h2], {'Ground truth','Wishart model predictions'},...
+                        'Location','southeast'); 
                 end
                 legend boxoff
             end
         end
+        box off;
         if nFrames > 1; sgtitle(['The fixed other plane = ',num2str(fixed_RGBvec(l))]); end
         set(gcf,'Units','normalized','Position',figPos);
         set(gcf,'PaperUnits','centimeters','PaperSize',paperSize);

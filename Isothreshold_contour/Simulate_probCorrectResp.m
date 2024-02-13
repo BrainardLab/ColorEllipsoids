@@ -35,7 +35,7 @@ sim.background_RGB   = stim.background_RGB(:,sim.slc_fixedVal_idx);
 sim.alpha                = 1.1729;
 sim.beta                 = 1.2286;
 sim.pC_given_alpha_beta  = ComputeWeibTAFC(stim.deltaE_1JND,sim.alpha,sim.beta);%0.8;
-sim.nSims                = 240; %80; 240;
+sim.nSims                = 360; %80; 240; 360
 sim.random_jitter        = 0.1; %small jitter: 0.1; medium jitter: 0.2
 sim.range_randomSampling = [-0.025, 0.025];
 sim.method_sampling      = 'NearContour';
@@ -89,7 +89,7 @@ for i = 1:stim.nGridPts_ref
 end
 
 %% visualize samples
-flag_saveFig = true;
+flag_saveFig = false;
 plt.ttl = {'GB plane', 'RB plane', 'RG plane'};
 groundTruth_slc = squeeze(results.fitEllipse_unscaled(sim.slc_fixedVal_idx,...
     sim.slc_RGBplane,:,:,:,:));

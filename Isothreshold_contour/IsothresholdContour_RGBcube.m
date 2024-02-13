@@ -45,6 +45,9 @@ end
 %pick 5 x 5 reference points 
 stim.nGridPts_ref = 5;
 stim.grid_ref     = linspace(0.2, 0.8, stim.nGridPts_ref);
+% %pick 9 x 9 reference points 
+% stim.nGridPts_ref = 9;
+% stim.grid_ref     = linspace(0.1, 0.9, stim.nGridPts_ref);
 [stim.x_grid_ref, stim.y_grid_ref] = meshgrid(stim.grid_ref,stim.grid_ref);
 
 %get the grid points for the reference stimuli of each plane
@@ -57,11 +60,11 @@ end
 %select the slices we want to visualize 
 plt.colormapMatrix = param.plane_points;
 plot_3D_RGBplanes({param.plane_points{5}}, {plt.colormapMatrix{5}},...
-    'ref_points', {stim.ref_points{5}}, 'paperSize',[40,20],'saveFig', true)
+    'ref_points', {stim.ref_points{5}}, 'paperSize',[40,20],'saveFig', false)
 
 %visualize all slices
 plot_3D_RGBplanes(param.plane_points, plt.colormapMatrix,...
-    'ref_points', stim.ref_points,'paperSize',[40,20], 'saveFig', true)
+    'ref_points', stim.ref_points,'paperSize',[40,20], 'saveFig', false)
 
 %% compute iso-threshold contour
 %set the background RGB
