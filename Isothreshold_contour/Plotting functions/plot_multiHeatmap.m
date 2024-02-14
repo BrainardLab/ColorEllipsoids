@@ -11,16 +11,22 @@ function plot_multiHeatmap(M, varargin)
     p.addParameter('y_ticks',[],@(x)(isnumeric(x)));
     p.addParameter('sgttl',"",@isstring);
     p.addParameter('D', [], @(x)(isnumeric(x)));
+    p.addParameter('figPos', [0, 0.1,0.415,0.7], @(x)(isnumeric(x) && length(x)==4));
+    p.addParameter('saveFig',false,@islogical);
+    p.addParameter('figName','MultiHeatmaps', @ischar);
 
     parse(p, varargin{:});
     permute_M = p.Results.permute_M;
-    cmap   = p.Results.cmap;
-    X      = p.Results.X;
-    Y      = p.Results.Y;
-    x_ticks= p.Results.x_ticks;
-    y_ticks= p.Results.y_ticks;
-    sgttl  = p.Results.sgttl;
-    D      = p.Results.D; 
+    cmap      = p.Results.cmap;
+    X         = p.Results.X;
+    Y         = p.Results.Y;
+    x_ticks   = p.Results.x_ticks;
+    y_ticks   = p.Results.y_ticks;
+    sgttl     = p.Results.sgttl;
+    D         = p.Results.D; 
+    figPos    = p.Results.figPos;
+    saveFig   = p.Results.saveFig;
+    figName   = p.Results.figName;
 
     if permute_M; M = permute(M, [3,4,1,2]); end
 
@@ -51,4 +57,17 @@ function plot_multiHeatmap(M, varargin)
         end
     end
     sgtitle(sgttl);
+    set(gcf,'Units','Normalized','Position',figPos);
+    set(gcf,'PaperUnits','centimeters','PaperSize',[35 35]);
+    if saveFig
+        analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
+        myFigDir = 'WishartPractice_FigFiles'; 
+        outputDir = fullfile(analysisDir, myFigDir);
+        if ~exist(outputDir, 'dir')
+            mkdir(outputDir);
+        end
+        % Full path for the figure file
+        figFilePath = fullfile(outputDir, [figName, '.pdf']);
+        saveas(gcf, figFilePath);
+    end
 end

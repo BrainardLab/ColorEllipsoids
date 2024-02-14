@@ -5,7 +5,8 @@ analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
 myDataDir   = 'Simulation_DataFiles';
 intendedDir = fullfile(analysisDir, myDataDir);
 addpath(intendedDir);
-load('Sims_isothreshold_GB plane_sim360perCond_samplingNearContour_jitter0.1.mat', 'sim')
+% load('Sims_isothreshold_RG plane_sim240perCond_samplingNearContour_jitter0.1.mat', 'sim')
+load('Sims_isothreshold_GB plane_sim2000perCond_samplingRandom_range0.025.mat', 'sim')
 load('Isothreshold_contour_CIELABderived.mat', 'D');
 param   = D{1};
 stim    = D{2};
@@ -36,9 +37,9 @@ plot_multiHeatmap(model.M_chebyshev,'permute_M',true);
 %comparison stimulus
 %x_sim: stim.nGridPts_ref x stim.nGridPts_ref x dims x sim.nSims
 
-% sim.slc_ref                 = 1:stim.nGridPts_ref;
+sim.slc_ref                 = 1:stim.nGridPts_ref;
 %select only a subset of reference stimulus
-sim.slc_ref             = 1:2:stim.nGridPts_ref;
+% sim.slc_ref             = 2:1:4;%1:2:stim.nGridPts_ref;
 x_sim                   = sim.rgb_comp(sim.slc_ref,sim.slc_ref,sim.varying_RGBplane,:);
 x_sim_d1                = squeeze(x_sim(:,:,1,:));
 x_sim_d2                = squeeze(x_sim(:,:,2,:));
@@ -128,17 +129,17 @@ recover_fitEllipse_plt = NaN([1,1,size(fits.recover_fitEllipse)]);
 recover_fitEllipse_plt(1,1,:,:,:,:) = fits.recover_fitEllipse;
 
 %% extrapolate
-% fits.grid_ref_extrap = stim.grid_ref(1:end-1) + diff(stim.grid_ref(1:2))/2;
-% fits.nGridPts_ref = length(fits.grid_ref_extrap);
-% [fits.x_grid_ref_extrap, fits.y_grid_ref_extrap] = meshgrid(fits.grid_ref_extrap, fits.grid_ref_extrap);
-% fits.ref_points_extrap = get_gridPts(fits.x_grid_ref_extrap,...
-%     fits.y_grid_ref_extrap, sim.slc_RGBplane, sim.slc_fixedVal);
-
-fits.grid_ref_extrap = stim.grid_ref;
+fits.grid_ref_extrap = stim.grid_ref(1:end-1) + diff(stim.grid_ref(1:2))/2;
 fits.nGridPts_ref = length(fits.grid_ref_extrap);
 [fits.x_grid_ref_extrap, fits.y_grid_ref_extrap] = meshgrid(fits.grid_ref_extrap, fits.grid_ref_extrap);
 fits.ref_points_extrap = get_gridPts(fits.x_grid_ref_extrap,...
     fits.y_grid_ref_extrap, sim.slc_RGBplane, sim.slc_fixedVal);
+
+% fits.grid_ref_extrap = stim.grid_ref;
+% fits.nGridPts_ref = length(fits.grid_ref_extrap);
+% [fits.x_grid_ref_extrap, fits.y_grid_ref_extrap] = meshgrid(fits.grid_ref_extrap, fits.grid_ref_extrap);
+% fits.ref_points_extrap = get_gridPts(fits.x_grid_ref_extrap,...
+%     fits.y_grid_ref_extrap, sim.slc_RGBplane, sim.slc_fixedVal);
 
 %for each reference stimulus
 for i = 1:fits.nGridPts_ref
@@ -167,15 +168,20 @@ extrap_fitEllipse_plt(1,1,:,:,:,:) = fits.extrap_fitEllipse;
 
 %% visualize
 plt.ttl = {'GB plane', 'RB plane', 'RG plane'};
+if length(sim.slc_ref) < stim.nGridPts_ref
+    str_extension = ['_subsetRef',num2str(sim.slc_ref)];
+else; str_extension = ''; 
+end
 if strcmp(sim.method_sampling,'NearContour')
     figName = ['Fitted_Isothreshold_contour_',plt.ttl{sim.slc_RGBplane},...
         '_sim',num2str(sim.nSims), 'perCond_sampling',sim.method_sampling,...
-        '_jitter',num2str(sim.random_jitter)];
+        '_jitter',num2str(sim.random_jitter),str_extension];
 elseif strcmp(sim.method_sampling, 'Random')
     figName = ['Fitted_Isothreshold_contour_',plt.ttl{sim.slc_RGBplane},...
         '_sim',num2str(sim.nSims), 'perCond_sampling',sim.method_sampling,...
-        '_range',num2str(sim.range_randomSampling(end))];
+        '_range',num2str(sim.range_randomSampling(end)),str_extension];
 end
+
 plot_2D_isothreshold_contour(stim.x_grid_ref, stim.y_grid_ref, ...
     results.fitEllipse(sim.slc_fixedVal_idx,...
     sim.slc_RGBplane,:,:,:,:),sim.slc_fixedVal,...
@@ -194,7 +200,7 @@ plot_2D_isothreshold_contour(stim.x_grid_ref, stim.y_grid_ref, ...
     'subTitle', {sprintf(['Predicted iso-threshold contours \nin the ',...
         plt.ttl{sim.slc_RGBplane}, ' based on the Wishart process'])},...
     'figName', figName,...
-    'saveFig',true);
+    'saveFig',false);
 
 %% visualize samples
 groundTruth_slc = squeeze(results.fitEllipse_unscaled(sim.slc_fixedVal_idx,...
@@ -211,7 +217,7 @@ if strcmp(sim.method_sampling, 'NearContour')
         'groundTruth', groundTruth_slc,...
         'modelPredictions',fits.recover_fitEllipse_unscaled,...
         'saveFig',true,...
-        'figName',[figName, '_visualizeSamples'])
+        'figName',[figName, '_visualizeSamples',str_extension])
 elseif strcmp(sim.method_sampling, 'Random')
     plot_2D_sampledComp(stim.grid_ref, stim.grid_ref, sim.rgb_comp, ...
         sim.varying_RGBplane, sim.method_sampling,...
@@ -221,7 +227,7 @@ elseif strcmp(sim.method_sampling, 'Random')
         'groundTruth',groundTruth_slc,...
         'modelPredictions', fits.recover_fitEllipse_unscaled, ...
         'saveFig',true,...
-        'figName',[figName, '_visualizeSamples'])    
+        'figName',[figName, '_visualizeSamples',str_extension])    
 end
 
 %% save the data
@@ -231,11 +237,6 @@ myFigDir = 'ModelFitting_DataFiles';
 outputDir = fullfile(analysisDir,myFigDir);
 if (~exist('outputDir'))
     mkdir(outputDir);
-end
-
-if length(sim.slc_ref) < stim.nGridPts_ref
-    str_extension = ['_subsetRef',num2str(sim.slc_ref)];
-else; str_extension = ''; 
 end
 
 if strcmp(sim.method_sampling, 'NearContour')

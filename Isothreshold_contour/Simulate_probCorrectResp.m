@@ -1,4 +1,5 @@
-clear all; close all; clc
+clear all; %close all; clc; 
+seed = rng(11);
 
 %% load isothreshold contours simulated based on CIELAB
 analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
@@ -35,7 +36,7 @@ sim.background_RGB   = stim.background_RGB(:,sim.slc_fixedVal_idx);
 sim.alpha                = 1.1729;
 sim.beta                 = 1.2286;
 sim.pC_given_alpha_beta  = ComputeWeibTAFC(stim.deltaE_1JND,sim.alpha,sim.beta);%0.8;
-sim.nSims                = 360; %80; 240; 360
+sim.nSims                = 40; %80; 240; 360
 sim.random_jitter        = 0.1; %small jitter: 0.1; medium jitter: 0.2
 sim.range_randomSampling = [-0.025, 0.025];
 sim.method_sampling      = 'NearContour';
@@ -110,20 +111,25 @@ end
 
 %% save the data
 analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
-myFigDir = 'Simulation_DataFiles';
-outputDir = fullfile(analysisDir,myFigDir);
+myFigDir    = 'Simulation_DataFiles/DataFiles_HPC';
+outputDir   = fullfile(analysisDir,myFigDir);
 if (~exist('outputDir'))
     mkdir(outputDir);
 end
 
+%whether we want to save the seed
+flag_saveSeed = true;
+if flag_saveSeed; str_extension = ['_rng', num2str(seed.Seed)];
+else; str_extension = ''; end
+
 if strcmp(sim.method_sampling, 'NearContour')
     fileName = ['Sims_isothreshold_',strtrim(plt.ttl{sim.slc_RGBplane}),'_sim',...
         num2str(sim.nSims), 'perCond_sampling',sim.method_sampling,...
-        '_jitter',num2str(sim.random_jitter),'.mat'];
+        '_jitter',num2str(sim.random_jitter),str_extension,'.mat'];
 elseif strcmp(sim.method_sampling, 'Random')
     fileName = ['Sims_isothreshold_',strtrim(plt.ttl{sim.slc_RGBplane}),'_sim',...
         num2str(sim.nSims), 'perCond_sampling',sim.method_sampling,...
-        '_range',num2str(sim.range_randomSampling(end)),'.mat'];
+        '_range',num2str(sim.range_randomSampling(end)),str_extension,'.mat'];
 end
 outputName = fullfile(outputDir, fileName);
 save(outputName,'sim');
