@@ -1,7 +1,8 @@
 clear all; close all; clc; parpool(3);
 %This script will be run in HPC
-addpath(genpath('/home/fh862/bads-master'));
-addpath(genpath('/home/fh862/DB_projects/WPModel_testing/DataFiles'));
+% addpath(genpath('/home/fh862/bads-master'));
+% addpath(genpath('/home/fh862/DB_projects/WPModel_testing/DataFiles'));
+% addpath(genpath('/home/fh862/DB_projects/WPModel_tensorproduct'));
 
 %% define model specificity for the wishart process
 model.max_deg           = 3;     %corresponds to p in Alex's document
@@ -18,17 +19,6 @@ model.yt               = linspace(-1,1,model.num_MC_samples);
 [model.XT, model.YT]   = meshgrid(model.xt, model.yt);
 [~, model.M_chebyshev] = compute_U(model.coeffs_chebyshev,[],...
     model.XT,model.YT, model.max_deg);
-
-%compute the total number of free parameters
-fits.nFreeParams = model.max_deg*model.max_deg*model.nDims*(model.nDims + model.eDims);
-%lower and upper founds for searching the best-fitting parameters
-lb  = -0.05.*ones(1, fits.nFreeParams); 
-ub  =  0.05.*ones(1, fits.nFreeParams); 
-plb = -0.01.*ones(1, fits.nFreeParams); 
-pub =  0.01.*ones(1, fits.nFreeParams); 
-%have different initial points to avoid fmincon from getting stuck at
-%some places
-fits.N_runs = 3;
 
 %% load isothreshold contours simulated based on CIELAB
 % analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
@@ -76,6 +66,16 @@ for s = 1:nDataFiles
         model.coeffs_chebyshev,'num_MC_samples', model.num_MC_samples);
     
     % call bads 
+    %compute the total number of free parameters
+    fits.nFreeParams = model.max_deg*model.max_deg*model.nDims*(model.nDims + model.eDims);
+    %lower and upper founds for searching the best-fitting parameters
+    lb  = -0.05.*ones(1, fits.nFreeParams); 
+    ub  =  0.05.*ones(1, fits.nFreeParams); 
+    plb = -0.01.*ones(1, fits.nFreeParams); 
+    pub =  0.01.*ones(1, fits.nFreeParams); 
+    %have different initial points to avoid fmincon from getting stuck at
+    %some places
+    fits.N_runs = 3;
     init = rand(fits.N_runs,fits.nFreeParams).*(pub-plb) + plb;
     
     %initialize 
@@ -109,28 +109,6 @@ for s = 1:nDataFiles
         for j = 1:model.nDims
             fits.Sigmas_recover(:,:,i,j) = sum(fits.U_recover(:,:,i,:).*...
                 fits.U_recover(:,:,j,:),4);
-        end
-    end
-    
-    %% make predictions on the probability of correct
-    fits.ngrid_bruteforce = 2e3;
-    fits.vecLength = linspace(0,max(results.opt_vecLen(:))*1.2,fits.ngrid_bruteforce);
-    
-    %for each reference stimulus
-    for i = 1:length(sim.slc_ref) 
-        for j = 1:length(sim.slc_ref) 
-            %grab the reference stimulus's RGB
-            rgb_ref_ij = sim.ref_points(sim.slc_ref(i),sim.slc_ref(j),:);
-    
-            [fits.recover_fitEllipse(i,j,:,:), ...
-                fits.recover_fitEllipse_unscaled(i,j,:,:), ...
-                fits.recover_rgb_contour(i,j,:,:), ...
-                fits.recover_rgb_contour_cov(i,j,:,:), ...
-                fits.recover_rgb_comp_est(i,j,:,:)] = ...
-                convert_Sig_2DisothresholdContour(rgb_ref_ij, sim.varying_RGBplane, ...
-                stim.grid_theta_xy, fits.vecLength, sim.pC_given_alpha_beta, ...
-                model.coeffs_chebyshev, fits.w_est_best, 'contour_scaler',...
-                results.contour_scaler, 'nSteps_bruteforce', fits.ngrid_bruteforce);
         end
     end
     
