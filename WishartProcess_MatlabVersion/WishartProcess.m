@@ -25,6 +25,22 @@ disp(T)
 %visualize the basis functions
 plot_chebyshevPolynomials(T)
 
+%test for orthogonality
+flag_nonZeros = 0;
+for d1 = 1:(MAX_DEGREE-1)
+    T_d1 = matlabFunction(T(d1));
+    for d2 = (d1+1):MAX_DEGREE
+        T_d2 = matlabFunction(T(d2));
+        wfunc = @(x) 1./sqrt(1-x.^2);
+        if d1 > 1; integrad = @(x) T_d1(x).*T_d2(x).*wfunc(x);
+        else; integrad = @(x) T_d2(x).*wfunc(x);end
+        integral_result = integral(integrad, -1,1);
+        if abs(integral_result) > 1e-10; flag_nonZeros = 1; end
+    end
+end
+if flag_nonZeros == 0; disp('Orthogonality checked!'); end
+
+
 %% make it 2d
 %[T(0)T(0), T(0)T(1), ... , T(0)T(4);
 % T(1)T(0), T(1)T(1), ... , T(1)T(4);

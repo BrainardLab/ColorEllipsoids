@@ -1,4 +1,4 @@
-clear all; %close all; clc; 
+clear all; close all; clc; 
 seed = rng(11);
 
 %% load isothreshold contours simulated based on CIELAB
@@ -12,6 +12,7 @@ param   = D{1};
 stim    = D{2};
 results = D{3};
 plt     = D{4};
+plt.ttl = {'GB plane','RB plane','RG plane'};
 
 %% First create a cube and select the RG, the RB and the GB planes
 sim.slc_fixedVal     = 0.5; %the level of the fixed plane
@@ -36,7 +37,7 @@ sim.background_RGB   = stim.background_RGB(:,sim.slc_fixedVal_idx);
 sim.alpha                = 1.1729;
 sim.beta                 = 1.2286;
 sim.pC_given_alpha_beta  = ComputeWeibTAFC(stim.deltaE_1JND,sim.alpha,sim.beta);%0.8;
-sim.nSims                = 40; %80; 240; 360
+sim.nSims                = 240; %40; 80; 240; 360
 sim.random_jitter        = 0.1; %small jitter: 0.1; medium jitter: 0.2
 sim.range_randomSampling = [-0.025, 0.025];
 sim.method_sampling      = 'NearContour';
@@ -90,7 +91,7 @@ for i = 1:stim.nGridPts_ref
 end
 
 %% visualize samples
-flag_saveFig = false;
+flag_saveFig = true;
 plt.ttl = {'GB plane', 'RB plane', 'RG plane'};
 groundTruth_slc = squeeze(results.fitEllipse_unscaled(sim.slc_fixedVal_idx,...
     sim.slc_RGBplane,:,:,:,:));
@@ -98,12 +99,12 @@ figName = ['Sims_Isothreshold_contour_', plt.ttl{sim.slc_RGBplane},...
     '_sim',num2str(sim.nSims), 'perCond_sampling', sim.method_sampling]; 
 if strcmp(sim.method_sampling, 'NearContour')
     plot_2D_sampledComp(stim.grid_ref, stim.grid_ref, sim.rgb_comp, ...
-        sim.varying_RGBplane, sim.method_sampling,...%'groundTruth', groundTruth_slc,...
+        sim.varying_RGBplane, sim.method_sampling,'groundTruth', groundTruth_slc,...
         'saveFig',flag_saveFig,...
         'figName',[figName,'_jitter',num2str(sim.random_jitter)]);
 elseif strcmp(sim.method_sampling, 'Random')
     plot_2D_sampledComp(stim.grid_ref, stim.grid_ref, sim.rgb_comp, ...
-        sim.varying_RGBplane, sim.method_sampling,...%'groundTruth', groundTruth_slc,...
+        sim.varying_RGBplane, sim.method_sampling,'groundTruth', groundTruth_slc,...
         'responses',sim.resp_binary,...
         'saveFig',flag_saveFig, ...
         'figName',[figName,'_range',num2str(sim.range_randomSampling(end))]);    

@@ -1,8 +1,4 @@
 clear all; close all; clc; 
-%output folder names
-analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
-myFigDir = 'WishartPractice_FigFiles';
-outputDir = fullfile(analysisDir, myFigDir);
 % https://colab.research.google.com/drive/1oJGaDMElkiBkWgr3X0DkBf7Cr41pa8sX?usp=sharing#scrollTo=eGSlr-WH8xrA
 %define some parameters
 
@@ -27,10 +23,15 @@ T  = chebyshevT(0:(MAX_DEGREE-1), x);
 disp(T)
 
 %visualize the basis functions
-xg = linspace(-1,1,NUM_MC_SAMPLES);
-yg = linspace(-1,1,NUM_MC_SAMPLES);
+plot_chebyshevPolynomials(T)
 
-% saveas(gcf, figFilePath);
+%test for orthogonality
+T2 = matlabFunction(T(3));
+T4 = matlabFunction(T(5));
+wfunc = @(x) 1./sqrt(1-x.^2);
+integrad = @(x) T2(x).*T4(x).*wfunc(x);
+integral_result = integral(integrad, -1,1);
+
 
 %% make it 2d
 %[T(0)T(0), T(0)T(1), ... , T(0)T(4);
@@ -47,7 +48,9 @@ yg = linspace(-1,1,NUM_MC_SAMPLES);
 coeffs_chebyshev = compute_chebyshev_basis_coeffs(MAX_DEGREE);
 disp(coeffs_chebyshev)
 
-[XG, YG]    = meshgrid(xg, yg);
+xg       = linspace(-1,1,NUM_MC_SAMPLES);
+yg       = linspace(-1,1,NUM_MC_SAMPLES);
+[XG, YG] = meshgrid(xg, yg);
 [~, M_chebyshev] = compute_U(coeffs_chebyshev,[],XG,YG, MAX_DEGREE);
 
 %visualize it
@@ -209,13 +212,18 @@ plot_Sigma(Sigmas_true, XT, YT)
 plot_Sigma(Sigmas_recover, XT, YT)
 
 %% local plotting function
-function plot_chebyshevPolynomials()
+function plot_chebyshevPolynomials(T)
     figure
     fplot(T,'LineWidth',2); axis([-1, 1, -1, 1]);
     ylabel('T_n(x)')
     legend('T_0(x)','T_1(x)','T_2(x)','T_3(x)','T_4(x)','Location','Best')
     title('Chebyshev polynomials of the first kind')
+    %output folder names
+    analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
+    myFigDir = 'WishartPractice_FigFiles';
+    outputDir = fullfile(analysisDir, myFigDir);
     figFilePath = fullfile(outputDir, 'ChebyshevPolynomials.pdf');
+    % saveas(gcf, figFilePath);
 end
 
 function plot_Sigma(Sigma, X, Y)
@@ -228,7 +236,14 @@ function plot_Sigma(Sigma, X, Y)
             plot(sig_ij(1,:)+X(i,j), sig_ij(2,:)+Y(i,j),'k'); hold on
         end
     end
-    title('Sample from Wishart process prior');
+    axis equal; xlim([-1.5,1.5]); ylim([-1.5,1.5]);set(gca,'FontSize',12)
+    % title('Sample from Wishart process prior');
+    %output folder names
+    analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
+    myFigDir = 'WishartPractice_FigFiles';
+    outputDir = fullfile(analysisDir, myFigDir);
+    figFilePath = fullfile(outputDir, 'Sigma_example.pdf');
+    saveas(gcf, figFilePath);
 end
 
 

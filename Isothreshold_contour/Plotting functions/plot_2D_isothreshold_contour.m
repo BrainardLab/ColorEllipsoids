@@ -189,6 +189,7 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
         analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
         if ~exist('h2','var'); myFigDir = 'Simulation_FigFiles';
         else; myFigDir = 'ModelFitting_FigFiles'; end
+        if ~isempty(WishartEllipses_contour_CI); myFigDir = 'ModelComparison_FigFiles'; end
         outputDir = fullfile(analysisDir, myFigDir);
         if ~exist(outputDir, 'dir')
             mkdir(outputDir);

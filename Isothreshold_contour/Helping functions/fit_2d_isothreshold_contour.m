@@ -32,7 +32,7 @@ function [fitEllipse_scaled, fitEllipse_unscaled, rgb_comp_scaled, rgb_contour_c
     
         %fit an ellipse
         [ellParams, AConstraint, Ainv, Q, fitErr] = FitEllipseQ(rgb_comp_unscaled' - ...
-            rgb_ref_trunc','lockAngleAt0',false,'ratioMax',1000);
+            rgb_ref_trunc','lockAngleAt0',false,'ratioMax',2000);
         fitEllipse_unscaled = (PointsOnEllipseQ(Q, circleIn2D) + rgb_ref_trunc')';
     
     else
