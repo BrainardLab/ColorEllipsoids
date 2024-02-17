@@ -70,7 +70,7 @@ plot_multiHeatmap(M_chebyshev,'permute_M',true,'figPos',[0,0.1,0.4,0.7],...
 nInstances = 4; 
 %draw values from Gaussian distributions and use them as weights for the
 %basis functions
-w = randn(MAX_DEGREE,MAX_DEGREE,1, nInstances);
+w = randn(MAX_DEGREE,MAX_DEGREE,2, 2).*0.01;
 U_rand = compute_U(coeffs_chebyshev, w, XG, YG, MAX_DEGREE);
 
 %visualize it
@@ -111,12 +111,14 @@ for i = 1:NUM_DIMS
     for j = 1:NUM_DIMS
         %size of U_true: NUM_GRID_PTS x NUM_GRID_PTS x NUM_DIMS x (NUM_DIMS + EXTRA_DIMS)
         Sigmas_true(:,:,i,j) = sum(U_true(:,:,i,:).*U_true(:,:,j,:),4);
+        % Sigmas_rand(:,:,i,j) = sum(U_rand(:,:,i,:).*U_rand(:,:,j,:),4); 
     end
 end
 
 % visualize it
 plot_Sigma(Sigmas_true, XT, YT)
 
+% plot_Sigma(Sigmas_rand, XT, YT)
 %Questions so far:
 %1. what does the extra dimension represent? 
 

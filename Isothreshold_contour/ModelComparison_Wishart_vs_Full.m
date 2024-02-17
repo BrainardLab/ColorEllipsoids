@@ -6,7 +6,7 @@ clear all; close all; clc
 nDataFiles     = 10;
 plane_slc      = 'GB plane';
 numSimPerCond  = 240;
-samplingMethod = 'Random';
+samplingMethod = 'NearContour';
 samplingJitter = 0.1;
 samplingRange  = 0.025;
 analysisDir    = getpref('ColorEllipsoids', 'ELPSAnalysis');
@@ -57,11 +57,6 @@ for s = 1:nDataFiles
                     model.coeffs_chebyshev, fits.w_est_best, 'contour_scaler',...
                     results.contour_scaler, 'nSteps_bruteforce', modelComp.ngrid_bruteforce);
     
-                %grab the full model from sim and ground truth from results
-                % modelComp.fullM_fitEllipse_sampled_comp_unscaled(i,j,:,:,s) = ...
-                %     sim.fitEllipse_sampled_comp_unscaled(i,j,:,:);
-                % modelComp.fullM_ellParam(i,j,:,s) = sim.ellParams(i,j,:);
-    
                 modelComp.gtM_fitEllipse_unscaled(i,j,:,:,s) = squeeze(...
                     results.fitEllipse_unscaled(sim.slc_fixedVal_idx,...
                     sim.slc_RGBplane,i,j,:,:));
@@ -73,7 +68,7 @@ for s = 1:nDataFiles
     end
 end
 
-%% helping functions
+%% compute mean and error bars
 if ~flag_loadExistingModelComp
     errbar_lb_idx = 1;
     errbar_ub_idx = nDataFiles;

@@ -5,8 +5,8 @@ analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
 myDataDir   = 'Simulation_DataFiles';
 intendedDir = fullfile(analysisDir, myDataDir);
 addpath(intendedDir);
-% load('Sims_isothreshold_RG plane_sim240perCond_samplingNearContour_jitter0.1.mat', 'sim')
-load('Sims_isothreshold_GB plane_sim2000perCond_samplingRandom_range0.025.mat', 'sim')
+load('Sims_isothreshold_RG plane_sim240perCond_samplingNearContour_jitter0.1.mat', 'sim')
+% load('Sims_isothreshold_GB plane_sim2000perCond_samplingRandom_range0.025.mat', 'sim')
 load('Isothreshold_contour_CIELABderived.mat', 'D');
 param   = D{1};
 stim    = D{2};
@@ -17,8 +17,6 @@ plt     = D{4};
 model.max_deg           = 3;     %corresponds to p in Alex's document
 model.nDims             = 2;     %corresponds to a = 1, a = 2 
 model.eDims             = 0;     %extra dimensions
-model.scaling_elevation = -1;
-model.scaling_streching = 2;
 model.num_grid_pts      = 100;
 model.num_MC_samples    = 100;   %number of monte carlo simulation
 

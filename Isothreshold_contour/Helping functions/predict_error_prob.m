@@ -73,19 +73,6 @@ function pIncorrect = predict_error_prob(W, coeffs_chebyshev, x,xbar, ...
             q = mvnpdf(squeeze(z(t,v,:,:)), squeeze(xbar(t,v,:))', ...
                 squeeze(Sigma_bar(t,v,:,:)));
             pIncorrect(t,v) = mean(min(p,q)./(p+q));
-            
-            % pC_x = mvnpdf(squeeze(z_s(t,v,:,:)), squeeze(x(t,v,:))',...
-            %     squeeze(Sigma(t,v,:,:)));
-            % pInc_x = mvnpdf(squeeze(z_sbar(t,v,:,:)), squeeze(x(t,v,:))',...
-            %     squeeze(Sigma(t,v,:,:)));
-            % pC_xbar = mvnpdf(squeeze(z_sbar(t,v,:,:)), squeeze(xbar(t,v,:))',...
-            %     squeeze(Sigma_bar(t,v,:,:)));
-            % pInc_xbar = mvnpdf(squeeze(z_s(t,v,:,:)), squeeze(xbar(t,v,:))',...
-            %     squeeze(Sigma_bar(t,v,:,:)));
-            % pC = pC_x.*pC_xbar;
-            % pInc = pInc_x.*pInc_xbar;
-            % p_normalization = pC + pInc;
-            % pIncorrect(t,v) = mean(pInc./p_normalization);
         end
     end
 end
