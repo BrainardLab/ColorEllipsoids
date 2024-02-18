@@ -101,7 +101,7 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
                         patch([contour_CI_lb_ij(1,1), contour_CI_ub_ij(:,1)', ...
                             fliplr(contour_CI_lb_ij(:,1)')], [contour_CI_lb_ij(1,2),...
                             contour_CI_ub_ij(:,2)', fliplr(contour_CI_lb_ij(:,2)')],...
-                            [0,0,0],'FaceAlpha',0.5,'EdgeColor','none');
+                            [0,0,0],'FaceAlpha',0.2,'EdgeColor','none');
                     end
                 end
             end
@@ -189,7 +189,9 @@ function plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,...
         analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
         if ~exist('h2','var'); myFigDir = 'Simulation_FigFiles';
         else; myFigDir = 'ModelFitting_FigFiles'; end
-        if ~isempty(WishartEllipses_contour_CI); myFigDir = 'ModelComparison_FigFiles'; end
+        if ~isempty(WishartEllipses_contour_CI) || ~isempty(IndividualEllipses_contour_CI)
+            myFigDir = 'ModelComparison_FigFiles'; 
+        end
         outputDir = fullfile(analysisDir, myFigDir);
         if ~exist(outputDir, 'dir')
             mkdir(outputDir);

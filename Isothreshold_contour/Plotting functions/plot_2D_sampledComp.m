@@ -13,6 +13,7 @@ function plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, ...
     p.addParameter('WishartEllipsesColor',[76,153,0]./255, @(x)(isnumeric(x)));
     p.addParameter('marker1',".",@ischar);
     p.addParameter('marker0','*',@ischar);
+    p.addParameter('lineWidth',1,@isnumeric);
     p.addParameter('markerColor1', [173,216,230]./255, @(x)(isnumeric(x) && length(x)==3));
     p.addParameter('markerColor0', [255,179,138]./255, @(x)(isnumeric(x) && length(x)==3));
     p.addParameter('figPos', [0, 0.1,0.415,0.7], @(x)(isnumeric(x) && length(x)==4));
@@ -32,6 +33,7 @@ function plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, ...
     mc_ellipseW      = p.Results.WishartEllipsesColor;
     mk1              = p.Results.marker1;
     mk0              = p.Results.marker0;
+    lw               = p.Results.lineWidth;
     mc1              = p.Results.markerColor1;
     mc0              = p.Results.markerColor0;
     figPos           = p.Results.figPos;
@@ -75,7 +77,7 @@ function plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, ...
             % ground truth
             if ~isempty(groundTruth)
                 h1 = plot(squeeze(groundTruth(i,j,:,1)),squeeze(groundTruth(i,j,:,2)),...
-                     'Color',mc_ellipse,'lineStyle','--','lineWidth',1);    
+                     'Color',mc_ellipse,'lineStyle','--','lineWidth',lw);    
             end
 
             % fits
@@ -85,7 +87,7 @@ function plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, ...
                     jj = find(j == slc_y_grid_ref);
                     h2 = plot(squeeze(modelPredictions(ii,jj,:,1)),...
                          squeeze(modelPredictions(ii,jj,:,2)),...
-                         'Color',mc_ellipseW,'lineStyle','-','lineWidth',1); 
+                         'Color',mc_ellipseW,'lineStyle','-','lineWidth',lw); 
                 end
             end
             
@@ -100,7 +102,7 @@ function plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, ...
 
             if exist('h2','var') && exist('h1','var')
                 if i == 1 && j == nGrid_y
-                    legend([h1, h2], {'Ground truth','Wishart model predictions'},...
+                    legend([h1, h2], {'Ground truth','Full model predictions'},...
                         'Location','southeast'); 
                     legend boxoff
                 end

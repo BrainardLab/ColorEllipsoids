@@ -40,7 +40,7 @@ sim.pC_given_alpha_beta  = ComputeWeibTAFC(stim.deltaE_1JND,sim.alpha,sim.beta);
 sim.nSims                = 480; %40; 80; 240; 360
 sim.random_jitter        = 0.1; %small jitter: 0.1; medium jitter: 0.2
 sim.range_randomSampling = [-0.025, 0.025];
-sim.method_sampling      = 'NearContour';
+sim.method_sampling      = 'Random'; %'NearContour'
 
 %for each reference stimulus
 for i = 1:stim.nGridPts_ref
