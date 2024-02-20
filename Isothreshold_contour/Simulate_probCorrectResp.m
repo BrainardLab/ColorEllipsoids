@@ -1,5 +1,5 @@
 clear all; close all; clc; 
-seed = rng(11);
+seed = rng(1);
 
 %% load isothreshold contours simulated based on CIELAB
 analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
