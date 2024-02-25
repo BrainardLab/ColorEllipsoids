@@ -6,20 +6,26 @@ addpath(genpath('/Users/fangfang/Documents/MATLAB/toolboxes/gif/'))
 % Load in LMS cone fundamentals
 S = [400 5 61];
 load T_cones_ss2.mat
-param.T_cones = SplineCmf(S_cones_ss2,T_cones_ss2,S); 
+T_cones = SplineCmf(S_cones_ss2,T_cones_ss2,S);
+param.T_cones = T_cones; 
 %size: 3 (cone types) x 61 (sampled wavelengths)
+save('T_cones.mat','T_cones');
 
 % Load in primaries for a monitor
 load B_monitor.mat
-param.B_monitor = SplineSpd(S_monitor,B_monitor,S);
+B_monitor = SplineSpd(S_monitor,B_monitor,S);
+param.B_monitor = B_monitor;
 %size: 61 (sampled wavelengths) x 3 (primaries)
 % M_RGBToLMS = T_cones*B_monitor;
+save('B_monitor.mat','B_monitor');
 
 % Load in XYZ color matching functions
 load T_xyzCIEPhys2.mat
 T_xyz = SplineCmf(S_xyzCIEPhys2,T_xyzCIEPhys2,S);
-param.M_LMSToXYZ = ((param.T_cones)'\(T_xyz)')';
+M_LMSToXYZ = ((param.T_cones)'\(T_xyz)')';
+param.M_LMSToXYZ = M_LMSToXYZ;
 %T_xyz = (param.M_LMSToXYZ * param.T_cones)'
+save('M_LMSToXYZ.mat','M_LMSToXYZ');
 
 %% First create a cube and select the RG, the RB and the GB planes
 %discretize RGB values
