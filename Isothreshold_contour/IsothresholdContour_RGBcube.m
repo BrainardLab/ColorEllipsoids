@@ -9,7 +9,7 @@ load T_cones_ss2.mat
 T_cones = SplineCmf(S_cones_ss2,T_cones_ss2,S);
 param.T_cones = T_cones; 
 %size: 3 (cone types) x 61 (sampled wavelengths)
-save('T_cones.mat','T_cones');
+% save('T_cones.mat','T_cones');
 
 % Load in primaries for a monitor
 load B_monitor.mat
@@ -17,7 +17,7 @@ B_monitor = SplineSpd(S_monitor,B_monitor,S);
 param.B_monitor = B_monitor;
 %size: 61 (sampled wavelengths) x 3 (primaries)
 % M_RGBToLMS = T_cones*B_monitor;
-save('B_monitor.mat','B_monitor');
+% save('B_monitor.mat','B_monitor');
 
 % Load in XYZ color matching functions
 load T_xyzCIEPhys2.mat
@@ -25,7 +25,7 @@ T_xyz = SplineCmf(S_xyzCIEPhys2,T_xyzCIEPhys2,S);
 M_LMSToXYZ = ((param.T_cones)'\(T_xyz)')';
 param.M_LMSToXYZ = M_LMSToXYZ;
 %T_xyz = (param.M_LMSToXYZ * param.T_cones)'
-save('M_LMSToXYZ.mat','M_LMSToXYZ');
+% save('M_LMSToXYZ.mat','M_LMSToXYZ');
 
 %% First create a cube and select the RG, the RB and the GB planes
 %discretize RGB values
@@ -95,7 +95,7 @@ plt.circleIn2D         = UnitCircleGenerate(plt.nThetaEllipse);
 
 %%
 %for each fixed R / G / B value in the BG / RB / RG plane
-for l = 1:stim.len_fixed_RGBvec
+for l = 5:5%1:stim.len_fixed_RGBvec
     disp(l)
     %set the background RGB 
     background_RGB_l = stim.background_RGB(:,l);
@@ -118,31 +118,31 @@ for l = 1:stim.len_fixed_RGBvec
                     rgb_ref_pij);
                 results.ref_Lab(l,p,i,j,:) = ref_Lab_lpij;
                 
-                %for each chromatic direction
-                for k = 1:stim.numDirPts-1
-                    %determine the direction we are going 
-                    vecDir(idx_varyingDim) = stim.grid_theta_xy(:,k);
-    
-                    %run fmincon to search for the magnitude of vector that
-                    %leads to a pre-determined deltaE
-                    results.opt_vecLen(l,p,i,j,k) = find_vecLen(...
-                        background_RGB_l, rgb_ref_pij, ref_Lab_lpij, ...
-                        vecDir, param,stim);
-                end
-                
-                %fit an ellipse
-                [results.fitEllipse(l,p,i,j,:,:), ...
-                    results.fitEllipse_unscaled(l,p,i,j,:,:), ...
-                    results.rgb_contour_scaled(l,p,i,j,:,:),...
-                    results.rgb_contour_cov(l,p,i,j,:,:), ...
-                    results.ellParams(l,p,i,j,:),...
-                    results.AConstraint(l,p,i,j,:,:),...
-                    results.Ainv(l,p,i,j,:,:), results.Q(l,p,i,j,:,:),~] = ...
-                    fit_2d_isothreshold_contour(rgb_ref_pij, [],stim.grid_theta_xy, ...
-                    'vecLength',squeeze(results.opt_vecLen(l,p,i,j,:)),...
-                    'varyingRGBplane',idx_varyingDim, ...
-                    'nThetaEllipse',plt.nThetaEllipse,...
-                    'ellipse_scaler',results.contour_scaler);
+                % %for each chromatic direction
+                % for k = 1:stim.numDirPts-1
+                %     %determine the direction we are going 
+                %     vecDir(idx_varyingDim) = stim.grid_theta_xy(:,k);
+                % 
+                %     %run fmincon to search for the magnitude of vector that
+                %     %leads to a pre-determined deltaE
+                %     results.opt_vecLen(l,p,i,j,k) = find_vecLen(...
+                %         background_RGB_l, rgb_ref_pij, ref_Lab_lpij, ...
+                %         vecDir, param,stim);
+                % end
+                % 
+                % %fit an ellipse
+                % [results.fitEllipse(l,p,i,j,:,:), ...
+                %     results.fitEllipse_unscaled(l,p,i,j,:,:), ...
+                %     results.rgb_contour_scaled(l,p,i,j,:,:),...
+                %     results.rgb_contour_cov(l,p,i,j,:,:), ...
+                %     results.ellParams(l,p,i,j,:),...
+                %     results.AConstraint(l,p,i,j,:,:),...
+                %     results.Ainv(l,p,i,j,:,:), results.Q(l,p,i,j,:,:),~] = ...
+                %     fit_2d_isothreshold_contour(rgb_ref_pij, [],stim.grid_theta_xy, ...
+                %     'vecLength',squeeze(results.opt_vecLen(l,p,i,j,:)),...
+                %     'varyingRGBplane',idx_varyingDim, ...
+                %     'nThetaEllipse',plt.nThetaEllipse,...
+                %     'ellipse_scaler',results.contour_scaler);
             end
         end
     end
@@ -155,7 +155,7 @@ plot_2D_isothreshold_contour(stim.x_grid_ref, stim.y_grid_ref, ...
     'EllipsesLine','-',...
     'refColor',[1,1,1],...
     'visualizeRawData',true,...
-    'saveFig',true,...
+    'saveFig',false,...
     'rgb_background',true)
 
 %visualize just one slice
@@ -165,7 +165,7 @@ plot_2D_isothreshold_contour(stim.x_grid_ref, stim.y_grid_ref, ...
     'refColor',[1,1,1],...
     'EllipsesLine','-',...
     'visualizeRawData',true,...
-    'saveFig',true)
+    'saveFig',false)
 
 %% save the data
 D = {param, stim, results, plt};
@@ -178,40 +178,4 @@ end
 outputName = fullfile(outputDir, "Isothreshold_contour_CIELABderived.mat");
 save(outputName,'D');
 
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%                           HELPING FUNCTIONS
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-function [deltaE, comp_RGB] = compute_deltaE(vecLen, background_RGB, ...
-    ref_RGB, ref_Lab, vecDir, param)
-    %compute comparison RGB
-    comp_RGB = ref_RGB + vecDir.*vecLen;
-
-    %convert it to Lab
-    [comp_Lab, ~, ~] = convert_rgb_lab(param.B_monitor,background_RGB,...
-        param.T_cones, param.M_LMSToXYZ, comp_RGB);
-    deltaE = norm(comp_Lab - ref_Lab);
-end
-
-function opt_vecLen = find_vecLen(background_RGB, ref_RGB, ref_Lab, ...
-    vecDir, param, stim)
-    deltaE = @(d) abs(compute_deltaE(d, background_RGB, ref_RGB,...
-        ref_Lab, vecDir, param) - stim.deltaE_1JND);
-    %have different initial points to avoid fmincon from getting stuck at
-    %some places
-    lb = 0; ub = 0.1;
-    N_runs  = 1;
-    init    = rand(1,N_runs).*(ub-lb) + lb;
-    options = optimoptions(@fmincon, 'MaxIterations', 1e5, 'Display','off');
-    [vecLen_n, deltaE_n] = deal(NaN(1, N_runs));
-    for n = 1:N_runs
-        %use fmincon to search for the optimal defocus
-        [vecLen_n(n), deltaE_n(n)] = fmincon(deltaE, init(n), ...
-            [],[],[],[],lb,ub,[],options);
-    end
-    %find the index that corresponds to the minimum value
-    [~,idx_min] = min(deltaE_n);
-    %find the corresponding optimal focus that leads to the highest peak of
-    %the psf's
-    opt_vecLen = vecLen_n(idx_min);
-end
 
