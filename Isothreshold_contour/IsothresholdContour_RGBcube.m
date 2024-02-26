@@ -100,7 +100,7 @@ for l = 5:5%1:stim.len_fixed_RGBvec
     %set the background RGB 
     background_RGB_l = stim.background_RGB(:,l);
     %for each plane
-    for p = 1:param.nPlanes
+    for p = 1:1%1:param.nPlanes
         %vecDir is a vector that tells us how far we move along a specific direction 
         vecDir = NaN(param.nPlanes,1); vecDir(p) = 0; 
         %indices for the varying chromatic directions 
@@ -116,6 +116,7 @@ for l = 5:5%1:stim.len_fixed_RGBvec
                 [ref_Lab_lpij, ~, ~] = convert_rgb_lab(param.B_monitor,...
                     background_RGB_l, param.T_cones, param.M_LMSToXYZ,... 
                     rgb_ref_pij);
+                disp(ref_Lab_lpij'./sum(ref_Lab_lpij))
                 results.ref_Lab(l,p,i,j,:) = ref_Lab_lpij;
                 
                 % %for each chromatic direction
