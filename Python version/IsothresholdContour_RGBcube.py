@@ -14,6 +14,7 @@ import pdb #pdb.set_trace()
 from scipy.optimize import minimize
 from skimage.measure import EllipseModel
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 
 path_str = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox"
 os.chdir(path_str)
@@ -317,6 +318,7 @@ plt_specifics = {}
 #the raw isothreshold contou is very tiny, we can amplify it by 5 times for the purpose of visualization
 plt_specifics['contour_scaler'] = 5
 plt_specifics['nThetaEllipse'] = 200
+plt_specifics['colorMatrix'] = stim['ref_points']
 plt_specifics['circleIn2D'] = UnitCircleGenerate(plt_specifics['nThetaEllipse'])
 
 #%%
@@ -339,7 +341,7 @@ results['ellParams'] = np.full((param['nPlanes'], stim['nGridPts_ref'],\
                             stim['nGridPts_ref'], 5),  np.nan) #5 free parameters for the ellipse
 
 #for each fixed R / G / B value in the BG / RB / RG plane
-for p in range(1):#range(param['nPlanes']):
+for p in range(param['nPlanes']):
     #vecDir is a vector that tells us how far we move along a specific direction 
     vecDir = np.zeros((1,param['nPlanes']))
     #indices for the varying chromatic directions 
@@ -379,7 +381,8 @@ for p in range(1):#range(param['nPlanes']):
                     ellipse_scaler = plt_specifics['contour_scaler'])
                                                         
 #%% PLOTTING 
-def plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse, fixed_RGBvec,**kwargs):
+def plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,
+                                 fixed_RGBvec,**kwargs):
     #default values for optional parameters
     pltParams = {
         'slc_x_grid_ref': np.arange(len(x_grid_ref)),
@@ -393,7 +396,7 @@ def plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse, fixed_RGBve
         'rgb_background':True,
         'subTitles':['GB plane', 'RB plane', 'RG plane'],
         'refColor':[0,0,0],
-        'EllipsesColor':[1,1,1],
+        'EllipsesColor':[0,0,0],
         'WishartEllipsesColor':[76/255, 153/255,0],
         'ExtrapEllipsesColor':[0.5,0.5,0.5],
         'EllipsesLine':'--',
@@ -401,6 +404,7 @@ def plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse, fixed_RGBve
         'ExtrapEllipsesLine':':',
         'xlabel':'',
         'ylabel':'',
+        'fontsize':10,
         'saveFig':False,
         'figName':'Isothreshold_contour',
         }
@@ -415,25 +419,35 @@ def plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse, fixed_RGBve
     x = np.array([0,0,1,1])
     y = np.array([1,0,0,1])
     
-    fig, ax = plt.subplots(1, nPlanes)
-    ax = ax.flatten()
+    fig, ax = plt.subplots(1, nPlanes,figsize=(20, 6))
     
     for p in range(nPlanes):
+        #pdb.set_trace()
         if pltParams['rgb_background']:
             #fill in RGB color
             print('later')
         
-        if pltParams['visualizeRawData']:
-            print('later')
-            
-        #fitted ellipse 
-        for i in range(1):#range(nGridPts_ref_x):
-            for j in range(1): #range(nGridPts_ref_y):
-                pdb.set_trace()
-                ax[p].plot(fitEllipse[p,i,j,0,:], fitEllipse[p,i,j,1,:],\
+        #Ground truth
+        for i in range(nGridPts_ref_x):
+            for j in range(nGridPts_ref_y):
+                #reference location 
+                ax[p].scatter(x_grid_ref[pltParams['slc_x_grid_ref']],\
+                              y_grid_ref[pltParams['slc_y_grid_ref']],\
+                                  s = 10,c = pltParams['refColor'],marker ='+',linewidth = 1)
+                
+                #ellipses
+                ax[p].plot(fitEllipse[p,i,j,0,:],\
+                           fitEllipse[p,i,j,1,:],\
                           linestyle = pltParams['EllipsesLine'],\
-                          color = np.array(pltParams['EllipsesColor']),\
-                          linewidth = 1.5)
+                          color = pltParams['EllipsesColor'],\
+                          linewidth = 1)
+                    
+                #individual ellipse
+                if pltParams['visualizeRawData']:
+                    ax[p].scatter(pltParams['rgb_contour'][p,i,j,0,:],\
+                                  pltParams['rgb_contour'][p,i,j,1,:],\
+                                      marker ='o', color = [0.6,0.6,0.6],\
+                                          s = 20)
                     
         ax[p].set_xlim([0,1])
         ax[p].set_ylim([0,1])
@@ -441,13 +455,20 @@ def plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse, fixed_RGBve
         ax[p].set_xticks(np.arange(0,1.2,0.2))
         ax[p].set_yticks(np.arange(0,1.2,0.2))
         ax[p].set_title(pltParams['subTitles'][p])
-        ax[p].set_xlabel(pltParams['xlabel'])
-        ax[p].set_ylabel(pltParams['ylabel'])
+        if pltParams['xlabel'] == '': xlbl = pltParams['subTitles'][p][0]
+        if pltParams['ylabel'] == '': ylbl = pltParams['subTitles'][p][1]
+        ax[p].set_xlabel(xlbl)
+        ax[p].set_ylabel(ylbl)
+        ax[p].tick_params(axis='both', which='major', labelsize=pltParams['fontsize'])
 
-    plt.show()
-    
+    #plt.show()
+
+#%%
 plot_2D_isothreshold_contour(stim['x_grid_ref'], stim['y_grid_ref'],\
-                             results['fitEllipse_scaled'], [])    
+                             results['fitEllipse_scaled'], [],\
+                             visualizeRawData = True,\
+                                 rgb_contour = results['rgb_comp_contour_scaled'],\
+                                 EllipsesLine = '-', fontsize =12)    
 
 
 
