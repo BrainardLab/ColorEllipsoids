@@ -10,43 +10,41 @@ import os
 import colour
 import math
 import numpy as np
-import pdb #pdb.set_trace()
 from scipy.optimize import minimize
 from skimage.measure import EllipseModel
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
+import pickle
 
 path_str = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox"
 os.chdir(path_str)
 
-#%%
+#%% FUNCTIONS
 def get_gridPts(X, Y, val_fixed_dim, fixed_dim = list(range(3))):
     """
-GET_GRIDPTS Generates grid points for RGB values with one dimension fixed.
+    GET_GRIDPTS Generates grid points for RGB values with one dimension fixed.
 
-This function returns a cell array of grid points for RGB combinations
-when one of the R, G, or B dimensions is fixed to a specific value. The
-grid points are generated based on the input ranges for the two varying
-dimensions.
+    This function returns a cell array of grid points for RGB combinations
+    when one of the R, G, or B dimensions is fixed to a specific value. The
+    grid points are generated based on the input ranges for the two varying
+    dimensions.
 
-Parameters:
-X - A vector of values for the first varying dimension.
-Y - A vector of values for the second varying dimension.
-fixed_dim - An array of indices (1 for R, 2 for G, 3 for B) indicating 
-            which dimension(s) to fix. Can handle multiple dimensions.
-val_fixed_dim - An array of values corresponding to each fixed dimension
-                specified in `fixed_dim`. Each value in `val_fixed_dim`
-                is used to fix the value of the corresponding dimension.
+    Parameters:
+    - X (array; N x N): specifying the range of values for the first varying dimension.
+    - Y (array; N x N): pecifying the range of values for the second varying dimension.
+        where N is the number of grid points
+    - val_fixed_dim (array; 3,): A list or array of values for the fixed dimension(s). 
+    - fixed_dim (list): A list indicating which dimension(s) are to be 
+        fixed (0 for R, 1 for G, 2 for B). The default value `[0, 1, 2]` 
+        indicates all dimensions are considered for fixing.
 
-Returns:
-grid_pts - A cell array where each cell contains a 3D matrix of grid 
-           points. Each matrix corresponds to a set of RGB values where 
-           one dimension is fixed. The size of each matrix is determined 
-           by the lengths of X and Y, with the third dimension representing
-           the RGB channels.
+    Returns:
+    - grid_pts (array): NumPy array of shape `(len(fixed_dim), 3, len(X), len(Y))`, 
+        representing grid points in RGB space (2nd dimension). Each slice of the
+        first dimension corresponds to a specific combination of fixed and varying 
+        dimensions, where one or more dimensions are fixed at specified values.
     """
-    #Initialize a cell array to hold the grid points for each fixed dimension.
-    grid_pts = [] 
+    #Initialize an array to hold the grid points for each fixed dimension.
+    grid_pts = np.full((len(fixed_dim),3, X.shape[0], X.shape[1]), np.nan) 
     #Loop through each fixed dimension specified.
     for i in range(len(fixed_dim)):
         #Determine the dimensions that will vary.
@@ -60,7 +58,7 @@ grid_pts - A cell array where each cell contains a 3D matrix of grid
         grid_pts_i[varying_dim[1],:,:] = Y
         #Concatenate the individual dimension arrays into a 3D matrix and
         #store it in the output cell array.
-        grid_pts.append(grid_pts_i)
+        grid_pts[i,:,:,:] = grid_pts_i
         
     return grid_pts
 
@@ -84,7 +82,7 @@ def UnitCircleGenerate(nTheta):
     
     return x
 
-#%%
+#%% LOAD DATA WE NEED
 #load data
 param = {}
 T_cones_mat = loadmat('T_cones.mat')
@@ -104,7 +102,7 @@ param['x_grid'], param['y_grid'] = np.meshgrid(param['grid'], param['grid'])
 #number of selected planes
 param['nPlanes'] = 3
 
-#%%
+#%% FUNCTIONS
 def convert_rgb_lab(monitor_Spd, background_RGB, color_RGB,\
                     T_CONES = param['T_cones'],\
                     M_LMS_TO_XYZ = param['M_LMSToXYZ']):
@@ -115,11 +113,18 @@ def convert_rgb_lab(monitor_Spd, background_RGB, color_RGB,\
     color space (M_LMS_TO_XYZ).
 
     Parameters:
-    - monitor_Spd: Spectral power distribution of the monitor.
-    - background_RGB: Background RGB values used for normalization.
-    - T_CONES: Matrix of cone sensitivities for absorbing photons at different wavelengths.
-    - M_LMS_TO_XYZ: Matrix to convert LMS cone responses to CIEXYZ.
-    - color_RGB: RGB color value(s) to be converted.
+    - monitor_Spd (array; N x 3): Spectral power distribution of the monitor.
+    - background_RGB (array; 3 x 1): Background RGB values used for normalization.
+    - T_CONES (array; 3 x N): Matrix of cone sensitivities for absorbing photons at different wavelengths.
+    - M_LMS_TO_XYZ (array; 3 x 3): Matrix to convert LMS cone responses to CIEXYZ.
+    - color_RGB (array; 3,): RGB color value(s) to be converted.
+        where N is the number of selected wavelengths
+    
+    Returns:
+    - color_Lab (array; 3,): The converted color(s) in CIELab color space, a 1D array.
+    - color_XYZ (array; 3,): The intermediate CIEXYZ color space representation, a 1D array.
+    - color_LMS (array; 3,): The LMS cone response representation, a 1D array.
+
     """
 
     # Convert background RGB to SPD using the monitor's SPD
@@ -143,7 +148,7 @@ def convert_rgb_lab(monitor_Spd, background_RGB, color_RGB,\
     background_XYZ_reshape = background_XYZ_arr.reshape(1,3)
     background_xyY = colour.XYZ_to_xyY(background_XYZ_reshape)
 
-    color_Lab = colour.XYZ_to_Lab(color_XYZ, background_xyY[0]) #xyz2lab(color_XYZ)#
+    color_Lab = colour.XYZ_to_Lab(color_XYZ, background_xyY[0]) 
     #print(color_Lab)
     
     return color_Lab, color_XYZ, color_LMS
@@ -158,14 +163,18 @@ def compute_deltaE(vecLen, background_RGB, ref_RGB, ref_Lab, vecDir,\
     is derived based on a specified chromatic direction and length from the reference.
 
     Parameters:
-    - vecLen (float): The length to move in the specified direction from the reference stimulus.
-    - background_RGB (array): The RGB values of the background, used in the conversion process.
-    - ref_RGB (array): The RGB values of the reference stimulus.
-    - ref_Lab (array): The CIELab values of the reference stimulus.
-    - vecDir (array): The direction vector along which the comparison stimulus varies from the reference.
+    - vecLen (array): The length to move in the specified direction from the 
+        reference stimulus.
+    - background_RGB (array; 3 x 1): The RGB values of the background, used 
+        in the conversion process.
+    - ref_RGB (array; 3,): The RGB values of the reference stimulus.
+    - ref_Lab (array; 3,): The CIELab values of the reference stimulus.
+    - vecDir (array; 1 x 3): The direction vector along which the comparison 
+        stimulus varies from the reference.
 
     Returns:
-    - deltaE (float): The computed perceptual difference between the reference and comparison stimuli.
+    - deltaE (float): The computed perceptual difference between the reference 
+        and comparison stimuli.
     """
 
     #pdb.set_trace()
@@ -187,30 +196,82 @@ def compute_deltaE(vecLen, background_RGB, ref_RGB, ref_Lab, vecDir,\
 def find_vecLen(background_RGB, ref_RGB_test, ref_Lab_test, vecDir_test, deltaE = 1,                  
                 T_CONES = param['T_cones'], M_LMS_TO_XYZ = param['M_LMSToXYZ'],
                 B_monitor = param['B_monitor']):
+    """
+    This function finds the optimal vector length for a chromatic direction
+    that achieves a target perceptual difference in the CIELab color space.
+
+    Parameters:
+    - background_RGB (array): The RGB values of the background
+    - ref_RGB_test (array): The RGB values of the reference stimulus
+    - ref_Lab_test (array): The CIELab values of the reference stimulus
+    - vecDir_test (array): The chromatic direction vector for comparison stimulus variation
+    - deltaE (float): The target deltaE value (e.g., 1 JND)
+    
+    Returns:
+    - opt_vecLen (float): The optimal vector length that achieves the target deltaE value
+    """
+    #The lambda function computes the absolute difference between the
+    #deltaE obtained from compute_deltaE function and the target deltaE.
     deltaE_func = lambda d: abs(compute_deltaE(d, background_RGB, ref_RGB_test,\
                                                ref_Lab_test, vecDir_test, T_CONES,\
                                                M_LMS_TO_XYZ, B_monitor) - deltaE)
         
-    
+    # Define the lower and upper bounds for the search of the vector length.
+    # Define the number of runs for optimization to ensure we don't get stuck 
+    # at local minima
     lb, ub, N_runs = 0, 0.1, 3
+    # Generate initial points for the optimization algorithm within the bounds.
     init = np.random.rand(1, N_runs) * (ub - lb) + lb
+    # Set the options for the optimization algorithm.
     options = {'maxiter': 1e5, 'disp': False}
+    # Initialize arrays to store the vector lengths and corresponding deltaE 
+    #values for each run.
     vecLen_n = np.empty(N_runs)
     deltaE_n = np.empty(N_runs)
     
+    # Loop over the number of runs to perform the optimizations.
     for n in range(N_runs):
-        res = minimize(deltaE_func, init[0][n],method='SLSQP', bounds=[(lb, ub)], options=options)
+        # Use scipy's minimize function to find the vector length that minimizes
+        # the difference to the target deltaE. SLSQP method is used for 
+        #constrained optimization.
+        res = minimize(deltaE_func, init[0][n],method='SLSQP', bounds=[(lb, ub)], \
+                       options=options)
+        # Store the result of each optimization run.
         vecLen_n[n] = res.x
         deltaE_n[n] = res.fun
         
-    # Finding the optimal value
+    # Identify the index of the run that resulted in the minimum deltaE value.
     idx_min = np.argmin(deltaE_n)
+    # Choose the optimal vector length from the run with the minimum deltaE value.
     opt_vecLen = vecLen_n[idx_min]
     
     return opt_vecLen
 
-#%%
+#%% FUNCTIONS
 def PointsOnEllipseQ(a, b, theta, xc, yc, nTheta = 200):
+    """
+    Generates points on an ellipse using parametric equations.
+    
+    The function scales points from a unit circle to match the given ellipse
+    parameters and then rotates the points by the specified angle.
+
+    Parameters:
+    - a (float): The semi-major axis of the ellipse.
+    - b (float): The semi-minor axis of the ellipse.
+    - theta (float): The rotation angle of the ellipse in degrees, measured 
+        from the x-axis to the semi-major axis in the counter-clockwise 
+        direction.
+    - xc (float): The x-coordinate of the center of the ellipse
+    - yc (float): The y-coordinate of the center of the ellipse
+    - nTheta (int): The number of angular points used to generate the unit 
+        circle, which is then scaled to the ellipse. More points will make the
+        ellipse appear smoother. Default value is 200.   
+
+    Returns:
+    - x_rotated (array): The x-coordinates of the points on the ellipse.
+    - y_rotated (array): The y-coordinates of the points on the ellipse.
+
+    """
     #generate points for unit circle
     circle = UnitCircleGenerate(nTheta) #shape: (2,100)
     x_circle, y_circle = circle[0,:], circle[1,:]
@@ -227,6 +288,40 @@ def PointsOnEllipseQ(a, b, theta, xc, yc, nTheta = 200):
     return x_rotated, y_rotated
 
 def fit_2d_isothreshold_contour(ref_RGB, comp_RGB, grid_theta_xy, **kwargs):
+    """
+    Fits an ellipse to 2D isothreshold contours for color stimuli.
+    
+    This function takes reference and comparison RGB values and fits an ellipse
+    to the isothreshold contours based on the provided grid of angle points.
+    It allows for scaling and adjusting of the contours with respect to a 
+    reference stimulus.
+    
+    Parameters:
+    - ref_RGB (array; 3,): The reference RGB values.
+    - comp_RGB (array): The comparison RGB values. If empty, they will be 
+        computed within the function.
+    - grid_theta_xy (array; 2 x M): A grid of angles (in the xy plane) used to 
+        generate the comparison stimuli.
+            where M is the number of chromatic directions
+    - kwargs (dict)
+        Additional keyword arguments:
+        - vecLength: Length of the vector (optional).
+        - nThetaEllipse: Number of angular points to use for fitting the ellipse (default 200).
+        - varyingRGBplane: The RGB plane that varies (optional).
+        - ellipse_scaler: The factor by which the ellipse is scaled (default 5).
+
+    Returns:
+    - fitEllipse_scaled (array; 2 x nThethaEllipse): The scaled coordinates of 
+        the fitted ellipse.
+    - fitEllipse_unscaled (array; 2 x nThethaEllipse): The unscaled coordinates 
+        of the fitted ellipse.
+    - rgb_comp_scaled (array; 2 x M): The scaled comparison stimuli RGB values.
+    - rgb_contour_cov (array; 2 x 2): The covariance matrix of the comparison stimuli.
+    - ellipse_params (list): The parameters of the fitted ellipse: 
+        [xCenter, yCenter, majorAxis, minorAxis, theta].
+
+    """
+    
     # Accessing a keyword argument with a default value if it's not provided
     vecLen = kwargs.get('vecLength', [])
     nThetaEllipse = kwargs.get('nThetaEllipse',200)
@@ -248,7 +343,7 @@ def fit_2d_isothreshold_contour(ref_RGB, comp_RGB, grid_theta_xy, **kwargs):
         
     else:
         #use provided comparison stimuli
-        rgb_comp_trunc = comp_RGB[idx_varyingDim,:]
+        rgb_comp_trunc = comp_RGB[varyingRGBplane,:]
         rgb_comp_scaled = rgb_ref_trunc + rgb_comp_trunc * ellipse_scaler
         rgb_contour_cov = np.cov(rgb_comp_trunc)
         
@@ -276,111 +371,8 @@ def fit_2d_isothreshold_contour(ref_RGB, comp_RGB, grid_theta_xy, **kwargs):
         
     return fitEllipse_scaled, fitEllipse_unscaled, rgb_comp_scaled, \
         rgb_contour_cov, [xCenter, yCenter, majorAxis, minorAxis, theta]
-
-#%%
-#for RG / RB / GB plane, we fix the B / G / R value to be one of the following
-stim = {}
-stim['fixed_RGBvec'] = 0.5
-
-#get the grid points for those three planes with one dimension having a specific fixed value
-stim['plane_points'] = get_gridPts(param['x_grid'],\
-                                   param['y_grid'],\
-                                   np.full(3, stim['fixed_RGBvec']))
-
-#set a grid for the reference stimulus
-#pick 5 x 5 reference points 
-stim['grid_ref'] = np.arange(0.2, 0.8, 0.15)
-stim['nGridPts_ref'] = len(stim['grid_ref'])
-
-stim['x_grid_ref'], stim['y_grid_ref'] = np.meshgrid(stim['grid_ref'],stim['grid_ref'])
-
-#get the grid points for the reference stimuli of each plane
-stim['ref_points'] = get_gridPts(stim['x_grid_ref'],\
-                                 stim['y_grid_ref'],\
-                                 np.full(3, stim['fixed_RGBvec']))
-    
-#compute iso-threshold contour
-#set the background RGB
-stim['background_RGB'] = stim['fixed_RGBvec'] * np.ones((param['nPlanes'],1))
-
-#sample total of 16 directions (0 to 360 deg) 
-stim['numDirPts'] = 16
-stim['grid_theta'] = np.linspace(0,2*math.pi,stim['numDirPts'])
-stim['grid_theta_xy'] = np.stack((np.cos(stim['grid_theta']),\
-                                 np.sin(stim['grid_theta'])),\
-                                 axis = 0)
-
-#define threshold as deltaE = 0.5
-stim['deltaE_1JND'] = 1
-
-#make a finer grid for the direction (just for the purpose of visualization)
-plt_specifics = {}
-#the raw isothreshold contou is very tiny, we can amplify it by 5 times for the purpose of visualization
-plt_specifics['contour_scaler'] = 5
-plt_specifics['nThetaEllipse'] = 200
-plt_specifics['colorMatrix'] = stim['ref_points']
-plt_specifics['circleIn2D'] = UnitCircleGenerate(plt_specifics['nThetaEllipse'])
-
-#%%
-#initialize
-results = {}
-results['ref_Lab'] = np.full((param['nPlanes'], stim['nGridPts_ref'],\
-                            stim['nGridPts_ref'],3), np.nan)
-results['opt_vecLen'] = np.full((param['nPlanes'], stim['nGridPts_ref'],\
-                            stim['nGridPts_ref'],stim['numDirPts']), np.nan)
-results['fitEllipse_scaled'] = np.full((param['nPlanes'],stim['nGridPts_ref'],\
-                            stim['nGridPts_ref'],2,plt_specifics['nThetaEllipse']),\
-                                np.nan)
-results['fitEllipse_unscaled'] = np.full(results['fitEllipse_scaled'].shape,\
-                                         np.nan)
-results['rgb_comp_contour_scaled'] = np.full((param['nPlanes'], stim['nGridPts_ref'],\
-                            stim['nGridPts_ref'], 2, stim['numDirPts']),  np.nan)
-results['rgb_comp_contour_cov'] = np.full((param['nPlanes'], stim['nGridPts_ref'],\
-                            stim['nGridPts_ref'],2,2),np.nan)
-results['ellParams'] = np.full((param['nPlanes'], stim['nGridPts_ref'],\
-                            stim['nGridPts_ref'], 5),  np.nan) #5 free parameters for the ellipse
-
-#for each fixed R / G / B value in the BG / RB / RG plane
-for p in range(param['nPlanes']):
-    #vecDir is a vector that tells us how far we move along a specific direction 
-    vecDir = np.zeros((1,param['nPlanes']))
-    #indices for the varying chromatic directions 
-    #GB plane: [1,2]; RB plane: [0,2]; RG plane: [0,1]
-    idx_varyingDim_full = np.arange(0,param['nPlanes'])
-    idx_varyingDim = idx_varyingDim_full[idx_varyingDim_full != p]
-    
-    #for each reference stimulus
-    for i in range(stim['nGridPts_ref']):
-        for j in range(stim['nGridPts_ref']):
-            #grab the reference stimulus' RGB
-            rgb_ref_pij = stim['ref_points'][p][:,i,j]
-            #convert it to Lab
-            Lab_ref_pij,_,_ = convert_rgb_lab(param['B_monitor'],\
-                              stim['background_RGB'], rgb_ref_pij)
-            results['ref_Lab'][p,i,j,:] = Lab_ref_pij
-            
-            #for each chromatic direction
-            for k in range(stim['numDirPts']):
-                #determine the direction we are varying
-                vecDir[0][idx_varyingDim] = stim['grid_theta_xy'][:,k]
-                
-                #fun minimize to search for the magnitude of vector that 
-                #leads to a pre-determined deltaE
-                results['opt_vecLen'][p,i,j,k] = find_vecLen(stim['background_RGB'],\
-                                                            rgb_ref_pij, Lab_ref_pij,\
-                                                            vecDir,stim['deltaE_1JND'])
-            
-            #fit an ellipse
-            results['fitEllipse_scaled'][p,i,j,:,:],results['fitEllipse_unscaled'][p,i,j,:,:],\
-                results['rgb_comp_contour_scaled'][p,i,j,:,:],\
-                results['rgb_comp_contour_cov'][p,i,j,:,:],\
-                results['ellParams'][p,i,j,:] = fit_2d_isothreshold_contour(rgb_ref_pij, [], \
-                stim['grid_theta_xy'],vecLength = results['opt_vecLen'][p,i,j,:],\
-                varyingRGBplan = idx_varyingDim,\
-                    nThetaEllipse = plt_specifics['nThetaEllipse'],\
-                    ellipse_scaler = plt_specifics['contour_scaler'])
-                                                        
-#%% PLOTTING 
+        
+#%% FUNCTIONS
 def plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,
                                  fixed_RGBvec,**kwargs):
     #default values for optional parameters
@@ -415,14 +407,10 @@ def plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,
     nPlanes = fitEllipse.shape[0]
     nGridPts_ref_x = len(pltParams['slc_x_grid_ref'])
     nGridPts_ref_y = len(pltParams['slc_y_grid_ref'])
-
-    x = np.array([0,0,1,1])
-    y = np.array([1,0,0,1])
     
     fig, ax = plt.subplots(1, nPlanes,figsize=(20, 6))
     
     for p in range(nPlanes):
-        #pdb.set_trace()
         if pltParams['rgb_background']:
             #fill in RGB color
             print('later')
@@ -461,21 +449,135 @@ def plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,
         ax[p].set_ylabel(ylbl)
         ax[p].tick_params(axis='both', which='major', labelsize=pltParams['fontsize'])
 
-    #plt.show()
+#%% SIMULATIONS START HERE
+#initialize
+def main():
+    #%% DEINE STIMULUS PROPERTIES AND PLOTTING SPECIFICS
+    #for RG / RB / GB plane, we fix the B / G / R value to be one of the following
+    stim = {}
+    stim['fixed_RGBvec'] = 0.5
+    
+    #get the grid points for those three planes with one dimension having a specific fixed value
+    stim['plane_points'] = get_gridPts(param['x_grid'],\
+                                       param['y_grid'],\
+                                       np.full(3, stim['fixed_RGBvec']))
+    
+    #set a grid for the reference stimulus
+    #pick 5 x 5 reference points 
+    stim['grid_ref'] = np.arange(0.2, 0.8, 0.15)
+    stim['nGridPts_ref'] = len(stim['grid_ref'])
+    
+    stim['x_grid_ref'], stim['y_grid_ref'] = np.meshgrid(stim['grid_ref'],stim['grid_ref'])
+    
+    #get the grid points for the reference stimuli of each plane
+    stim['ref_points'] = get_gridPts(stim['x_grid_ref'],\
+                                     stim['y_grid_ref'],\
+                                     np.full(3, stim['fixed_RGBvec']))
+        
+    #compute iso-threshold contour
+    #set the background RGB
+    stim['background_RGB'] = stim['fixed_RGBvec'] * np.ones((param['nPlanes'],1))
+    
+    #sample total of 16 directions (0 to 360 deg) 
+    stim['numDirPts'] = 16
+    stim['grid_theta'] = np.linspace(0,2*math.pi,stim['numDirPts'])
+    stim['grid_theta_xy'] = np.stack((np.cos(stim['grid_theta']),\
+                                     np.sin(stim['grid_theta'])),\
+                                     axis = 0)
+    
+    #define threshold as deltaE = 0.5
+    stim['deltaE_1JND'] = 1
+    
+    #make a finer grid for the direction (just for the purpose of visualization)
+    plt_specifics = {}
+    #the raw isothreshold contou is very tiny, we can amplify it by 5 times for the purpose of visualization
+    plt_specifics['contour_scaler'] = 5
+    plt_specifics['nThetaEllipse'] = 200
+    plt_specifics['colorMatrix'] = stim['ref_points']
+    plt_specifics['circleIn2D'] = UnitCircleGenerate(plt_specifics['nThetaEllipse'])
+    plt_specifics['subTitles'] = ['GB plane', 'RB plane', 'RG plane']    
+    
+    results = {}
+    results['ref_Lab'] = np.full((param['nPlanes'], stim['nGridPts_ref'],\
+                                stim['nGridPts_ref'],3), np.nan)
+    results['opt_vecLen'] = np.full((param['nPlanes'], stim['nGridPts_ref'],\
+                                stim['nGridPts_ref'],stim['numDirPts']), np.nan)
+    results['fitEllipse_scaled'] = np.full((param['nPlanes'],stim['nGridPts_ref'],\
+                                stim['nGridPts_ref'],2,plt_specifics['nThetaEllipse']),\
+                                    np.nan)
+    results['fitEllipse_unscaled'] = np.full(results['fitEllipse_scaled'].shape,\
+                                             np.nan)
+    results['rgb_comp_contour_scaled'] = np.full((param['nPlanes'], stim['nGridPts_ref'],\
+                                stim['nGridPts_ref'], 2, stim['numDirPts']),  np.nan)
+    results['rgb_comp_contour_cov'] = np.full((param['nPlanes'], stim['nGridPts_ref'],\
+                                stim['nGridPts_ref'],2,2),np.nan)
+    results['ellParams'] = np.full((param['nPlanes'], stim['nGridPts_ref'],\
+                                stim['nGridPts_ref'], 5),  np.nan) #5 free parameters for the ellipse
+    
+    #%% for each fixed R / G / B value in the BG / RB / RG plane
+    for p in range(param['nPlanes']):
+        #vecDir is a vector that tells us how far we move along a specific direction 
+        vecDir = np.zeros((1,param['nPlanes']))
+        #indices for the varying chromatic directions 
+        #GB plane: [1,2]; RB plane: [0,2]; RG plane: [0,1]
+        idx_varyingDim_full = np.arange(0,param['nPlanes'])
+        idx_varyingDim = idx_varyingDim_full[idx_varyingDim_full != p]
+        
+        #for each reference stimulus
+        for i in range(stim['nGridPts_ref']):
+            for j in range(stim['nGridPts_ref']):
+                #grab the reference stimulus' RGB
+                rgb_ref_pij = stim['ref_points'][p,:,i,j]
+                #convert it to Lab
+                Lab_ref_pij,_,_ = convert_rgb_lab(param['B_monitor'],\
+                                  stim['background_RGB'], rgb_ref_pij)
+                results['ref_Lab'][p,i,j,:] = Lab_ref_pij
+                
+                #for each chromatic direction
+                for k in range(stim['numDirPts']):
+                    #determine the direction we are varying
+                    vecDir[0][idx_varyingDim] = stim['grid_theta_xy'][:,k]
+                    
+                    #fun minimize to search for the magnitude of vector that 
+                    #leads to a pre-determined deltaE
+                    results['opt_vecLen'][p,i,j,k] = find_vecLen(stim['background_RGB'],\
+                                                                rgb_ref_pij, Lab_ref_pij,\
+                                                                vecDir,stim['deltaE_1JND'])
+                
+                #fit an ellipse
+                results['fitEllipse_scaled'][p,i,j,:,:],results['fitEllipse_unscaled'][p,i,j,:,:],\
+                    results['rgb_comp_contour_scaled'][p,i,j,:,:],\
+                    results['rgb_comp_contour_cov'][p,i,j,:,:],\
+                    results['ellParams'][p,i,j,:] = fit_2d_isothreshold_contour(rgb_ref_pij, [], \
+                    stim['grid_theta_xy'],vecLength = results['opt_vecLen'][p,i,j,:],\
+                    varyingRGBplan = idx_varyingDim,\
+                        nThetaEllipse = plt_specifics['nThetaEllipse'],\
+                        ellipse_scaler = plt_specifics['contour_scaler'])
+                                                        
 
-#%%
-plot_2D_isothreshold_contour(stim['x_grid_ref'], stim['y_grid_ref'],\
-                             results['fitEllipse_scaled'], [],\
-                             visualizeRawData = True,\
-                                 rgb_contour = results['rgb_comp_contour_scaled'],\
-                                 EllipsesLine = '-', fontsize =12)    
+    #%% PLOTTING AND SAVING DATA
+    plot_2D_isothreshold_contour(stim['x_grid_ref'], stim['y_grid_ref'],\
+                                 results['fitEllipse_scaled'], [],\
+                                 visualizeRawData = True,\
+                                     rgb_contour = results['rgb_comp_contour_scaled'],\
+                                     EllipsesLine = '-', fontsize =12)    
+    
+    #save to CSV
+    file_name = 'Isothreshold_contour_CIELABderived.pkl'
+    path_output = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_analysis/Simulation_DataFiles/'
+    full_path = f"{path_output}{file_name}"
+    
+    # Write the list of dictionaries to a file using pickle
+    with open(full_path, 'wb') as f:
+        pickle.dump([param, stim, results, plt_specifics], f)
+    
+    #Here is what we do if we want to load the data
+    # with open(full_path, 'rb') as f:
+    #     # Load the object from the file
+    #     data_load = pickle.load(f)
 
-
-
-
-
-
-
+if __name__ == "__main__":
+    main()
 
 
 
