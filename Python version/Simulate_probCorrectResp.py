@@ -59,12 +59,12 @@ default_str = 'NearContour'
 sim['method_sampling'] = input('Which sampling method (NearContour/Random):')
 
 if sim['method_sampling'] == 'NearContour':
-    sim['random_jitter'] = 0.1
+    sim['random_jitter'] = 0.5
 elif sim['method_sampling'] == 'Random':
     sim['range_randomSampling'] = [-0.025, 0.025]
 else: 
     sim['method_sampling'] = default_str
-    sim['random_jitter'] = 0.1
+    sim['random_jitter'] = 0.5
 
 #%% FUNCTIONS
 def sample_rgb_comp_2DNearContour(rgb_ref, varying_RGBplane, slc_fixedVal,
@@ -101,6 +101,23 @@ def sample_rgb_comp_2DNearContour(rgb_ref, varying_RGBplane, slc_fixedVal,
     
     return rgb_comp_sim
 
+def sample_rgb_comp_2Drandom(rgb_ref, varying_RGBplane, slc_fixedVal,
+                             box_range, nSims):
+    #Identify the fixed RGB dimension by excluding the varying dimensions.
+    allPlans = set(range(3))
+    fixed_RGBplane = list(allPlans.difference(set(varying_RGBplane)))
+    
+    rgb_comp_sim = np.random.rand(3, nSims) * (box_range[1] - box_range[0]) + \
+        box_range[0]
+        
+    rgb_comp_sim[fixed_RGBplane,:] = slc_fixedVal
+    
+    rgb_comp_sim[varying_RGBplane,:] = rgb_comp_sim[varying_RGBplane,:] + \
+        rgb_ref.reshape((2,1))
+        
+    return rgb_comp_sim
+
+#%%
 def plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, varying_RGBplane,\
                         method_sampling, **kwargs):
     pltParams = {
@@ -130,7 +147,6 @@ def plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, varying_RGBplane,\
     nGrid_y = len(grid_ref_y)
     
     plt.figure(figsize = (8,8))
-    cmap = plt.get_cmap("gray")
     for i in range(nGrid_x):
         for j in range(nGrid_y):
             x_axis = np.linspace(pltParams['xbds'][0], pltParams['xbds'][1],\
@@ -138,7 +154,16 @@ def plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, varying_RGBplane,\
             y_axis = np.linspace(pltParams['ybds'][0], pltParams['ybds'][1],\
                                  pltParams['nFinerGrid']) + grid_ref_y[i]    
             
+            #subplot
             plt.subplot(nGrid_x, nGrid_y, (nGrid_x-i-1)*nGrid_y + j + 1)
+            
+            #plot the ground truth
+            if pltParams['groundTruth'] is not None:
+                plt.plot(pltParams['groundTruth'][i,j,0,:],\
+                         pltParams['groundTruth'][i,j,1,:],\
+                         color=pltParams['EllipsesColor'],\
+                         linestyle = '--', linewidth = pltParams['lineWidth'])
+            
             idx_1 = np.where(pltParams['responses'][i,j,:] == 1)
             idx_0 = np.where(pltParams['responses'][i,j,:] == 0)
             plt.scatter(rgb_comp[i, j, varying_RGBplane[0], idx_1],\
@@ -163,10 +188,6 @@ def plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, varying_RGBplane,\
     plt.subplots_adjust(wspace = 0, hspace = 0)
     plt.tight_layout()
     plt.show()
-            
-    
-    
-    
     
     
 #%%
@@ -193,7 +214,9 @@ for i in range(stim['nGridPts_ref']):
                 rgb_ref_ij[sim['varying_RGBplane']], sim['varying_RGBplane'],
                 sim['fixed_RGBvec'], sim['nSims'], ellPara, sim['random_jitter'])
         elif sim['method_sampling'] == 'Random':
-            print('later')
+            sim['rgb_comp'][i,j,:,:] = sample_rgb_comp_2Drandom(\
+                rgb_ref_ij[sim['varying_RGBplane']],sim['varying_RGBplane'],\
+                sim['fixed_RGBvec'], sim['range_randomSampling'], sim['nSims'])
             
         
         #simulate binary responses
@@ -210,7 +233,8 @@ for i in range(stim['nGridPts_ref']):
 #%%
 plot_2D_sampledComp(stim['grid_ref'], stim['grid_ref'], sim['rgb_comp'],\
                     sim['varying_RGBplane'], sim['method_sampling'], \
-                        responses = sim['resp_binary'])        
+                    responses = sim['resp_binary'], \
+                    groundTruth = results['fitEllipse_unscaled'][sim['slc_RGBplane']])        
         
         
         
