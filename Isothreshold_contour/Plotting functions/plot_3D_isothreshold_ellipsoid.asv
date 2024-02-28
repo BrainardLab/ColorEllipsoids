@@ -1,0 +1,70 @@
+function plot_3D_isothreshold_ellipsoid(x_grid_ref, y_grid_ref, z_grid_ref,...
+    fitEllipsoid, nTheta, nPhi, varargin)
+
+    % Validate input arguments and set default values
+    p = inputParser;
+    p.addParameter('visualize_ref',true);
+    p.addParameter('visualize_ellipsoids',true);
+    p.addParameter('figTitle', {'GB plane', 'RB plane', 'RG plane'}, @(x)(ischar(x)));
+    p.addParameter('normalizedFigPos', [0,0.1,0.7,0.4], @(x)(isnumeric(x) && numel(x)==4));
+    p.addParameter('saveFig', false, @islogical);
+    p.addParameter('paperSize',[30,12], @(x)(isnumeric(x)));
+    p.addParameter('figName', 'RGB_cube', @ischar);
+
+    % Extract parsed input parameters
+    parse(p, varargin{:});
+    nGridPts   = p.Results.nGridPts;
+    ref_points = p.Results.ref_points;
+    visualize_ref = p.Results.visualize_ref;
+    visualize_ellipsoids = p.Results.visualize_ellipsoids;
+    figTitle   = p.Results.figTitle;
+    saveFig    = p.Results.saveFig;
+    figName    = p.Results.figName;
+    figPos     = p.Results.normalizedFigPos;
+    paperSize  = p.Results.paperSize;
+
+    
+    x_grid_ref_trunc = x_grid_ref(slc_x_grid_ref);
+    y_grid_ref_trunc = y_grid_ref(slc_y_grid_ref);
+    z_grid_ref_trunc = z_grid_ref(slc_z_grid_ref);
+
+    nGridPts_ref_x = length(x_grid_ref_trunc);
+    nGridPts_ref_y = length(y_grid_ref_trunc);
+    nGridPts_ref_z = length(z_grid_ref_trunc);
+
+    figure; 
+    for i = 1:nGridPts_ref_x
+        for j = 1:nGridPts_ref_y
+            for k = 1:nGridPts_ref_z
+                if visualize_ref
+                    cmap_ijk = [x_grid_ref_trunc(i), y_grid_ref_trunc(j),...
+                        z_grid_ref_trunc(k)];
+                    scatter3(cmap_ijk(1),cmap_ijk(2),cmap_ijk(3),100, ...
+                        cmap_ijk,'+','lineWidth',lw_ref);
+                end
+
+                if visualize_ellipsoids
+                    ell_ijk = squeeze(fitEllipsoid(i,j,k,:,:));
+                    ell_ijk_x = ell_ijk(:,1); 
+                    ell_ijk_x_reshape = reshape(ell_ijk_x, [nPhi, nTheta]);
+                    
+                    ell_ijk_y = ell_ijk(:,2); 
+                    ell_ijk_y_reshape = reshape(ell_ijk_y, [nPhi, nTheta]);
+                    
+                    ell_ijk_z = ell_ijk(:,3); 
+                    ell_ijk_z_reshape = reshape(ell_ijk_z, [nPhi, nTheta]);
+    
+                    surf(ell_ijk_x_reshape, ell_ijk_y_reshape, ...
+                        ell_ijk_z_reshape,'FaceColor', color_surf,...%[0.8,0.8,0.8],...
+                        'EdgeColor','none','FaceAlpha',0.5); hold on
+                end
+                % axis vis3d equal;
+                axis equal; axis square;
+            end
+        end
+    end
+    camlight; lighting phong
+    xlim([0,1]); ylim([0,1]); zlim([0,1])
+    xlabel('R'); ylabel('G'); zlabel('B');
+    set(gca,'FontSize', fontsize);
+end

@@ -28,6 +28,8 @@ function plot_3D_RGBplanes(plane_points, colormapMatrix, varargin)
     p = inputParser;
     p.addParameter('nGridPts',100, @(x) floor(x)==x);
     p.addParameter('ref_points',{}, @(x)(iscell(x) && (numel(x) == nFrames)));
+    p.addParameter('visualize_surfacePlane',true);
+    p.addParameter('visualize_refStimuli',true);
     p.addParameter('figTitle', {'GB plane', 'RB plane', 'RG plane'}, @(x)(ischar(x)));
     p.addParameter('normalizedFigPos', [0,0.1,0.7,0.4], @(x)(isnumeric(x) && numel(x)==4));
     p.addParameter('saveFig', false, @islogical);
@@ -38,6 +40,8 @@ function plot_3D_RGBplanes(plane_points, colormapMatrix, varargin)
     parse(p, varargin{:});
     nGridPts   = p.Results.nGridPts;
     ref_points = p.Results.ref_points;
+    visualize_surfacePlane = p.Results.visualize_surfacePlane;
+    visualize_refStimuli = p.Results.visualize_refStimuli;
     figTitle   = p.Results.figTitle;
     saveFig    = p.Results.saveFig;
     figName    = p.Results.figName;
@@ -77,13 +81,25 @@ function plot_3D_RGBplanes(plane_points, colormapMatrix, varargin)
         
             %Plot the specified plane within the RGB cube
             %p = 1: GB plane; p = 2: RB plane; p = 3: RG plane
-            surf(plane_points{l}{p}(:,:,1),plane_points{l}{p}(:,:,2),...
-                plane_points{l}{p}(:,:,3), colormapMatrix{l}{p},...
-                'EdgeColor','none');
+            if visualize_surfacePlane
+                surf(plane_points{l}{p}(:,:,1),plane_points{l}{p}(:,:,2),...
+                    plane_points{l}{p}(:,:,3), colormapMatrix{l}{p},...
+                    'EdgeColor','none');
+            end
 
             % If reference points are provided, plot them
-            scatter3(ref_points{l}{p}(:,:,1),ref_points{l}{p}(:,:,2),...
-                ref_points{l}{p}(:,:,3), 20,'k','Marker','+'); hold off
+            if visualize_refStimuli
+                if length(size(ref_points{l}{p})) == 3
+                    scatter3(ref_points{l}{p}(:,:,1),ref_points{l}{p}(:,:,2),...
+                        ref_points{l}{p}(:,:,3), 20,'k','Marker','+'); 
+                elseif length(size(ref_points{l}{p})) == 4
+                    for n = 1:5
+                        scatter3(ref_points{l}{p}(:,:,n,1),ref_points{l}{p}(:,:,n,2),...
+                            ref_points{l}{p}(:,:,n,3), 20,'k','Marker','+'); 
+                    end
+                end
+            end
+            hold off
 
             % Set plot limits and labels
             xlim([0,1]); ylim([0,1]); zlim([0,1]); axis equal
