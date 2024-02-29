@@ -1,5 +1,5 @@
 function [fitEllipse_scaled, fitEllipse_unscaled, rgb_comp_scaled, rgb_contour_cov,...
-    ellParams] = fit_3d_isothreshold_contour(...
+    ellParams] = fit_3d_isothreshold_ellipsoid(...
     rgb_ref, rgb_comp, grid_xyz, varargin)
     % Ensure the reference RGB has three components
     assert(length(rgb_ref) == 3);
@@ -35,12 +35,16 @@ function [fitEllipse_scaled, fitEllipse_unscaled, rgb_comp_scaled, rgb_contour_c
             repmat(vecLen,[1,1,3]).*ellipse_scaler.*grid_xyz;
     else
         % Use provided comparison stimuli
-        rgb_comp_trunc = rgb_comp(idx_varyingDim,:)';
-        rgb_comp_scaled = rgb_ref_trunc + rgb_comp_trunc.*ellipse_scaler;
+        rgb_comp_unscaled = rgb_comp(:,idx_varyingDim);
+        rgb_comp_scaled = rgb_ref_trunc + (rgb_comp_unscaled - rgb_ref_trunc).*ellipse_scaler;
     end
 
     % Compute covariance of the unscaled comparison stimuli
-    rgb_comp_unscaled_reshape = reshape(rgb_comp_unscaled, [], 3);
+    if length(size(rgb_comp_scaled)) == 3
+        rgb_comp_unscaled_reshape = reshape(rgb_comp_unscaled, [], 3);
+    else
+        rgb_comp_unscaled_reshape = rgb_comp_unscaled;
+    end
     rgb_contour_cov = cov(rgb_comp_unscaled_reshape);
 
     %fit an ellipse
