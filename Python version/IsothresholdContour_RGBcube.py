@@ -502,9 +502,9 @@ def main():
                                 stim['nGridPts_ref'],3), np.nan)
     results['opt_vecLen'] = np.full((param['nPlanes'], stim['nGridPts_ref'],\
                                 stim['nGridPts_ref'],stim['numDirPts']), np.nan)
-    results['fitEllipse_scaled'] =results['fitEllipse_unscaled'] =\
-        np.full((param['nPlanes'],stim['nGridPts_ref'], stim['nGridPts_ref'],2,\
-                 plt_specifics['nThetaEllipse']),np.nan)
+    results['fitEllipse_scaled'] = np.full((param['nPlanes'],stim['nGridPts_ref'],\
+                 stim['nGridPts_ref'],2,  plt_specifics['nThetaEllipse']),np.nan)
+    results['fitEllipse_unscaled']  = np.full(results['fitEllipse_scaled'].shape, np.nan)
     results['rgb_comp_contour_scaled'] = np.full((param['nPlanes'], stim['nGridPts_ref'],\
                                 stim['nGridPts_ref'], 2, stim['numDirPts']),  np.nan)
     results['rgb_comp_contour_cov'] = np.full((param['nPlanes'], stim['nGridPts_ref'],\

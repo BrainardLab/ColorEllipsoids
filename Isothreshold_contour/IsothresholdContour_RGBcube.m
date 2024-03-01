@@ -74,8 +74,8 @@ plot_3D_RGBplanes(param.plane_points, plt.colormapMatrix,...
 
 %% compute iso-threshold contour
 %set the background RGB
-% stim.background_RGB    = ones(param.nPlanes, length(fixed_RGB_slc)).*0.5;
-stim.background_RGB    = ones(param.nPlanes,1).*stim.fixed_RGBvec;
+stim.background_RGB    = ones(param.nPlanes, length(stim.fixed_RGBvec)).*0.5;
+% stim.background_RGB    = ones(param.nPlanes,1).*stim.fixed_RGBvec;
 
 %sample total of 17 directions (0 to 360 deg) but the 1st and the last are the same
 stim.numDirPts         = 17;

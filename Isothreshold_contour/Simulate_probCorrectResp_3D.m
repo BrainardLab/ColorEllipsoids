@@ -72,56 +72,19 @@ for i = 1:stim.nGridPts_ref
 end
 
 %%
-figName = ['Sims_Isothreshold_ellipsoids_', 'RG plane',...
+figName = ['Sims_Isothreshold_ellipsoids_', 'RB plane',...
     '_sim',num2str(sim.nSims), 'perCond_sampling', sim.method_sampling]; 
 
 plot_3D_sampledComp(stim.grid_ref, results.fitEllipsoid_unscaled,sim.rgb_comp,...
-    'B', 0.5, plt.nPhiEllipsoid, plt.nThetaEllipsoid, ...
+    'G', 0.5, plt.nPhiEllipsoid, plt.nThetaEllipsoid, ...
     'slc_grid_ref_dim1',1:2:5,...
     'slc_grid_ref_dim2',1:2:5,...
     'default_viewing_angle',false,...
     'fontSize',10,...
     'saveFig',true, ...
-    'title','RG plane',...
+    'title','RB plane',...
     'paperSize',[45,45],...
     'figName', [figName,'_jitter',num2str(sim.random_jitter)])
-
-%% visualize samples
-idx_x = 1; idx_y = 1; idx_z = 3;
-figure
-tiledlayout(3,3,'TileSpacing','none');
-for j = stim.nGridPts_ref:-2:1
-    for i = 1:2:stim.nGridPts_ref
-        nexttile
-        %subplot(3,3,3*floor(i/2)+ceil(j/2))
-        slc_ref = squeeze(stim.ref_points(i, j,idx_z, :));
-        slc_gt = squeeze(results.fitEllipsoid_unscaled(i,j,idx_z,:,:));
-        slc_gt_x = reshape(slc_gt(:,1), [plt.nPhiEllipsoid, plt.nThetaEllipsoid]);
-        slc_gt_y = reshape(slc_gt(:,2), [plt.nPhiEllipsoid, plt.nThetaEllipsoid]);
-        slc_gt_z = reshape(slc_gt(:,3), [plt.nPhiEllipsoid, plt.nThetaEllipsoid]);
-        slc_rgb_comp = squeeze(sim.rgb_comp(i,j,idx_z,:,:));
-        
-        scatter3(slc_rgb_comp(1,:), slc_rgb_comp(2,:), slc_rgb_comp(3,:),10,...
-            'MarkerFaceColor', [0,0,0],...
-            'MarkerEdgeColor','none','MarkerFaceAlpha',0.3);hold on
-        surf(slc_gt_x,slc_gt_y,slc_gt_z,'FaceColor', ...
-            [stim.grid_ref(i), stim.grid_ref(j),stim.grid_ref(idx_z)],...
-            'EdgeColor','none','FaceAlpha',0.4)
-        camlight right; lighting phong;
-        xlim(slc_ref(1)+[-0.025,0.025]);
-        ylim(slc_ref(2)+[-0.025,0.025]);
-        zlim(slc_ref(3)+[-0.025,0.025]); 
-        axis square
-        xticks(sort(slc_ref(1)+[-0.025,0,0.025]));
-        yticks(sort(slc_ref(2)+[-0.025,0,0.025]));
-        zticks(sort(slc_ref(3)+[-0.025,0,0.025]));
-        %set(gca,'YDir','reverse');
-        % set(gca,'XDir','reverse');
-        % if i == 3 && j == 3; xlabel('R'); ylabel('G'); zlabel('B');end
-        % view(90,0) %view from leftside
-    end
-end
-set(gcf,'Units','Normalized','Position',[0,0.1,0.425,1])
 
 %% save the data
 analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');

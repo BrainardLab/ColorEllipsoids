@@ -25,7 +25,7 @@ function opt_vecLen = find_vecLen(background_RGB, ref_RGB, ref_Lab, ...
     % Set the lower and upper bounds for the vector length search.
     lb = 0; ub = 0.2;
     % Number of runs for the optimization to improve robustness
-    N_runs  = 3;
+    N_runs  = 1;
     % Generate initial points for the optimization algorithm within the bounds.
     init    = rand(1,N_runs).*(ub-lb) + lb;
     % Set options for the optimization algorithm (fmincon).
