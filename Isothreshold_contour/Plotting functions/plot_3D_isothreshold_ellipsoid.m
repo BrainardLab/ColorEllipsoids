@@ -8,9 +8,13 @@ function plot_3D_isothreshold_ellipsoid(x_grid_ref, y_grid_ref, z_grid_ref,...
     p.addParameter('slc_z_grid_ref',1:length(z_grid_ref),@(x)(isnumeric(x)));
     p.addParameter('visualize_ref',true);
     p.addParameter('visualize_ellipsoids',true);
+    p.addParameter('visualize_thresholdPoints',false);
+    p.addParameter('threshold_points',[],@isnumeric);
     p.addParameter('ms_ref',100,@isnumeric);
     p.addParameter('lw_ref',2,@isnumeric);
-    p.addParameter('color_surf',[0.8,0.8,0.8],@(x)(isnumeric(x)));
+    p.addParameter('color_ref_rgb',[],@(x)(isnumeric(x)));
+    p.addParameter('color_surf',[],@(x)(isnumeric(x)));
+    p.addParameter('color_threshold',[],@(x)(isnumeric(x)));
     p.addParameter('fontsize',15,@isnumeric);
     p.addParameter('normalizedFigPos', [0,0.1,0.3,0.5], @(x)(isnumeric(x) && numel(x)==4));
     p.addParameter('saveFig', false, @islogical);
@@ -24,9 +28,13 @@ function plot_3D_isothreshold_ellipsoid(x_grid_ref, y_grid_ref, z_grid_ref,...
     slc_z_grid_ref = p.Results.slc_z_grid_ref;
     visualize_ref = p.Results.visualize_ref;
     visualize_ellipsoids = p.Results.visualize_ellipsoids;
+    visualize_thresholdPoints = p.Results.visualize_thresholdPoints;
+    threshold_points = p.Results.threshold_points;
     ms_ref     = p.Results.ms_ref;
     lw_ref     = p.Results.lw_ref;
+    color_ref_rgb = p.Results.color_ref_rgb;
     color_surf = p.Results.color_surf;
+    color_threshold = p.Results.color_threshold;
     fontsize   = p.Results.fontsize;
     saveFig    = p.Results.saveFig;
     figName    = p.Results.figName;
@@ -36,7 +44,7 @@ function plot_3D_isothreshold_ellipsoid(x_grid_ref, y_grid_ref, z_grid_ref,...
     %selected ref points 
     x_grid_ref_trunc = x_grid_ref(slc_x_grid_ref);
     y_grid_ref_trunc = y_grid_ref(slc_y_grid_ref);
-    z_grid_ref_trunc = z_grid_ref(slc_z_grid_ref);
+    z_grid_ref_trunc = z_grid_ref(slc_z_grid_ref);  
 
     nGridPts_ref_x = length(x_grid_ref_trunc);
     nGridPts_ref_y = length(y_grid_ref_trunc);
@@ -50,12 +58,21 @@ function plot_3D_isothreshold_ellipsoid(x_grid_ref, y_grid_ref, z_grid_ref,...
             for k = 1:nGridPts_ref_z
                 kk = slc_z_grid_ref(k);
                 if visualize_ref
-                    cmap_ijk = [x_grid_ref(ii), y_grid_ref(jj), z_grid_ref(kk)];
+                    if isempty(color_ref_rgb)
+                        cmap_ijk = [x_grid_ref(ii), y_grid_ref(jj), z_grid_ref(kk)];
+                    else
+                        cmap_ijk = color_ref_rgb;
+                    end
                     scatter3(cmap_ijk(1),cmap_ijk(2),cmap_ijk(3),ms_ref, ...
                         cmap_ijk,'+','lineWidth',lw_ref); hold on
                 end
 
                 if visualize_ellipsoids
+                    if isempty(color_surf)
+                        cmap_ijk = [x_grid_ref(ii), y_grid_ref(jj), z_grid_ref(kk)];
+                    else
+                        cmap_ijk = color_surf;
+                    end
                     ell_ijk = squeeze(fitEllipsoid(ii,jj,kk,:,:));
                     ell_ijk_x = ell_ijk(:,1); 
                     ell_ijk_x_reshape = reshape(ell_ijk_x, [nPhi, nTheta]);
@@ -67,8 +84,20 @@ function plot_3D_isothreshold_ellipsoid(x_grid_ref, y_grid_ref, z_grid_ref,...
                     ell_ijk_z_reshape = reshape(ell_ijk_z, [nPhi, nTheta]);
     
                     surf(ell_ijk_x_reshape, ell_ijk_y_reshape, ...
-                        ell_ijk_z_reshape,'FaceColor', color_surf,...
+                        ell_ijk_z_reshape,'FaceColor', cmap_ijk,...
                         'EdgeColor','none','FaceAlpha',0.5); hold on
+                end
+
+                if visualize_thresholdPoints && ~isempty(threshold_points)
+                    if isempty(color_threshold)
+                        cmap_ijk = [x_grid_ref(ii), y_grid_ref(jj), z_grid_ref(kk)];
+                    else
+                        cmap_ijk = color_threshold;
+                    end
+                    scatter3(squeeze(threshold_points(ii,jj,kk,:,:,1)),...
+                        squeeze(threshold_points(ii,jj,kk,:,:,2)),...
+                        squeeze(threshold_points(ii,jj,kk,:,:,3)),...
+                        10,cmap_ijk,'filled','MarkerFaceAlpha',0.5); 
                 end
                 % axis vis3d equal;
                 axis equal; axis square;
@@ -80,6 +109,7 @@ function plot_3D_isothreshold_ellipsoid(x_grid_ref, y_grid_ref, z_grid_ref,...
     xticks(sort([0,1,x_grid_ref_trunc])); yticks(sort([0,1,y_grid_ref_trunc])); 
     zticks(sort([0,1,z_grid_ref_trunc])); 
     xlabel('R'); ylabel('G'); zlabel('B');
+    % set(gca,'YDir','reverse');
     set(gca,'FontSize', fontsize);
     set(gcf,'Units','normalized','Position',figPos);
 

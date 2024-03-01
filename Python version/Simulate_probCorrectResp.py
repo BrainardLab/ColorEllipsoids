@@ -7,7 +7,6 @@ Created on Tue Feb 27 15:01:11 2024
 """
 
 import os
-import pickle
 import numpy as np
 from math import pi
 import matplotlib.pyplot as plt
@@ -301,12 +300,12 @@ def main():
     # Initialize arrays to store the RGB and Lab compositions of comparison stimuli,
     # their color differences (deltaE) from a reference, probabilities of correct
     # identification (probC), and binary responses (resp_binary) for each simulation.
-    sim['rgb_comp'] = np.full((stim['nGridPts_ref'], stim['nGridPts_ref'],3,\
-                               sim['nSims']),np.nan)
+    sim['rgb_comp'] = np.full((stim['nGridPts_ref'],\
+                             stim['nGridPts_ref'],3, sim['nSims']),np.nan)
     sim['lab_comp'] = np.full(sim['rgb_comp'].shape, np.nan)
     sim['deltaE'] = np.full((stim['nGridPts_ref'], stim['nGridPts_ref'],\
                              sim['nSims']), np.nan)
-    sim['probC'] = np.full(sim['deltaE'].shape, np.nan)
+    sim['probC'] =  np.full(sim['deltaE'].shape, np.nan)
     sim['resp_binary'] = np.full(sim['deltaE'].shape, np.nan)
     
     # Iterate over the grid points of the reference stimulus.
