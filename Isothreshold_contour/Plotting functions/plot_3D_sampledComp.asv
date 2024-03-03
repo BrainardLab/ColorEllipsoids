@@ -24,13 +24,13 @@ function plot_3D_sampledComp(ref_points, fitEllipsoid_unscaled, sampledComp,...
     parse(p, varargin{:});
     visualize_ellipsoid = p.Results.visualize_ellipsoid;
     visualize_samples   = p.Results.visualize_samples;
-    visualize_ellipse = p.Results.visualize_ellipse;
-    slc_grid_ref_dim1 = p.Results.slc_grid_ref_dim1;
-    slc_grid_ref_dim2 = p.Results.slc_grid_ref_dim2;
-    surf_alpha = p.Results.surf_alpha;
-    samples_alpha = p.Results.samples_alpha;
-    lw_ellipse = p.Results.lineWidth_ellipse;
-    markerSize_samples = p.Results.markerSize_samples;
+    visualize_ellipse   = p.Results.visualize_ellipse;
+    slc_grid_ref_dim1   = p.Results.slc_grid_ref_dim1;
+    slc_grid_ref_dim2   = p.Results.slc_grid_ref_dim2;
+    surf_alpha          = p.Results.surf_alpha;
+    samples_alpha       = p.Results.samples_alpha;
+    lw_ellipse          = p.Results.lineWidth_ellipse;
+    markerSize_samples  = p.Results.markerSize_samples;
     default_viewing_angle = p.Results.default_viewing_angle;
     fontsize   = p.Results.fontsize;
     ttl        = p.Results.title;
@@ -94,10 +94,6 @@ function plot_3D_sampledComp(ref_points, fitEllipsoid_unscaled, sampledComp,...
             if visualize_ellipsoid
                 h1 = surf(slc_gt_x,slc_gt_y,slc_gt_z,'FaceColor',slc_ref,...
                     'EdgeColor','none','FaceAlpha',surf_alpha);
-                % if strcmp(fixedPlane,'R'); camlight headlight;
-                % elseif strcmp(fixedPlane,'G'); camlight headlight;
-                % elseif strcmp(fixedPlane,'B'); camlight left;
-                % end
                 camlight headlight; lighting phong;
             end
 
@@ -128,8 +124,8 @@ function plot_3D_sampledComp(ref_points, fitEllipsoid_unscaled, sampledComp,...
             ylim(slc_ref(2)+[-0.025,0.025]);
             zlim(slc_ref(3)+[-0.025,0.025]); 
             axis square
-            xticks(slc_ref(1)+[-0.02,0,0.02]);
-            yticks(slc_ref(2)+[-0.02,0,0.02]);
+            if strcmp(fixedPlane,'R'); xticks(slc_ref(1)); else; yticks(slc_ref(1)+[-0.02,0,0.02]);
+            elseif strcmp(fixedPlane, 'G'); yticks(slc_ref(2)+[-0.02,0,0.02]);
             zticks(slc_ref(3)+[-0.02,0,0.02]);
 
              % Add legend and adjust viewing angle based on the fixed plane and user preferences
@@ -154,6 +150,7 @@ function plot_3D_sampledComp(ref_points, fitEllipsoid_unscaled, sampledComp,...
                 elseif strcmp(fixedPlane,'G'); view(0,0);
                 elseif strcmp(fixedPlane,'B'); view(0,90); 
                 end
+            else; view(-37.5, 30); grid on; camlight left; lighting phong;
             end
             set(gca,'FontSize',fontsize);
         end

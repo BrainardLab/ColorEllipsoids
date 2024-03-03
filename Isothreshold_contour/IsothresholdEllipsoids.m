@@ -87,7 +87,8 @@ results.ellipsoid_scaler = 5;
 %visualization)
 plt.nThetaEllipsoid    = 200;
 plt.nPhiEllipsoid      = 100;
-plt.circleIn3D         = UnitCircleGenerate_3D(plt.nThetaEllipsoid, plt.nPhiEllipsoid);
+plt.circleIn3D         = UnitCircleGenerate_3D(plt.nThetaEllipsoid, ...
+    plt.nPhiEllipsoid);
 
 %% Fitting starts from here
 %for each reference stimulus
@@ -116,8 +117,6 @@ for i = 1:stim.nGridPts_ref
                     results.opt_vecLen(i,j,k,l,m) = find_vecLen(...
                         stim.background_RGB, rgb_ref_ijk, ref_Lab_ijk, ...
                         vecDir, param,stim);
-
-                    %if we want to fix one plane
                 end
             end
     
@@ -133,16 +132,34 @@ for i = 1:stim.nGridPts_ref
                 'nPhiEllipsoid',plt.nPhiEllipsoid,...
                 'ellipsoid_scaler',results.ellipsoid_scaler);
 
-            %if we want to fix one plane
-            for n = 1:3 %3 planes
+            %if we want to find the ellipse that's the intersection between
+            %the ellipsoid and a plane 
+            % 1. GB with fixed R plane
+            % 2. RB with fixed G plane
+            % 3. RG with fixed B plane
+            for n = 1:3 
                 vecDir_oneFixedPlane = NaN(3,stim.numDirPts_xy-1);
-                for o = 1:stim.numDirPts_xy-1 %fixed B plane
-                    if n == 3 %fixed B plane
-                        vecDir_oneFixedPlane(:,o) = [cos(stim.grid_theta(o)); sin(stim.grid_theta(o));0];   
-                    elseif n == 2 %fixed G
-                        vecDir_oneFixedPlane(:,o) = [sin(stim.grid_theta(o)); 0; cos(stim.grid_theta(o))];
-                    else
-                        vecDir_oneFixedPlane(:,o) = [0; sin(stim.grid_theta(o)); cos(stim.grid_theta(o))];
+                for o = 1:stim.numDirPts_xy-1 
+                    %the chromatic direction should be
+                    %[cos(theta)*sin(phi); sin(theta)*sin(phi); sin(phi)]
+                    if n == 1 %fixed R plane
+                        %phi goes from 0 to 2pi, theta = pi/2; cos(theta) = 0; sin(theta) = 1;
+                        %in the following line, stim.grid_theta actually
+                        %means stim.grid_phi but I don't want to create a
+                        %new variable stim.grid_phi_allthewayto2pi
+                        vecDir_oneFixedPlane(:,o) = [0; sin(stim.grid_theta(o));...
+                            cos(stim.grid_theta(o))];
+                    elseif n == 2 %fixed G plane
+                        %phi goes from 0 to 2pi, theta = 0; cos(0) = 1; sin(0) = 0;
+                        %in the following line, stim.grid_theta actually
+                        %means stim.grid_phi but I don't want to create a
+                        %new variable stim.grid_phi_allthewayto2pi
+                        vecDir_oneFixedPlane(:,o) = [sin(stim.grid_theta(o));...
+                            0; cos(stim.grid_theta(o))];
+                    else %fixed B plane
+                        %phi = pi/2; sin(phi) = 1; theta goes from 0 to 2pi
+                        vecDir_oneFixedPlane(:,o) = [cos(stim.grid_theta(o));...
+                            sin(stim.grid_theta(o));0];   
                     end
                     results.opt_vecLen_oneFixedPlane(i,j,k,n,o) = find_vecLen(...
                         stim.background_RGB, rgb_ref_ijk, ref_Lab_ijk, ...
@@ -157,7 +174,8 @@ for i = 1:stim.nGridPts_ref
                     results.ellipseParams(i,j,k,n,:),...
                     results.AConstraint(i,j,k,n,:,:),...
                     results.Ainv(i,j,k,n,:,:), results.Q(i,j,k,n,:,:),~] = ...
-                    fit_2d_isothreshold_contour(rgb_ref_ijk, [],vecDir_oneFixedPlane(setdiff(1:3,n),:), ...
+                    fit_2d_isothreshold_contour(rgb_ref_ijk, [],...
+                    vecDir_oneFixedPlane(setdiff(1:3,n),:), ...
                     'vecLength',squeeze(results.opt_vecLen_oneFixedPlane(i,j,k,n,:)),...
                     'varyingRGBplane',setdiff(1:3,n), ...
                     'nThetaEllipse',plt.nThetaEllipsoid,...
