@@ -57,6 +57,8 @@ function plot_3D_isothreshold_ellipsoid(x_grid_ref, y_grid_ref, z_grid_ref,...
             jj = slc_y_grid_ref(j);
             for k = 1:nGridPts_ref_z
                 kk = slc_z_grid_ref(k);
+                %visualize the reference stimuli (indicated by fixational
+                %corss)
                 if visualize_ref
                     if isempty(color_ref_rgb)
                         cmap_ijk = [x_grid_ref(ii), y_grid_ref(jj), z_grid_ref(kk)];
@@ -66,7 +68,8 @@ function plot_3D_isothreshold_ellipsoid(x_grid_ref, y_grid_ref, z_grid_ref,...
                     scatter3(cmap_ijk(1),cmap_ijk(2),cmap_ijk(3),ms_ref, ...
                         cmap_ijk,'+','lineWidth',lw_ref); hold on
                 end
-
+                
+                %visualize the best-fitting ellipsoids
                 if visualize_ellipsoids
                     if isempty(color_surf)
                         cmap_ijk = [x_grid_ref(ii), y_grid_ref(jj), z_grid_ref(kk)];
@@ -88,6 +91,8 @@ function plot_3D_isothreshold_ellipsoid(x_grid_ref, y_grid_ref, z_grid_ref,...
                         'EdgeColor','none','FaceAlpha',0.5); hold on
                 end
 
+                %visualize the individual thresholds at all chromatic
+                %directions
                 if visualize_thresholdPoints && ~isempty(threshold_points)
                     if isempty(color_threshold)
                         cmap_ijk = [x_grid_ref(ii), y_grid_ref(jj), z_grid_ref(kk)];
