@@ -360,7 +360,7 @@ def main():
                         x_label = plt_specifics['subTitles'][sim['slc_RGBplane']][0],\
                         y_label=plt_specifics['subTitles'][sim['slc_RGBplane']][1])  
     
-    #save to CSV
+    #save to pkl
     file_name_firsthalf = 'Sims_isothreshold_'+plt_specifics['subTitles'][sim['slc_RGBplane']] +\
         '_sim' + str(sim['nSims']) + 'perCond_sampling'+sim['method_sampling']
     if sim['method_sampling'] == 'NearContour':
