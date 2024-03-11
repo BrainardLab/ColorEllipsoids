@@ -480,7 +480,7 @@ def main():
     
     #sample total of 16 directions (0 to 360 deg) 
     stim['numDirPts'] = 16
-    stim['grid_theta'] = np.linspace(0,2*math.pi,stim['numDirPts'])
+    stim['grid_theta'] = np.linspace(0,2*math.pi-math.pi/8,stim['numDirPts'])
     stim['grid_theta_xy'] = np.stack((np.cos(stim['grid_theta']),\
                                      np.sin(stim['grid_theta'])),\
                                      axis = 0)

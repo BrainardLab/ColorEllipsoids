@@ -9,12 +9,9 @@ Created on Fri Mar  8 21:02:33 2024
 import sys
 from scipy.io import loadmat
 import os
-import colour
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib.colors import LightSource
 import pickle
 
 folder_path = '/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/'+\
