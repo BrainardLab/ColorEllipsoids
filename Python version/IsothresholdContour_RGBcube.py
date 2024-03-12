@@ -18,6 +18,26 @@ import pickle
 path_str = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox"
 os.chdir(path_str)
 
+#%% LOAD DATA WE NEED
+#load data
+param = {}
+T_cones_mat = loadmat('T_cones.mat')
+param['T_cones'] = T_cones_mat['T_cones'] #size: (3, 61)
+
+B_monitor_mat = loadmat('B_monitor.mat')
+param['B_monitor'] = B_monitor_mat['B_monitor'] #size: (61, 3)
+
+M_LMSToXYZ_mat = loadmat('M_LMSToXYZ.mat')
+param['M_LMSToXYZ'] = M_LMSToXYZ_mat['M_LMSToXYZ'] #size: (3, 3)
+
+#First create a cube and select the RG, the RB and the GB planes
+param['nGridPts'] = 100
+param['grid'] = np.linspace(0,1,param['nGridPts'])
+param['x_grid'], param['y_grid'] = np.meshgrid(param['grid'], param['grid'])
+
+#number of selected planes
+param['nPlanes'] = 3
+
 #%% FUNCTIONS
 def get_gridPts(X, Y, val_fixed_dim, fixed_dim = list(range(3))):
     """
@@ -81,26 +101,6 @@ def UnitCircleGenerate(nTheta):
     x = np.stack((xCoords, yCoords), axis = 0)
     
     return x
-
-#%% LOAD DATA WE NEED
-#load data
-param = {}
-T_cones_mat = loadmat('T_cones.mat')
-param['T_cones'] = T_cones_mat['T_cones'] #size: (3, 61)
-
-B_monitor_mat = loadmat('B_monitor.mat')
-param['B_monitor'] = B_monitor_mat['B_monitor'] #size: (61, 3)
-
-M_LMSToXYZ_mat = loadmat('M_LMSToXYZ.mat')
-param['M_LMSToXYZ'] = M_LMSToXYZ_mat['M_LMSToXYZ'] #size: (3, 3)
-
-#First create a cube and select the RG, the RB and the GB planes
-param['nGridPts'] = 100
-param['grid'] = np.linspace(0,1,param['nGridPts'])
-param['x_grid'], param['y_grid'] = np.meshgrid(param['grid'], param['grid'])
-
-#number of selected planes
-param['nPlanes'] = 3
 
 #%% FUNCTIONS
 def convert_rgb_lab(monitor_Spd, background_RGB, color_RGB,\

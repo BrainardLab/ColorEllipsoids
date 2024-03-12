@@ -40,7 +40,8 @@ for i = 1:stim.nGridPts_ref
             if strcmp(sim.method_sampling, 'NearContour')
                 ellPara = results.ellipsoidParams{i, j, k};
                 sim.rgb_comp(i,j,k,:,:) = sample_rgb_comp_3DNearContour(...
-                    rgb_ref_ijk, sim.nSims, ellPara{2}, ellPara{3}, sim.random_jitter);
+                    rgb_ref_ijk, sim.nSims, ellPara{2}, ellPara{3}, ...
+                    sim.random_jitter);
     
                 %fit an Ellipsoid to simulated data
                 [~, sim.fitEllipsoid_sampled_comp_unscaled(i,j,k,:,:), ~, ...
@@ -58,14 +59,15 @@ for i = 1:stim.nGridPts_ref
             
             %simulate binary responses
             for n = 1:sim.nSims
-                [sim.lab_comp(i,j,k,:,n), ~, ~] = convert_rgb_lab(param.B_monitor, ...
-                    sim.background_RGB, param.T_cones, param.M_LMSToXYZ, ...
-                    squeeze(sim.rgb_comp(i,j,k,:,n)));
+                [sim.lab_comp(i,j,k,:,n), ~, ~] = convert_rgb_lab(...
+                    param.B_monitor, sim.background_RGB, param.T_cones,...
+                    param.M_LMSToXYZ, squeeze(sim.rgb_comp(i,j,k,:,n)));
                 sim.deltaE(i,j,k,n) = norm(squeeze(sim.lab_comp(i,j,k,:,n)) - ref_Lab_ijk);
                 sim.probC(i,j,k,n) = ComputeWeibTAFC(sim.deltaE(i,j,k,n), ...
                     sim.alpha, sim.beta);
             end
-            sim.resp_binary(i,j,k,:) = binornd(1, squeeze(sim.probC(i,j,k,:)), [sim.nSims, 1]);
+            sim.resp_binary(i,j,k,:) = binornd(1, squeeze(sim.probC(i,j,k,:)),...
+                [sim.nSims, 1]);
         end
     end
 end

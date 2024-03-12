@@ -18,6 +18,59 @@ os.chdir(func_path)
 from IsothresholdContour_RGBcube import convert_rgb_lab
 
 #%% FUNCTIONS
+def query_simCondition(default_value = 'R', default_str = 'NearContour',
+                       default_jitter = 0.1, default_ub = 0.025, default_trialNum = 80):
+    sim = {}
+    # QUESTION 1: Ask the user which RGB plane to fix during the simulation.
+    # The default plane is 'R'.
+    slc_RGBplane = input('Which plane would you like to fix (R/G/B/[]; default: R):')
+    
+    # Validate the user input for the RGB plane. If valid, store the index; 
+    #otherwise, use the default value.
+    RGBplane = 'RGB'
+    if len(slc_RGBplane) == 1:
+        sim['slc_RGBplane'] = RGBplane.find(slc_RGBplane)
+    elif len(slc_RGBplane) == 2:
+        sim['slc_RGBplane'] = list(range(3))
+    else:
+        sim['slc_RGBplane'] = RGBplane.find(default_value)
+    
+    # QUESTION 2: Ask the user to choose the sampling method.
+    # The default method is 'NearContour'.
+    sim['method_sampling'] = input('Which sampling method (NearContour/Random; default: NearContour):')
+    
+    # Depending on the chosen sampling method, ask for relevant parameters.
+    if sim['method_sampling'] == 'NearContour':
+        # QUESTION 3: For 'NearContour', ask for the jitter variability.
+        input_jitter = input('Enter variability of random jitter (default: 0.1):')
+        if input_jitter != '':
+            sim['random_jitter'] = float(input_jitter)
+        else: sim['random_jitter'] = default_jitter
+    elif sim['method_sampling'] == 'Random':
+        # QUESTION 3: For 'Random', ask for the upper bound of the square range.
+        square_ub = input('Enter the upper bound of the square (default: 0.025):')
+        if square_ub != '':
+            sim['range_randomSampling'] = [-float(square_ub), float(square_ub)]
+        else: 
+            sim['range_randomSampling'] = [-default_ub, default_ub]
+    else:
+        # If an invalid sampling method is entered, revert to default and ask 
+        #for jitter variability.
+        sim['method_sampling'] = default_str
+        #QUESTION 3
+        input_jitter = input('Enter variability of random jitter (default: 0.1):')
+        if input_jitter != '':
+            sim['random_jitter'] = float(input_jitter)
+        else: sim['random_jitter'] = default_jitter
+        
+    #QUESTION 4: how many simulation trials 
+    input_simTrials = input('How many simulation trials per cond (default: 80):')
+    if input_simTrials != '':
+        sim['nSims'] = int(input_simTrials)
+    else: sim['nSims'] = default_trialNum
+    
+    return sim
+
 def sample_rgb_comp_2DNearContour(rgb_ref, varying_RGBplane, slc_fixedVal,
                                   nSims, paramEllipse, jitter):
     """
@@ -88,7 +141,7 @@ def sample_rgb_comp_2DNearContour(rgb_ref, varying_RGBplane, slc_fixedVal,
     
     return rgb_comp_sim
 
-def sample_rgb_comp_2Drandom(rgb_ref, varying_RGBplane, slc_fixedVal,
+def sample_rgb_comp_random(rgb_ref, varying_RGBplane, slc_fixedVal,
                              box_range, nSims):
     """
     Generates random RGB compositions within a specified square range in the
@@ -126,10 +179,11 @@ def sample_rgb_comp_2Drandom(rgb_ref, varying_RGBplane, slc_fixedVal,
     rgb_comp_sim = np.random.rand(3, nSims) * (box_range[1] - box_range[0]) + \
         box_range[0]
         
-    rgb_comp_sim[fixed_RGBplane,:] = slc_fixedVal
+    if len(fixed_RGBplane) != 0:
+        rgb_comp_sim[fixed_RGBplane,:] = slc_fixedVal
     
     rgb_comp_sim[varying_RGBplane,:] = rgb_comp_sim[varying_RGBplane,:] + \
-        rgb_ref.reshape((2,1))
+        rgb_ref.reshape((len(varying_RGBplane),1))
         
     return rgb_comp_sim
 
@@ -151,6 +205,7 @@ def plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, varying_RGBplane,\
         'WishartEllipsesColor': np.array([76, 153, 0]) / 255,
         'marker1':'.',
         'marker0':'*',
+        'markerSize':5,
         'lineWidth': 1,
         'markerColor1': np.array([173, 216, 230]) / 255,
         'markerColor0': np.array([255, 179, 138]) / 255,
@@ -187,12 +242,12 @@ def plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, varying_RGBplane,\
             idx_0 = np.where(pltParams['responses'][i,j,:] == 0)
             plt.scatter(rgb_comp[i, j, varying_RGBplane[0], idx_1],\
                         rgb_comp[i, j, varying_RGBplane[1], idx_1],\
-                        s = 10, marker=pltParams['marker1'],\
+                        s = pltParams['markerSize'], marker=pltParams['marker1'],\
                         c=pltParams['markerColor1'],alpha=0.8)
                 
             plt.scatter(rgb_comp[i, j, varying_RGBplane[0], idx_0], 
                         rgb_comp[i, j, varying_RGBplane[1], idx_0], \
-                        s = 10, marker=pltParams['marker0'], \
+                        s = pltParams['markerSize'], marker=pltParams['marker0'], \
                         c=pltParams['markerColor0'],alpha=0.8)
             
             plt.xlim([x_axis[0], x_axis[-1]])
@@ -225,58 +280,7 @@ def main():
     param, stim, results, plt_specifics = data_load[0], data_load[1], data_load[2], data_load[3]
         
     #%% Define dictionary sim
-    sim = {}
-    #Set default values for the simulation parameters.
-    default_value = 'R'
-    default_str = 'NearContour'
-    default_jitter = 0.1
-    default_ub = 0.025
-    default_trialNum = 80
-    
-    # QUESTION 1: Ask the user which RGB plane to fix during the simulation.
-    # The default plane is 'R'.
-    slc_RGBplane = input('Which plane would you like to fix (R/G/B; default: R):')
-    
-    # Validate the user input for the RGB plane. If valid, store the index; 
-    #otherwise, use the default value.
-    RGB_test = 'RGB'
-    if RGB_test.find(slc_RGBplane) != -1:
-        sim['slc_RGBplane'] = RGB_test.find(slc_RGBplane)
-    else: sim['slc_RGBplane'] = default_value
-    
-    # QUESTION 2: Ask the user to choose the sampling method.
-    # The default method is 'NearContour'.
-    sim['method_sampling'] = input('Which sampling method (NearContour/Random; default: NearContour):')
-    
-    # Depending on the chosen sampling method, ask for relevant parameters.
-    if sim['method_sampling'] == 'NearContour':
-        # QUESTION 3: For 'NearContour', ask for the jitter variability.
-        input_jitter = input('Enter variability of random jitter (default: 0.1):')
-        if input_jitter != '':
-            sim['random_jitter'] = float(input_jitter)
-        else: sim['random_jitter'] = default_jitter
-    elif sim['method_sampling'] == 'Random':
-        # QUESTION 3: For 'Random', ask for the upper bound of the square range.
-        square_ub = input('Enter the upper bound of the square (default: 0.025):')
-        if square_ub != '':
-            sim['range_randomSampling'] = [-float(square_ub), float(square_ub)]
-        else: 
-            sim['range_randomSampling'] = [-default_ub, default_ub]
-    else:
-        # If an invalid sampling method is entered, revert to default and ask 
-        #for jitter variability.
-        sim['method_sampling'] = default_str
-        #QUESTION 3
-        input_jitter = input('Enter variability of random jitter (default: 0.1):')
-        if input_jitter != '':
-            sim['random_jitter'] = float(input_jitter)
-        else: sim['random_jitter'] = default_jitter
-        
-    #QUESTION 4: how many simulation trials 
-    input_simTrials = input('How many simulation trials per cond (default: 80):')
-    if input_simTrials != '':
-        sim['nSims'] = int(input_simTrials)
-    else: sim['nSims'] = default_trialNum
+    sim = query_simCondition();
     
     # Configure the varying RGB planes based on the fixed plane selected by the user.
     sim['varying_RGBplane'] = list(range(3))
@@ -329,7 +333,7 @@ def main():
             elif sim['method_sampling'] == 'Random':
                 # If 'Random', generate comparison stimuli within a specified 
                 #square range.
-                sim['rgb_comp'][i,j,:,:] = sample_rgb_comp_2Drandom(\
+                sim['rgb_comp'][i,j,:,:] = sample_rgb_comp_random(\
                     rgb_ref_ij[sim['varying_RGBplane']],sim['varying_RGBplane'],\
                     sim['fixed_RGBvec'], sim['range_randomSampling'], sim['nSims'])
                 
