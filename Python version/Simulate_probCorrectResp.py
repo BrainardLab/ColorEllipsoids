@@ -23,7 +23,7 @@ def query_simCondition(default_value = 'R', default_str = 'NearContour',
     sim = {}
     # QUESTION 1: Ask the user which RGB plane to fix during the simulation.
     # The default plane is 'R'.
-    slc_RGBplane = input('Which plane would you like to fix (R/G/B/[]; default: R):')
+    slc_RGBplane = input('Which plane would you like to fix (R/G/B/[]); default: R. If you are simulating ellipsoids, please enter []:')
     
     # Validate the user input for the RGB plane. If valid, store the index; 
     #otherwise, use the default value.
