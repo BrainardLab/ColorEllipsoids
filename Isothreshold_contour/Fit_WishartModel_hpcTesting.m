@@ -17,8 +17,9 @@ model.coeffs_chebyshev = compute_chebyshev_basis_coeffs(model.max_deg);
 model.xt               = linspace(-1,1,model.num_MC_samples);
 model.yt               = linspace(-1,1,model.num_MC_samples);
 [model.XT, model.YT]   = meshgrid(model.xt, model.yt);
+XYT = cat(3, model.XT, model.YT);
 [~, model.M_chebyshev] = compute_U(model.coeffs_chebyshev,[],...
-    model.XT,model.YT, model.max_deg);
+    XYT, model.max_deg);
 
 %% load isothreshold contours simulated based on CIELAB
 % analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
@@ -103,8 +104,9 @@ for s = 1:nDataFiles
         model.max_deg, model.nDims, model.nDims+model.eDims]);
     
     %% recover covariance matrix
+    xy_grid = cat(3,param.x_grid, param.y_grid);
     [fits.U_recover,~] = compute_U(model.coeffs_chebyshev, fits.w_est_best, ...
-        param.x_grid, param.y_grid, model.max_deg); 
+        xy_grid, model.max_deg); 
     for i = 1:model.nDims
         for j = 1:model.nDims
             fits.Sigmas_recover(:,:,i,j) = sum(fits.U_recover(:,:,i,:).*...

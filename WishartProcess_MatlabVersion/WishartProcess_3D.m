@@ -3,11 +3,11 @@ clear all; close all; clc;
 %define some parameters
 
 MAX_DEGREE     = 5;     %corresponds to p in Alex's document
-NUM_DIMS       = 2;     %corresponds to a = 1, a = 2 
+NUM_DIMS       = 3;     %corresponds to a = 1, a = 2 
 EXTRA_DIMS     = 1;
-NUM_GRID_PTS   = 28;
+NUM_GRID_PTS   = 10;
 NUM_MC_SAMPLES = 100;   %number of monte carlo simulation
-DECAY_RATE     = 0.4;
+DECAY_RATE     = 0.3;
 VARIANCE_SCALE = 0.004;
 
 %% Part 1: Wishart Process prior and approximation in Chebyshev polynomial basis 
@@ -24,22 +24,6 @@ disp(T)
 
 %visualize the basis functions
 plot_chebyshevPolynomials(T)
-
-%test for orthogonality
-flag_nonZeros = 0;
-for d1 = 1:(MAX_DEGREE-1)
-    T_d1 = matlabFunction(T(d1));
-    for d2 = (d1+1):MAX_DEGREE
-        T_d2 = matlabFunction(T(d2));
-        wfunc = @(x) 1./sqrt(1-x.^2);
-        if d1 > 1; integrad = @(x) T_d1(x).*T_d2(x).*wfunc(x);
-        else; integrad = @(x) T_d2(x).*wfunc(x);end
-        integral_result = integral(integrad, -1,1);
-        if abs(integral_result) > 1e-10; flag_nonZeros = 1; end
-    end
-end
-if flag_nonZeros == 0; disp('Orthogonality checked!'); end
-
 
 %% make it 2d
 %[T(0)T(0), T(0)T(1), ... , T(0)T(4);
@@ -58,24 +42,37 @@ disp(coeffs_chebyshev)
 
 xg       = linspace(-1,1,NUM_MC_SAMPLES);
 yg       = linspace(-1,1,NUM_MC_SAMPLES);
-[XG, YG] = meshgrid(xg, yg);
-XYG = cat(3, XG, YG);
-[~, M_chebyshev] = compute_U(coeffs_chebyshev,[],XYG, MAX_DEGREE);
+zg       = linspace(-1,1,NUM_MC_SAMPLES);
+[XG, YG, ZG] = meshgrid(xg, yg, zg);
+XYZG = cat(4, XG, YG, ZG);
+[~, M_chebyshev] = compute_U(coeffs_chebyshev,[],XYZG, MAX_DEGREE);
 
 %visualize it
-plot_multiHeatmap(M_chebyshev,'permute_M',true,'figPos',[0,0.1,0.4,0.7],...
-    'figName','BasisFunctions_deg5','saveFig',false);
+%since it's 3d, it's hard to visualize (but we can slice it)
+%only pick the basis functions along the diagonal 
+M_chebyshev_diagonal = NaN(NUM_MC_SAMPLES, NUM_MC_SAMPLES, NUM_MC_SAMPLES, MAX_DEGREE);
+for d = 1:MAX_DEGREE
+    M_chebyshev_diagonal(:,:,:,d) = squeeze(M_chebyshev(:,:,:,d,d,d));
+end
+%slice along z-axis
+slc_slice = [1,25,50,75,100];
+M_chebyshev_reshape = NaN(NUM_MC_SAMPLES, NUM_MC_SAMPLES,MAX_DEGREE,length(slc_slice));
+for s = 1:length(slc_slice)
+    M_chebyshev_reshape(:,:,:,s) = squeeze(M_chebyshev_diagonal(:,:,slc_slice(s),:));
+end
+plot_multiHeatmap(M_chebyshev_reshape,'permute_M',true,'figPos',[0,0.1,0.4,0.7],...
+    'figName','BasisFunctions_deg5','saveFig',false,'colorbar_on', true);
 
 %% randomly generate linear combinations of the basis function
 %try 4 instances
 nInstances = 4; 
 %draw values from Gaussian distributions and use them as weights for the
 %basis functions
-w = randn(MAX_DEGREE,MAX_DEGREE,2, 2).*0.01;
-U_rand = compute_U(coeffs_chebyshev, w, XYG, MAX_DEGREE);
+w = randn(MAX_DEGREE,MAX_DEGREE, MAX_DEGREE, 2, 2).*5;
+U_rand = compute_U(coeffs_chebyshev, w, XYZG, MAX_DEGREE);
 
 %visualize it
-plot_multiHeatmap(U_rand,'permute_M',true)
+plot_multiHeatmap(squeeze(U_rand(:,slice_grid,:,:,:)),'permute_M',true)
 
 %% PART2: Sampling from the Wishart Process prior
 %Sample W. As the degree of polynomial increases, the std of weights

@@ -10,6 +10,7 @@ function plot_multiHeatmap(M, varargin)
     p.addParameter('x_ticks',[],@(x)(isnumeric(x)));
     p.addParameter('y_ticks',[],@(x)(isnumeric(x)));
     p.addParameter('sgttl',"",@isstring);
+    p.addParameter('colorbar_on', false, @islogical);
     p.addParameter('D', [], @(x)(isnumeric(x)));
     p.addParameter('figPos', [0, 0.1,0.415,0.7], @(x)(isnumeric(x) && length(x)==4));
     p.addParameter('saveFig',false,@islogical);
@@ -23,6 +24,7 @@ function plot_multiHeatmap(M, varargin)
     x_ticks   = p.Results.x_ticks;
     y_ticks   = p.Results.y_ticks;
     sgttl     = p.Results.sgttl;
+    colorbar_on = p.Results.colorbar_on;
     D         = p.Results.D; 
     figPos    = p.Results.figPos;
     saveFig   = p.Results.saveFig;
@@ -54,6 +56,7 @@ function plot_multiHeatmap(M, varargin)
             end
             xticks(x_ticks); yticks(y_ticks); 
             axis square;
+            if colorbar_on; colorbar; clim([0,1]); end
         end
     end
     sgtitle(sgttl);
