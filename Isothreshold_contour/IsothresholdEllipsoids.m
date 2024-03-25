@@ -74,7 +74,7 @@ if flag_visualize_chromDir
     myFigDir = 'Simulation_FigFiles';
     outputDir = fullfile(analysisDir, myFigDir);
     figFilePath = fullfile(outputDir, 'ChromaticDirs_3D.pdf');
-    saveas(gcf, figFilePath);
+    % saveas(gcf, figFilePath);
 end
 
 %define threshold as deltaE = 1
