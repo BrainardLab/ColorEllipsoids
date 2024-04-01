@@ -14,7 +14,7 @@ import pickle
 #import functions from the other script
 func_path = '/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version/'
 os.chdir(func_path)
-from Simulate_probCorrectResp import query_simCondition,sample_rgb_comp_random
+from Simulate_probCorrectResp import query_simCondition,sample_rgb_comp_random, sample_rgb_comp_Gaussian
 from IsothresholdContour_RGBcube import convert_rgb_lab
 
 #%%
@@ -245,6 +245,11 @@ def main():
                     sim['rgb_comp'][i,j,k,:,:] = sample_rgb_comp_random(\
                         rgb_ref_ijk, sim['varying_RGBplane'], np.nan,\
                         sim['range_randomSampling'], sim['nSims'])
+                elif sim['method_sampling'] == 'Gaussian':
+                    sim['rgb_comp'][i,j,k,:,:] = sample_rgb_comp_Gaussian(\
+                        rgb_ref_ijk[sim['varying_RGBplane']],sim['varying_RGBplane'],\
+                        np.nan, results['rgb_surface_cov'][i,j,k,:,:],\
+                        sim['nSims'], sim['covMatrix_scaler'])         
                 
                 #simulate binary responses
                 for n in range(sim['nSims']):
@@ -272,6 +277,8 @@ def main():
         file_name = file_name_firsthalf+'_jitter'+str(sim['random_jitter'])+'.pkl'
     elif sim['method_sampling'] == 'Random':
         file_name = file_name_firsthalf+'_range'+str(sim['range_randomSampling'])+'.pkl'        
+    elif sim['method_sampling'] == 'Gaussian':
+        file_name = file_name_firsthalf+'_covMatrixScaler'+str(sim['covMatrix_scaler'])+'.pkl' 
     path_output = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
         'ELPS_analysis/Simulation_DataFiles/'
     full_path = f"{path_output}{file_name}"

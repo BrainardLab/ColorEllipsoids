@@ -45,7 +45,7 @@ import os
 import pickle
 import numpy as np
 
-file_name = 'Sims_isothreshold_ellipsoids_sim240perCond_samplingNearContour_jitter0.1.pkl'
+file_name = 'Sims_isothreshold_ellipsoids_sim240perCond_samplingGaussian_covMatrixScaler0.25.pkl'
 path_str  = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
             'ELPS_analysis/Simulation_DataFiles/'
 full_path = f"{path_str}{file_name}"
@@ -149,15 +149,15 @@ W_init = model.sample_W_prior(W_INIT_KEY)
 
 opt_params = {
     "learning_rate": 1e-3,
-    "momentum": 1e-3,#0.6
+    "momentum": 0.6,
     "mc_samples": 100,
-    "bandwidth": 1e-2,
+    "bandwidth": 1e-5,
 }
 
 W_est, iters, objhist = optim.optimize_posterior(
     W_init, data, model, OPT_KEY,
     opt_params,
-    total_steps=1000,
+    total_steps=10000,
     save_every=10,
     show_progress=True
 )
