@@ -116,6 +116,42 @@ def plot_BrierScore(bdw_vec, nSims_vec, bScore, optimal_bdw, min_bScore, **kwarg
         full_path = os.path.join(pltParams['figPath'], pltParams['figName']+'.png')
         fig.savefig(full_path)    
         
+def plot_eigvalues_ellipses_CIELab(eigvalMat, mean_eigval, **kwargs):
+    pltParams = {
+        'saveFig': False,
+        'figPath': '',
+        'figName': 'SanityCheck_fig8'
+        }
+    #update default options with any keyword arguments provided
+    pltParams.update(kwargs)
+    
+    fig, ax = plt.subplots(1, 1, figsize = (4,4))
+    plt.rcParams['figure.dpi'] = 250
+    cmap = np.array([[1,0,0],[0,0.5,0],[0,0,1]])
+    lgd = ['GB plane', 'RB plane', 'RG plane']
+    for s in range(nPlanes):
+        plt.scatter(np.log(eigvalMat[s,:,:,0])/np.log(10), \
+                    np.log(eigvalMat[s,:,:,1])/np.log(10), c = cmap[s,:],\
+                    alpha = 0.2, label = lgd[s])
+    plt.scatter(np.log(mean_eigval[0])/np.log(10),\
+                np.log(mean_eigval[1])/np.log(10), s = 50, c = 'k', marker = 'd',\
+                alpha = 0.5, label = "Mean\n[{:.2f}, {:.2f}]".format(\
+                np.log(mean_eigval[0])/np.log(10),np.log(mean_eigval[1])/np.log(10)))
+    plt.xlim([-5, -3.5]); plt.xticks(np.arange(-5,-3,0.5))
+    plt.ylim([-4.5, -3]); plt.yticks(np.arange(-4.5,-2.5,0.5))
+    plt.legend(fontsize = 8, loc = "lower right")
+    plt.xlabel('Eigenvalue of the minor axis')
+    plt.ylabel('Eigenvalue of the major axis')
+    plt.grid(True)    
+    plt.tight_layout()
+    plt.show()
+    if pltParams['saveFig'] and pltParams['figPath'] != '':
+        if not os.path.exists(pltParams['figPath']):
+            os.makedirs(pltParams['figPath'])
+        full_path = os.path.join(pltParams['figPath'], pltParams['figName']+'.png')
+        fig.savefig(full_path) 
+    
+    
 #%%
 cov_scaler_all     = np.array([0.001, 0.0005, 0.0001, 5e-5, 1e-5])
 len_cov_scaler_all = len(cov_scaler_all)
@@ -180,37 +216,13 @@ with open(full_path, 'rb') as f:
     data_load = pickle.load(f)
 results = data_load[2]
 paramE_2D = results['ellParams']
-longAxis_all, shortAxis_all, angle_all = paramE_2D[:,:,:,2], paramE_2D[:,:,:,3], paramE_2D[:,:,:,4]
+longAxis_all, shortAxis_all, angle_all = paramE_2D[:,:,:,2], paramE_2D[:,:,:,3],\
+    paramE_2D[:,:,:,4]
+nPlanes, nRefx, nRefy = longAxis_all.shape
+cov_eigval = np.stack((shortAxis_all**2,longAxis_all**2), axis = -1)
+mean_cov_eigval = np.mean(cov_eigval, axis = (0,1,2))
 
-ellipses_cov = np.full((3,5,5,2,2), np.nan)
-cov_eigval = np.full((3,5,5,2), np.nan)
-for s in range(3):
-    for i in range(5):
-        for j in range(5):
-            ellipses_cov[s,i,j,:,:] = computeQ_givenEllParam(longAxis_all[s,i,j],\
-                                                  shortAxis_all[s,i,j],\
-                                                  angle_all[s,i,j])
-            cov_eigval[s,i,j,:], _ = np.linalg.eig(ellipses_cov[s,i,j,:,:])
-
-
-longAxis_all     = longAxis_all.flatten()
-shortAxis_all    = shortAxis_all.flatten()
-angle_all        = angle_all.flatten()
-axisRatio_all    = longAxis_all/shortAxis_all
-axisRatio_maxIdx = np.argmax(axisRatio_all)
-axisRatio_minIdx = np.argmin(axisRatio_all)
-
-longAxis_thin    = longAxis_all[axisRatio_maxIdx]
-shortAxis_thin   = shortAxis_all[axisRatio_maxIdx]
-angle_thin       = angle_all[axisRatio_maxIdx]
-ellipse_cov      = computeQ_givenEllParam(longAxis_thin, shortAxis_thin, angle_thin)
-eigenvalues, eigenvectors = np.linalg.eig(ellipse_cov)
-
-# longAxis_short  = longAxis_all[axisRatio_minIdx]
-# shortAxis_short = shortAxis_all[axisRatio_minIdx]
-# angle_short     = angle_all[axisRatio_minIdx]
-# ellipse_cov        = computeQ_givenEllParam(longAxis_short, shortAxis_short, angle_short)
-
-#plot_ECDF_gt(diff_sorted_gt, ecdf_gt, x1_vec,saveFig = True, \
-#             figPath = fig_outputDir, figName = 'ECDF_gt_samplingMethod_'+\
-#                 sMethod+'_covMat_'+'CIELab_set'+str(axisRatio_maxIdx))
+fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
+    'ELPS_analysis/SanityChecks_FigFiles/'
+plot_eigvalues_ellipses_CIELab(cov_eigval, mean_cov_eigval, saveFig = True,\
+                               figPath = fig_outputDir, figName = 'Eigvales_CIELab' )
