@@ -139,7 +139,7 @@ def initialize_model(data, key, num_sims=1000, degree=5, num_dims=3, extra_dims=
     return models, jnp.array(vals)
 
 # Fit model, initialized at random W
-W_init = model.sample_W_prior(W_INIT_KEY)
+W_init = 0.001*model.sample_W_prior(W_INIT_KEY)
 #W_init = initialize_model(data, W_INIT_KEY)
 
 #%%
@@ -151,7 +151,7 @@ opt_params = {
     "learning_rate": 1e-3,
     "momentum": 0.6,
     "mc_samples": 100,
-    "bandwidth": 1e-5,
+    "bandwidth": 1e-4,
 }
 
 W_est, iters, objhist = optim.optimize_posterior(
@@ -181,10 +181,11 @@ Sigmas_est_grid = model.compute_Sigmas(
 )
 
 #%% plotting
-scaling_factor = 3
+scaling_factor = 4
 k = 2; grid_slc_k = 50
 grids_slc = [19, 34, 49, 64, 79]
 idx_list = [[0, 1], [0, 2], [1, 2]]
+plt.rcParams['figure.dpi'] = 250
 for _idx in range(3):
     fig, axes = plt.subplots(1, 2)
     idx = jnp.array(idx_list[_idx])
@@ -196,17 +197,17 @@ for _idx in range(3):
             
             #scatter plot the data
             axes[0].scatter((x1_temp[ii,jj,kk,idx[0],:] - \
-                             xref_temp[ii,jj,kk,idx[0]])*scaling_factor \
+                             xref_temp[ii,jj,kk,idx[0]])*scaling_factor*1.4 \
                 + xref_temp[ii,jj,kk,idx[0]],(x1_temp[ii,jj,kk,idx[1],:] -\
-                             xref_temp[ii,jj,kk,idx[1]])*scaling_factor \
-                + xref_temp[ii,jj,kk,idx[1]],s=1,c = 'green', alpha=0.2)
+                             xref_temp[ii,jj,kk,idx[1]])*scaling_factor*1.4 \
+                + xref_temp[ii,jj,kk,idx[1]],s=1,c = 'green', alpha=0.1)
 
             #visualize the fits
             
             viz.plot_ellipse(axes[1],
                 xgrid[iii,jjj,kkk, idx],
                 scaling_factor*Sigmas_init_grid[iii,jjj,kkk][idx][:, idx],
-                color="k", alpha=.5, lw=5
+                color="k", alpha=.5, lw=1
             )  
             
             viz.plot_ellipse(axes[1],
@@ -214,7 +215,8 @@ for _idx in range(3):
                 scaling_factor*Sigmas_est_grid[iii,jjj,kkk][idx][:, idx],
                 color="r", alpha=.5, lw=1
             )      
-            
+    axes[0].set_aspect('equal')    
+    axes[1].set_aspect('equal')    
     axes[0].set_xlim([-1,1])
     axes[0].set_ylim([-1,1])
     axes[1].set_xlim([-1,1])
