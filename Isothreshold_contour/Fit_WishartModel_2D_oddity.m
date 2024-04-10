@@ -18,7 +18,7 @@ model.max_deg           = 3;     %corresponds to p in Alex's document
 model.nDims             = 2;     %corresponds to a = 1, a = 2 
 model.eDims             = 0;     %extra dimensions
 model.num_grid_pts      = 100;
-model.num_MC_samples    = 50;   %number of monte carlo simulation
+model.num_MC_samples    = 1000;   %number of monte carlo simulation
 
 model.coeffs_chebyshev = compute_chebyshev_basis_coeffs(model.max_deg);
 disp(model.coeffs_chebyshev)
@@ -30,7 +30,7 @@ XYT = cat(3, model.XT, model.YT);
 [~, model.M_chebyshev] = compute_U(model.coeffs_chebyshev,[],...
     XYT, model.max_deg);
 %visualize it
-plot_multiHeatmap(model.M_chebyshev,'permute_M',true);
+% plot_multiHeatmap(model.M_chebyshev,'permute_M',true);
 
 %% Fit the model to the data
 %comparison stimulus
@@ -63,46 +63,50 @@ resp_binary = sim.resp_binary(sim.slc_ref, sim.slc_ref,:);
 w_reshape_size = [model.max_deg, model.max_deg, model.nDims, model.nDims+model.eDims];
 objectiveFunc = @(w_colvec) estimate_loglikelihood_oddity(w_colvec,...
     w_reshape_size, resp_binary(:), sim.xref_sim_org, sim.x0_sim_org, sim.x1_sim_org,...
-    model.coeffs_chebyshev,'num_MC_samples', model.num_MC_samples);
-
-%% look for the best bandwidth
-myDataDir   = 'ModelFitting_DataFiles';
-intendedDir = fullfile(analysisDir, myDataDir);
-addpath(intendedDir);
-load('Fits_isothreshold_GB plane_sim240perCond_samplingNearContour_jitter0.1.mat', 'E')
-fits_previous = E{end}.w_est_best(:);
+    model.coeffs_chebyshev,'num_MC_samples', model.num_MC_samples,'bandwidth',1e-4);
 
 %% call bads 
 fits.nFreeParams = model.max_deg*model.max_deg*model.nDims*...
-                    (model.nDims + model.eDims)+1;
-% fits.lb          = -0.05.*ones(1, fits.nFreeParams); fits.lb(end) = 0.0001;%-0.05
-% fits.ub          =  0.05.*ones(1, fits.nFreeParams); fits.ub(end) = 2; %0.05
-% fits.plb         = -0.01.*ones(1, fits.nFreeParams); fits.plb(end) = 0.1; %-0.01
-% fits.pub         =  0.01.*ones(1, fits.nFreeParams); fits.pub(end) = 1; %0.01
-
-fits.lb          = [fits_previous', 1e-4];
-fits.ub          = [fits_previous', 5e-4]; 
-fits.plb         = [fits_previous', 1e-4]; 
-fits.pub         = [fits_previous', 5e-4]; 
+                    (model.nDims + model.eDims);
+lb          = -0.15.*ones(1, fits.nFreeParams); 
+ub          =  0.15.*ones(1, fits.nFreeParams); 
+plb         = -0.05.*ones(1, fits.nFreeParams);
+pub         =  0.05.*ones(1, fits.nFreeParams);
 
 %have different initial points to avoid fmincon from getting stuck at
 %some places
-fits.N_runs      = 1;
-fits.init        = rand(fits.N_runs,fits.nFreeParams).*...
-                    (fits.pub-fits.plb) + fits.plb;
+N_runs      = 5;
+init        = rand(N_runs,fits.nFreeParams).* (pub- plb) +  plb;
+% fits.lb          = -0.15.*ones(1, fits.nFreeParams); 
+% fits.ub          =  0.15.*ones(1, fits.nFreeParams); 
+% fits.plb         = -0.05.*ones(1, fits.nFreeParams);
+% fits.pub         =  0.05.*ones(1, fits.nFreeParams);
+% 
+% %have different initial points to avoid fmincon from getting stuck at
+% %some places
+% fits.N_runs      = 5;
+% fits.init        = rand(fits.N_runs,fits.nFreeParams).*...
+%                     (fits.pub-fits.plb) + fits.plb;
+w_colvec_est = NaN(N_runs, fits.nFreeParams);
+minVal = NaN(1, N_runs);
 
-for n = 1:fits.N_runs
+parfor n = 1:N_runs
     disp(n)
+    init_n = init(n,:);
     %use fmincon to search for the optimal defocus
-    [fits.w_colvec_est(n,:), fits.minVal(n)] = bads(objectiveFunc,...
-        fits.init(n,:), fits.lb, fits.ub, fits.plb, fits.pub);
+    [w_colvec_est_n, minVal_n] = bads(objectiveFunc,...
+        init_n, lb, ub, plb, pub);
+    w_colvec_est(n,:) = w_colvec_est_n; 
+    minVal(n) = minVal_n;
 end
+fits.w_colvec_est = w_colvec_est;
+fits.minVal = minVal;
 %find the index that corresponds to the minimum value
 [~,idx_min] = min(fits.minVal);
 %find the corresponding optimal focus that leads to the highest peak of
 %the psf's
 fits.w_colvec_est_best  = fits.w_colvec_est(idx_min,:);
-fits.w_est_best = reshape(fits.w_colvec_est_best(1:end-1), [model.max_deg,...
+fits.w_est_best = reshape(fits.w_colvec_est_best, [model.max_deg,...
     model.max_deg, model.nDims, model.nDims+model.eDims]);
 
 %% recover covariance matrix
@@ -126,7 +130,7 @@ for i = 1:length(sim.slc_ref) %stim.nGridPts_ref
         %grab the reference stimulus's RGB
         rgb_ref_ij = sim.ref_points(sim.slc_ref(i),sim.slc_ref(j),:);
         vecLength_ij = squeeze(results.opt_vecLen(5,1,i,j,:));
-        fits.vecLength = linspace(min(vecLength_ij)*0.75,max(vecLength_ij)*5,...
+        fits.vecLength = linspace(min(vecLength_ij)*0.5,max(vecLength_ij)*1.5,...
             fits.ngrid_bruteforce);
 
         [fits.recover_fitEllipse(i,j,:,:), ...
@@ -138,7 +142,7 @@ for i = 1:length(sim.slc_ref) %stim.nGridPts_ref
             stim.grid_theta_xy, fits.vecLength, sim.pC_given_alpha_beta, ...
             model.coeffs_chebyshev, fits.w_est_best, 'contour_scaler',...
             5, 'nSteps_bruteforce', fits.ngrid_bruteforce,... %results.contour_scaler
-            'bandwidth',fits.w_colvec_est_best(end),'num_MC_samples',50);%fits.w_colvec_est_best(end)
+            'bandwidth',1e-4,'num_MC_samples',model.num_MC_samples);
     end
 end
 
@@ -194,12 +198,12 @@ if strcmp(sim.method_sampling,'NearContour')
     figName = ['SanityCheck_fitted_Isothreshold_contour_',plt.ttl{sim.slc_RGBplane},...
         '_sim',num2str(sim.nSims), 'perCond_sampling',sim.method_sampling,...
         '_jitter',num2str(sim.random_jitter),str_extension,'_bandwidth', ...
-        num2str(fits.w_colvec_est_best(end)),'_MC',num2str(model.num_MC_samples),'_Euclidean_half'];
+        num2str(fits.w_colvec_est_best(end)),'_MC',num2str(model.num_MC_samples),'_Mahalanobis'];
 elseif strcmp(sim.method_sampling, 'Random')
     figName = ['SanityCheck_fitted_Isothreshold_contour_',plt.ttl{sim.slc_RGBplane},...
         '_sim',num2str(sim.nSims), 'perCond_sampling',sim.method_sampling,...
         '_range',num2str(sim.range_randomSampling(end)),str_extension,'_bandwidth', ...
-        num2str(fits.w_colvec_est_best(end)),'_MC',num2str(model.num_MC_samples),'_Euclidean_half'];
+        num2str(fits.w_colvec_est_best(end)),'_MC',num2str(model.num_MC_samples),'_Mahalanobis'];
 end
 
 plot_2D_isothreshold_contour(stim.x_grid_ref, stim.y_grid_ref, ...
@@ -220,7 +224,7 @@ plot_2D_isothreshold_contour(stim.x_grid_ref, stim.y_grid_ref, ...
     'subTitle', {sprintf(['Predicted iso-threshold contours \nin the ',...
         plt.ttl{sim.slc_RGBplane}, ' based on the Wishart process'])},...
     'figName', figName,...
-    'saveFig', false);
+    'saveFig', true);
 
 %% visualize samples
 groundTruth_slc = squeeze(results.fitEllipse_unscaled(sim.slc_fixedVal_idx,...
@@ -260,14 +264,14 @@ if (~exist('outputDir'))
 end
 
 if strcmp(sim.method_sampling, 'NearContour')
-    fileName = ['Fits_isothreshold_',plt.ttl{sim.slc_RGBplane},'_sim',...
+    fileName = ['Fits_isothreshold_oddity_',plt.ttl{sim.slc_RGBplane},'_sim',...
         num2str(sim.nSims), 'perCond_sampling',sim.method_sampling,...
-        '_jitter',num2str(sim.random_jitter),str_extension,'.mat'];
+        '_jitter',num2str(sim.random_jitter),str_extension,'_Mahalanobis.mat'];
 elseif strcmp(sim.method_sampling, 'Random')
-    fileName = ['Fits_isothreshold_',plt.ttl{sim.slc_RGBplane},'_sim',...
+    fileName = ['Fits_isothreshold_oddity_',plt.ttl{sim.slc_RGBplane},'_sim',...
         num2str(sim.nSims), 'perCond_sampling',sim.method_sampling,...
-        '_range',num2str(sim.range_randomSampling(end)),str_extension,'.mat'];
+        '_range',num2str(sim.range_randomSampling(end)),str_extension,'_Mahalanobis.mat'];
 end
 outputName = fullfile(outputDir, fileName);
-save(outputName,'E');
+save(outputName,'E', '-v7.3');
 

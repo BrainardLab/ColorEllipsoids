@@ -5,7 +5,7 @@ function pChoosingX1 = predict_error_prob_oddity(W, coeffs_chebyshev, xref, x0, 
     p.addParameter('etas', [], @(x)(isnumeric(x)));
     p.addParameter('num_MC_samples',100,@isnumeric);
     p.addParameter('scalePhi_toRGB',true,@islogical);
-    p.addParameter('bandwidth',0.001,@isnumeric);
+    p.addParameter('bandwidth',1e-4,@isnumeric);
 
     parse(p, varargin{:});
     etas               = p.Results.etas;
@@ -46,9 +46,9 @@ function pChoosingX1 = predict_error_prob_oddity(W, coeffs_chebyshev, xref, x0, 
         etas1    = etas(3,:,:,:); 
         etas1    = reshape(etas1, [1,nDims+eDims, num_MC_samples,1]);
     else %STOCHASTIC
-        etasRef = randn([1,nDims+eDims, num_MC_samples,1]);
-        etas0 = randn([1,nDims+eDims, num_MC_samples,1]);
-        etas1 = randn([1,nDims+eDims, num_MC_samples,1]);
+        etasRef = 0.01.*randn([1,nDims+eDims, num_MC_samples,1]);
+        etas0 = 0.01.*randn([1,nDims+eDims, num_MC_samples,1]);
+        etas1 = 0.01.*randn([1,nDims+eDims, num_MC_samples,1]);
     end
     %simulate values for the reference and the comparison stimuli
     zref_noise    = tensorprod(Uref, squeeze(etasRef), 4, 1);
@@ -62,52 +62,56 @@ function pChoosingX1 = predict_error_prob_oddity(W, coeffs_chebyshev, xref, x0, 
     z1_noise = tensorprod(U1, squeeze(etas1), 4, 1);
     z1       = repmat(x1,[1,1,1,num_MC_samples]) + z1_noise;
     z1       = permute(z1,[1,2,4,3]);
-    
-    %compute squared distance of each probe stimulus to reference
-    % z0_to_zref = sum((z0 - zref).^2, 4);
-    % z1_to_zref = sum((z1 - zref).^2, 4);
 
     %Mahalanobis distance
+    Sigma_ref0 = permute(Sigma0 + SigmaRef, [3,4,1,2]);
+    Sigma_ref1 = permute(Sigma1 + SigmaRef, [3,4,1,2]);
     [z0_to_zref, z1_to_zref] = deal(NaN(size(z0,1), size(z0,2), size(z0,3)));
     for t = 1:size(z0,1)
         for v = 1:size(z0,2)
+            inv_Sigma_ref0_n = inv(squeeze(Sigma_ref0(:,:,t,v)));
+            inv_Sigma_ref1_n = inv(squeeze(Sigma_ref1(:,:,t,v)));
             for n = 1:size(z0,3)
                 z0_tvn = squeeze(z0(t,v,n,:));
                 z1_tvn = squeeze(z1(t,v,n,:)); 
                 zref_tvn = squeeze(zref(t,v,n,:));
-                Sigma_ref0 = squeeze(Sigma0(t,v,:,:)) + squeeze(SigmaRef(t,v,:,:));
-                Sigma_ref1 = squeeze(Sigma1(t,v,:,:)) + squeeze(SigmaRef(t,v,:,:));
-                z0_to_zref(t,v,n) = sqrt((z0_tvn - zref_tvn)' / Sigma_ref0 * (z0_tvn - zref_tvn));%abs(z0_norm - zref_norm);
-                z1_to_zref(t,v,n) = sqrt((z1_tvn - zref_tvn)' / Sigma_ref1 * (z1_tvn - zref_tvn));
+                z0_to_zref(t,v,n) = sqrt((z0_tvn - zref_tvn)' * inv_Sigma_ref0_n * (z0_tvn - zref_tvn));
+                z1_to_zref(t,v,n) = sqrt((z1_tvn - zref_tvn)' * inv_Sigma_ref1_n * (z1_tvn - zref_tvn));
             end
         end
     end
 
+    % %compute squared distance of each probe stimulus to reference
+    % z0_to_zref = sum((z0 - zref).^2, 4);
+    % z1_to_zref = sum((z1 - zref).^2, 4);
+
     %return signed difference
-    diff_z1z0_to_zref = z0_to_zref - z1_to_zref;
-    % diff_z1z0_to_zref = sqrt(z0_to_zref) - sqrt(z1_to_zref);
+    diff_z1z0_to_zref = z1_to_zref - z0_to_zref;
 
     %evaluate one minus the cumulative density function at 0, which gives 
     %the probability of choosing the x0
-    logit_density = @(x, mu) exp(-(x-mu)./bandwidth)./ (bandwidth.* (1 + exp(-(x-mu)./bandwidth)).^2); 
-    approx_cdf = NaN(1, size(xref, 2));
-    for i = 1:size(xref, 2)
-        diff_z1z0_to_zref_i = sort(squeeze(diff_z1z0_to_zref(1,i,:)),'ascend');
-        min_diff = diff_z1z0_to_zref_i(1);
-        max_diff = diff_z1z0_to_zref_i(end);
-        range_diff = max_diff - min_diff;
-        x_i = linspace(min_diff - range_diff*0.5, max_diff + range_diff*0.5, 100); 
-        conv_i = zeros(1,100);
-        for n = 1:size(zref, 3)
-            conv_i = conv_i + logit_density(x_i, diff_z1z0_to_zref_i(n));
-        end
-        ecdf_i = cumsum(conv_i);
-        ecdf_i = ecdf_i./ecdf_i(end);
-
-        [~,min_idx_0] = min(abs(x_i));
-        approx_cdf(i) = ecdf_i(min_idx_0);
-    end
+    % logit_density = @(x, mu) exp(-(x-mu)./bandwidth)./ (bandwidth.* (1 + exp(-(x-mu)./bandwidth)).^2); 
+    % pChoosingX0 = NaN(1, size(xref, 2));
+    % for i = 1:size(xref, 2)
+    %     diff_z1z0_to_zref_i = sort(squeeze(diff_z1z0_to_zref(1,i,:)),'ascend');
+    %     min_diff   = diff_z1z0_to_zref_i(1);
+    %     max_diff   = diff_z1z0_to_zref_i(end);
+    %     range_diff = max_diff - min_diff;
+    %     x_i        = linspace(min_diff - range_diff/2, max_diff + range_diff/2, 100); 
+    %     conv_i     = zeros(1,100);
+    %     for n = 1:size(zref, 3)
+    %         log_density_n = logit_density(x_i, diff_z1z0_to_zref_i(n));
+    %         log_density_n(isnan(log_density_n)) = 0;
+    %         conv_i = conv_i + log_density_n;
+    %     end
+    %     ecdf_i = cumsum(conv_i);
+    %     ecdf_i = ecdf_i./ecdf_i(end);
+    % 
+    %     [~,min_idx_0] = min(abs(x_i));
+    %     pChoosingX0(i) = ecdf_i(min_idx_0);
+    % end
 
     %compute prob
-    pChoosingX1 = 1 - approx_cdf;
+    pChoosingX1 = sum(diff_z1z0_to_zref>0, 3)'./size(diff_z1z0_to_zref, 3);
+    %pChoosingX1 = 1 - pChoosingX0;
 end

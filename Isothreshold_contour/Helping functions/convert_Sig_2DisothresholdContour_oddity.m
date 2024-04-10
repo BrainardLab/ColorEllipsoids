@@ -10,7 +10,7 @@ function [recover_fitEllipse, recover_fitEllipse_unscaled, ...
     p.addParameter('nSteps_bruteforce',1000, @isnumeric);
     p.addParameter('bandwidth',1e-4,@isnumeric);
     p.addParameter('num_MC_samples', 100, @isnumeric);
-    p.addParameter('smooth_pC', true, @islogical);
+    p.addParameter('smooth_pC', false, @islogical);
 
     parse(p, varargin{:});
     nThetaEllipse      = p.Results.nThetaEllipse;
@@ -21,7 +21,7 @@ function [recover_fitEllipse, recover_fitEllipse_unscaled, ...
     flag_smooth_pC     = p.Results.smooth_pC;
 
     %scaling factor for chromatic direction
-    chromDir_scaler = 2;
+    chromDir_scaler = 1;
 
     %initialize 
     numDirPts = size(grid_theta_xy,2);
@@ -51,9 +51,11 @@ function [recover_fitEllipse, recover_fitEllipse_unscaled, ...
             kernelSize = floor(nSteps_bruteforce/50);
             kernel = ones(1, kernelSize) / kernelSize; 
             pChoosingX1 = conv(pChoosingX1_temp, kernel, 'same');
+        else
+            pChoosingX1 = pChoosingX1_temp;
         end
 
-        [~, min_idx] = min(abs((1-pChoosingX1) - pC_threshold));
+        [~, min_idx] = min(abs(pChoosingX1 - pC_threshold));
         recover_vecLength(k) = vecLength(min_idx);
         recover_rgb_comp_est(k,varying_RGBplane) = rgb_ref_s + ...
             contour_scaler.*vecDir.*vecLength(min_idx);
