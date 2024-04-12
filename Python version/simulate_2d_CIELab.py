@@ -5,7 +5,7 @@ Created on Mon Apr  8 11:52:44 2024
 
 @author: fangfang
 """
-
+#%%
 import jax
 jax.config.update("jax_enable_x64", True)
 
@@ -13,10 +13,14 @@ import jax.numpy as jnp
 import numpy as np
 import matplotlib.pyplot as plt
 
+import sys
+sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
 from core import chebyshev, viz, utils, oddity_task, optim
 from core.wishart_process import WishartProcessModel
+sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version/")
+from IsothresholdContour_RGBcube import fit_2d_isothreshold_contour
 
-# -------------------------------
+#%% -------------------------------
 # Constants describing simulation
 # -------------------------------
 model = WishartProcessModel(
@@ -25,28 +29,32 @@ model = WishartProcessModel(
     1,     # Number of extra inner dimensions in `U`.
     4e-3,  # Scale parameter for prior on `W`.
     0.2,   # Geometric decay rate on `W`.
-    1e-3,  # Diagonal term setting minimum variance for the ellipsoids.
+    1e-1,  # Diagonal term setting minimum variance for the ellipsoids.
 )
 
 NUM_GRID_PTS = 5      # Number of grid points over stimulus space.
-MC_SAMPLES = 1000        # Number of simulated trials to compute likelihood.
-NUM_TRIALS = 4000      # Number of trials in simulated dataset.
-MIN_LR = -7
-MAX_LR = -3
+MC_SAMPLES   = 1000        # Number of simulated trials to compute likelihood.
+BANDWIDTH    = 1e-4        # Bandwidth for logistic density function.
+NUM_TRIALS   = 4000      # Number of trials in simulated dataset.
+MIN_LR       = -7
+MAX_LR       = -3
 
 # Random number generator seeds
-W_TRUE_KEY = jax.random.PRNGKey(111)  # Key to generate `W`.
-W_INIT_KEY = jax.random.PRNGKey(223)  # Key to initialize `W_est`. 
-DATA_KEY = jax.random.PRNGKey(333)    # Key to generate datatset.
-OPT_KEY = jax.random.PRNGKey(444)     # Key passed to optimizer.
+W_TRUE_KEY   = jax.random.PRNGKey(111)  # Key to generate `W`.
+W_INIT_KEY   = jax.random.PRNGKey(223)  # Key to initialize `W_est`. 
+DATA_KEY     = jax.random.PRNGKey(333)    # Key to generate datatset.
+OPT_KEY      = jax.random.PRNGKey(444)     # Key passed to optimizer.
 
-# ------------------------------------------
+# %% ------------------------------------------
 # Load data simulated using CIELab
 # ------------------------------------------
 import os
 import pickle
 
-plane_2D = 'RG plane'
+plane_2D_dict = {'GB plane': 0, 'RB plane': 1, 'RG plane': 2}
+plane_2D      = 'RB plane'
+plane_2D_idx  = plane_2D_dict[plane_2D]
+
 file_name = 'Sims_isothreshold_'+plane_2D+'_sim240perCond_samplingNearContour_jitter0.3.pkl'
 path_str  = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
             'ELPS_analysis/Simulation_DataFiles/'
@@ -57,40 +65,30 @@ os.chdir(path_str)
 with open(full_path, 'rb') as f:
     # Load the object from the file
     data_load = pickle.load(f)
-sim = data_load[0]
+sim              = data_load[0]
 #comparisom stimulus; size: (5 x 5 x 3 x 240)
 #the comparison stimulus was sampled around 5 x 5 different ref stimuli
-x1_temp = sim['rgb_comp'][:,:,sim['varying_RGBplane'],:]
-#the original data ranges from 0 to 1
-#here we scale it so that it fits the [-1, 1] cube
-x1_temp = x1_temp * 2 -1
+#the original data ranges from 0 to 1; we scale it so that it fits the [-1, 1] cube
+x1_temp          = sim['rgb_comp'][:,:,sim['varying_RGBplane'],:] * 2 -1
 #number of simulations: 240 trials for each ref stimulus
-nSims = (x1_temp.shape)[-1] 
+nSims            = (x1_temp.shape)[-1] 
 #reshape the array so the final size is (2000, 3)
-x1_tmep_transpose = np.transpose(x1_temp, (0,1,3,2))
-x1_repeated_col1 = x1_tmep_transpose[:,:,:,0].ravel()
-x1_repeated_col2 = x1_tmep_transpose[:,:,:,1].ravel()
-x1_temp_reshaped = np.stack((x1_repeated_col1,x1_repeated_col2), axis=1)
-#convert it to jnp
-x1_jnp = jnp.array(x1_temp_reshaped, dtype=jnp.float64)
+x1_temp_reshaped = np.transpose(x1_temp, (0,1,3,2)).reshape(-1, 2)
+x1_jnp           = jnp.array(x1_temp_reshaped, dtype=jnp.float64)
 
 #reference stimulus
-xref_temp = sim['ref_points'][sim['varying_RGBplane'],:,:]
-xref_temp_transpose = np.transpose(xref_temp, (1,2,0))
-xref_temp_scaled = xref_temp_transpose * 2 -1
-xref_temp_expanded = np.expand_dims(xref_temp_scaled, axis=-1)
-xref_repeated = np.tile(xref_temp_expanded, (1, 1, 1, nSims))
-xref_repeated_col1 = xref_repeated[:,:,0,:].ravel()
-xref_repeated_col2 = xref_repeated[:,:,1,:].ravel()
-xref_temp_reshaped = np.stack((xref_repeated_col1,xref_repeated_col2), axis=1)
-xref_jnp = jnp.array(xref_temp_reshaped, dtype = jnp.float64)
+xref_temp           = sim['ref_points'][sim['varying_RGBplane'],:,:]
+xref_temp_scaled    = np.expand_dims(np.transpose(xref_temp, (1,2,0)) * 2 -1, axis=-1)
+xref_repeated       = np.tile(xref_temp_scaled, (1, 1, 1, nSims))
+xref_temp_reshaped  = np.stack((xref_repeated[:,:,0,:].ravel(),xref_repeated[:,:,1,:].ravel()), axis=1)
+xref_jnp            = jnp.array(xref_temp_reshaped, dtype = jnp.float64)
 
 #copy the reference stimulus
 x0_jnp = jnp.copy(xref_jnp)
 
 #binary responses 
 y_temp = jnp.array(sim['resp_binary'], dtype = jnp.float64)
-y_jnp = y_temp.ravel()
+y_jnp  = y_temp.ravel()
 
 # Specify grid over stimulus space
 xgrid = jnp.stack(
@@ -102,7 +100,6 @@ xgrid = jnp.stack(
 # Package data
 data = (y_jnp, xref_jnp, x0_jnp, x1_jnp)
 print("Proportion of correct trials:", jnp.mean(y_jnp))
-    
 
 #%%
 file_name2 = 'Isothreshold_contour_CIELABderived.pkl'
@@ -161,7 +158,7 @@ plt.tight_layout()
 plt.show()
 full_path = os.path.join('/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
         'ELPS_analysis/SanityChecks_FigFiles/', 'scaledData_'+plane_2D+'.png')
-fig.savefig(full_path)
+#fig.savefig(full_path)
 
 #%% -----------------------------
 # Fit W by maximizing posterior
@@ -181,13 +178,13 @@ W_init = 1e-3 * model.sample_W_prior(W_INIT_KEY)
 opt_params = {
     "learning_rate": 1e-2,
     "momentum": 0.2,
-    "mc_samples": 1000,
-    "bandwidth": 1e-4,
+    "mc_samples": MC_SAMPLES,
+    "bandwidth": BANDWIDTH,
 }
 W_est, iters, objhist = optim.optimize_posterior(
     W_init, data, model, OPT_KEY,
     opt_params,
-    total_steps=5000,
+    total_steps=1000,
     save_every=1,
     show_progress=True
 )
@@ -225,10 +222,10 @@ for i in range(NUM_GRID_PTS):
         axes[1].plot(gt_sigma[i,j,0,:] - xref_temp[0,i,j] + xgrid[i, j,0],\
                      gt_sigma[i,j,1,:] - xref_temp[1,i,j] + xgrid[i, j,1], color = cm)
         viz.plot_ellipse(
-            axes[0], xgrid[i, j,:], 0.5 * Sigmas_init_grid[i, j,:,:], color="k", alpha=.5, lw=1
+            axes[0], xgrid[i, j,:], 0.1 * Sigmas_init_grid[i, j,:,:], color="k", alpha=.5, lw=1
         )
         viz.plot_ellipse(
-            axes[1], xgrid[i, j,:], 0.5 * Sigmas_est_grid[i, j,:,:], color="k", alpha=.5, lw=1
+            axes[1], xgrid[i, j,:], 0.1 * Sigmas_est_grid[i, j,:,:], color="k", alpha=.5, lw=1
         )
 axes[0].set_xticks(np.unique(xgrid))
 axes[0].set_yticks(np.unique(xgrid))
@@ -242,17 +239,111 @@ fig.tight_layout()
 plt.show()
 fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
                         'ELPS_analysis/ModelFitting_FigFiles/'
-fig_name = 'Fitted' + file_name[4:-4]
+fig_name = 'Fitted' + file_name[4:-4] + '_bandwidth' + str(opt_params['bandwidth'])
 full_path = os.path.join(fig_outputDir,fig_name+'.png')
 fig.savefig(full_path)    
+
+#%% recover 
+def convert_Sig_2DisothresholdContour_oddity(rgb_ref, varying_RGBplane,
+                                             grid_theta_xy, vecLength,
+                                             pC_threshold, W, **kwargs):
+    params = {
+        'nThetaEllipse': 200,
+        'contour_scaler': 5,
+        'nSteps_bruteforce': 1000,
+    }
+    #update default options with any keyword arguments provided
+    params.update(kwargs)
+    
+    #initialize
+    numDirPts = grid_theta_xy.shape[1]
+    recover_vecLength = np.full((1, numDirPts), np.nan)
+    recover_rgb_comp_est = np.full((numDirPts, 3), np.nan)
+    
+    #grab the reference stimulus' RGB
+    rgb_ref_s = jnp.array(rgb_ref[varying_RGBplane])
+    Uref = model.compute_U(W, rgb_ref_s)
+    U0 = model.compute_U(W, rgb_ref_s)
+    
+    #for each chromatic direction
+    for i in range(numDirPts):
+        #determine the direction we are going
+        vecDir = grid_theta_xy[:,i]
+
+        pChoosingX1_temp = np.full((1, params['nSteps_bruteforce']), np.nan)
+        for x in range(params['nSteps_bruteforce']):
+            rgb_comp = rgb_ref_s + vecDir * vecLength[x]
+            U1 = model.compute_U(W, rgb_comp)
+            
+            #signed diff: z0_to_zref - z1_to_zref
+            signed_diff = oddity_task.simulate_oddity_one_trial(\
+                (rgb_ref_s, rgb_ref_s, rgb_comp, Uref, U0, U1), \
+                    jax.random.split(OPT_KEY, num=6), MC_SAMPLES, BANDWIDTH, model.diag_term)
+            
+            pChoosingX1_temp[x] = 1.0 - oddity_task.approx_cdf_one_trial(0.0, signed_diff, BANDWIDTH)
+            
+        vecLength_vmap = jnp.array(vecLength_vmap)
+        pChoosingX1_temp = jnp.array(pChoosingX1_temp)
+        # find the index that corresponds to the minimum |pChoosingX1 - pC_threshold|
+        min_idx = jnp.argmin(jnp.abs(pChoosingX1_temp - pC_threshold))
+        # find the vector length that corresponds to the minimum index
+        recover_vecLength[0, i] = vecLength_np[min_idx]
+        #find the comparison stimulus, which is the reference stimulus plus the
+        #vector length in the direction of vecDir
+        recover_rgb_comp_est[i, varying_RGBplane] = rgb_ref_s + \
+            params['contour_scaler'] * vecDir * recover_vecLength[i]
+    
+    #find the R/G/B plane with fixed value
+    fixed_RGBplane = np.setdiff1d([0,1,2], varying_RGBplane)
+    #store the rgb values of the fixed plane
+    recover_rgb_comp_est[:, fixed_RGBplane] = rgb_ref[fixed_RGBplane]
+    
+    #fit an ellipse to the estimated comparison stimuli
+    fitEllipse_scaled, fitEllipse_unscaled, rgb_comp_scaled, \
+        rgb_contour_cov, [xCenter, yCenter, majorAxis, minorAxis, theta] = \
+            fit_2d_isothreshold_contour(rgb_ref, varying_RGBplane, grid_theta_xy, \
+                vecLength_test, 0.78, W_est)
+
+    return fitEllipse_scaled, fitEllipse_unscaled, rgb_comp_scaled, \
+        rgb_contour_cov, recover_rgb_comp_est, [xCenter, yCenter, majorAxis, minorAxis, theta]        
+
+#%%initialize
+ngrid_bruteforce = 1000
+nThetaEllipse = 200
+contour_scaler = 5
+recover_fitEllipse_scaled   = np.full((NUM_GRID_PTS, NUM_GRID_PTS, 2, nThetaEllipse), np.nan)
+recover_fitEllipse_unscaled = np.full(recover_fitEllipse_scaled.shape, np.nan)
+recover_rgb_comp_scaled     = np.full(recover_fitEllipse_scaled.shape, np.nan)
+recover_rgb_contour_cov     = np.full((NUM_GRID_PTS, NUM_GRID_PTS, 2, 2), np.nan)
+recover_rgb_comp_est        = np.full(recover_fitEllipse_scaled.shape, np.nan)
+
+#for each reference stimulus
+for i in range(NUM_GRID_PTS):
+    for j in range(NUM_GRID_PTS):
+        #first grab the reference stimulus' RGB
+        rgb_ref_ij = xref_temp[:,i,j]
+        #insert the fixed R/G/B value to the corresponding plane
+        rgb_ref_ij = np.insert(rgb_ref_ij, plane_2D_idx, 0.5)
+        #from previous results, get the optimal vector length
+        vecLength_ij = results['opt_vecLen'][plane_2D_idx,i,j,:]
+        #use brute force to find the optimal vector length
+        vecLength_test = np.linspace(min(vecLength_ij)*0.5, max(vecLength_ij)*1.5, ngrid_bruteforce)
+        
+        #fit an ellipse to the estimated comparison stimuli
+        recover_fitEllipse_scaled[i,j,:,:], recover_fitEllipse_unscaled[i,j,:,:],\
+            recover_rgb_comp_scaled[i,j,:,:], recover_rgb_contour_cov[i,j,:,:],\
+                recover_rgb_comp_est[i,j,:,:], _ = \
+                convert_Sig_2DisothresholdContour_oddity(rgb_ref_ij, sim['varying_RGBplane'], \
+                    stim['grid_theta_xy'], vecLength_test, 0.78, W_est)
 
 #%% save data
 outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
                         'ELPS_analysis/ModelFitting_DataFiles/'
-full_path = f"{outputDir}{fig_name}"
+output_file = fig_name + '.pkl'
+full_path = f"{outputDir}{output_file}"
 
 variable_names = ['data','W_init','opt_params', 'W_est', 'iters', 'objhist',\
-                  'Sigmas_init_grid', 'Sigmas_est_grid',]
+                  'Sigmas_init_grid', 'Sigmas_est_grid']
 vars_dict = {}
 for i in variable_names: vars_dict[i] = eval(i)
 

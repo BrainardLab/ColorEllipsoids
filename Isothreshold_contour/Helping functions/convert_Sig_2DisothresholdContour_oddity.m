@@ -20,9 +20,6 @@ function [recover_fitEllipse, recover_fitEllipse_unscaled, ...
     num_MC_samples     = p.Results.num_MC_samples;
     flag_smooth_pC     = p.Results.smooth_pC;
 
-    %scaling factor for chromatic direction
-    chromDir_scaler = 1;
-
     %initialize 
     numDirPts = size(grid_theta_xy,2);
     recover_vecLength = NaN(1,numDirPts);
@@ -41,7 +38,7 @@ function [recover_fitEllipse, recover_fitEllipse_unscaled, ...
         %leads to a pre-determined deltaE
         for l = 1:nSteps_bruteforce
             rgb_comp = rgb_ref_t;
-            rgb_comp(1,1,:) = squeeze(rgb_comp(1,1,:))+ vecDir.*vecLength(l).*chromDir_scaler;
+            rgb_comp(1,1,:) = squeeze(rgb_comp(1,1,:))+ vecDir.*vecLength(l);
             pChoosingX1_temp(l) = predict_error_prob_oddity(W, coeffs_chebyshev,...
                 rgb_ref_t, rgb_ref_t, rgb_comp,'bandwidth',bandwidth,...
                 'num_MC_samples',num_MC_samples);

@@ -143,7 +143,7 @@ opt_params = {
     "learning_rate": 1e-3,
     "momentum": 0.2,
     "mc_samples": 1000,
-    "bandwidth": 1e-4,
+    "bandwidth": 1e-5,
 }
 
 W_est, iters, objhist = optim.optimize_posterior(
@@ -235,8 +235,8 @@ for _idx in range(3):
     axes[1].set_title("Model predictions")
     fig.tight_layout()
     plt.show()
-    fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                            'ELPS_analysis/ModelFitting_FigFiles/'
-    fig_name = 'Fitted' + file_name[4:-4]
-    full_path = os.path.join(fig_outputDir,fig_name+'_iters1000_'+plt_specifics['subTitles'][_idx]+'.png')
-    fig.savefig(full_path)    
+    # fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
+    #                         'ELPS_analysis/ModelFitting_FigFiles/'
+    # fig_name = 'Fitted' + file_name[4:-4]
+    # full_path = os.path.join(fig_outputDir,fig_name+'_iters1000_'+plt_specifics['subTitles'][_idx]+'.png')
+    # fig.savefig(full_path)    
