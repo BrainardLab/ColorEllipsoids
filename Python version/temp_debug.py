@@ -1,10 +1,3 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Mon Apr  8 11:52:44 2024
-
-@author: fangfang
-"""
 #%%
 import jax
 jax.config.update("jax_enable_x64", True)
@@ -24,12 +17,12 @@ from IsothresholdContour_RGBcube import fit_2d_isothreshold_contour
 # Constants describing simulation
 # -------------------------------
 model = WishartProcessModel(
-    5,     # Degree of the polynomial basis functions
+    3,     # Degree of the polynomial basis functions
     2,     # Number of stimulus dimensions
     1,     # Number of extra inner dimensions in `U`.
     4e-3,  # Scale parameter for prior on `W`.
     0.2,   # Geometric decay rate on `W`.
-    1e-2,  # Diagonal term setting minimum variance for the ellipsoids.
+    0,  # Diagonal term setting minimum variance for the ellipsoids.
 )
 
 NUM_GRID_PTS = 5      # Number of grid points over stimulus space.
@@ -160,34 +153,24 @@ full_path = os.path.join('/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang 
         'ELPS_analysis/SanityChecks_FigFiles/', 'scaledData_'+plane_2D+'.png')
 #fig.savefig(full_path)
 
-#%% -----------------------------
-# Fit W by maximizing posterior
-# -----------------------------
+#%%
+file_name3 = 'Fitted_isothreshold_RG plane_sim240perCond_samplingNearContour_jitter0.3_bandwidth0.0001.pkl'
+path_str3  = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
+            'ELPS_analysis/ModelFitting_DataFiles/'
+full_path3 = f"{path_str3}{file_name3}"
 
-# Fit model, initialized at random W
-W_init = 1e-3 * model.sample_W_prior(W_INIT_KEY)
-
-# W_init = model.sample_W_prior(W_INIT_KEY)
-
-# # Run optimization.
-# W_est, iters, objhist = optim.autotuned_map_estimate(
-#     W_init, data, model, OPT_KEY,
-#     mc_samples=MC_SAMPLES,
-#     save_every=1
-# )
-opt_params = {
-    "learning_rate": 1e-2,
-    "momentum": 0.2,
-    "mc_samples": MC_SAMPLES,
-    "bandwidth": BANDWIDTH,
-}
-W_est, iters, objhist = optim.optimize_posterior(
-    W_init, data, model, OPT_KEY,
-    opt_params,
-    total_steps=2000,
-    save_every=1,
-    show_progress=True
-) 
+with open(full_path3, 'rb') as f:
+    # Load the object from the file
+    data_load3 = pickle.load(f)
+    
+data = data_load3['data']
+W_init = data_load3['W_init']
+opt_params = data_load3['opt_params']
+W_est = data_load3['W_est']
+iters = data_load3['iters']
+objhist = data_load3['objhist']
+Sigmas_init_grid = data_load3['Sigmas_init_grid']
+Sigmas_est_grid = data_load3['Sigmas_est_grid']
 
 #%% recover 
 def convert_Sig_2DisothresholdContour_oddity(rgb_ref, varying_RGBplane,
@@ -196,12 +179,12 @@ def convert_Sig_2DisothresholdContour_oddity(rgb_ref, varying_RGBplane,
     params = {
         'nThetaEllipse': 200,
         'contour_scaler': 5,
-        'nSteps_bruteforce': 1000,
     }
     #update default options with any keyword arguments provided
     params.update(kwargs)
     
     #initialize
+    nSteps_bruteforce = len(vecLength)
     numDirPts = grid_theta_xy.shape[1]
     recover_vecLength = np.full((numDirPts), np.nan)
     recover_rgb_comp_est = np.full((numDirPts, 3), np.nan)
@@ -216,16 +199,18 @@ def convert_Sig_2DisothresholdContour_oddity(rgb_ref, varying_RGBplane,
         #determine the direction we are going
         vecDir = grid_theta_xy[:,i]
 
-        pChoosingX1 = np.full((params['nSteps_bruteforce']), np.nan)
-        for x in range(params['nSteps_bruteforce']):
+        pChoosingX1 = np.full((nSteps_bruteforce), np.nan)
+        for x in range(nSteps_bruteforce):
             rgb_comp = rgb_ref_s + vecDir * vecLength[x]
             U1 = model.compute_U(W, rgb_comp)
             
             #signed diff: z0_to_zref - z1_to_zref
             signed_diff = oddity_task.simulate_oddity_one_trial(\
-                (rgb_ref_s, rgb_ref_s, rgb_comp, Uref, U0, U1), OPT_KEY, MC_SAMPLES, model.diag_term)
+                (rgb_ref_s, rgb_ref_s, rgb_comp, Uref, U0, U1), OPT_KEY,\
+                    MC_SAMPLES, model.diag_term)
             
-            pChoosingX1[x] = 1.0 - oddity_task.approx_cdf_one_trial(0.0, signed_diff, BANDWIDTH)
+            pChoosingX1[x] = 1 - oddity_task.approx_cdf_one_trial(\
+                0.0, signed_diff, BANDWIDTH)
             
         # find the index that corresponds to the minimum |pChoosingX1 - pC_threshold|
         min_idx = np.argmin(np.abs(pChoosingX1 - pC_threshold))
@@ -271,15 +256,17 @@ for i in range(NUM_GRID_PTS):
         #from previous results, get the optimal vector length
         vecLength_ij = results['opt_vecLen'][plane_2D_idx,i,j,:]
         #use brute force to find the optimal vector length
-        #vecLength_test = np.linspace(min(vecLength_ij)*0.5, max(vecLength_ij)*2.5, ngrid_bruteforce)
-        vecLength_test = np.linspace(0.001, 0.1, ngrid_bruteforce)
-        
+        vecLength_test = np.linspace(min(vecLength_ij)*0.5, max(vecLength_ij)*5, ngrid_bruteforce)
+        #vecLength_test = np.linspace(0.01, 0.2, ngrid_bruteforce)
+
         #fit an ellipse to the estimated comparison stimuli
         recover_fitEllipse_scaled[i,j,:,:], recover_fitEllipse_unscaled[i,j,:,:],\
             recover_rgb_comp_scaled[i,j,:,:], recover_rgb_contour_cov[i,j,:,:],\
                 recover_rgb_comp_est[i,j,:,:], _ = \
-                convert_Sig_2DisothresholdContour_oddity(rgb_ref_scaled_ij, sim['varying_RGBplane'], \
-                    stim['grid_theta_xy'], vecLength_test, 0.78, W_est, nSteps_bruteforce = ngrid_bruteforce)
+                convert_Sig_2DisothresholdContour_oddity(rgb_ref_scaled_ij,\
+                                                         sim['varying_RGBplane'], \
+                                                         stim['grid_theta_xy'],\
+                                                         vecLength_test, 0.78, W_est)
 
 #%%
 fig, ax = plt.subplots(1, 1)
@@ -316,11 +303,11 @@ for i in range(NUM_GRID_PTS):
         viz.plot_ellipse(
             axes[0], xgrid[i, j,:], 0.1 * Sigmas_init_grid[i, j,:,:], color="k", alpha=.5, lw=1
         )
-#        viz.plot_ellipse(
-#            axes[1], xgrid[i, j,:], 0.1 * Sigmas_est_grid[i, j,:,:], color="k", alpha=.5, lw=1
-#       )
-        axes[1].plot(recover_fitEllipse_scaled[i,j,0,:], \
-            recover_fitEllipse_scaled[i,j,1,:], color = 'k')
+        viz.plot_ellipse(
+            axes[1], xgrid[i, j,:], 0.1 * Sigmas_est_grid[i, j,:,:], color="k", alpha=.5, lw=1
+       )
+#        axes[1].plot(recover_fitEllipse_scaled[i,j,0,:], \
+#            recover_fitEllipse_scaled[i,j,1,:], color = 'k')
 
 axes[0].set_xticks(np.unique(xgrid))
 axes[0].set_yticks(np.unique(xgrid))
@@ -354,22 +341,3 @@ with open(full_path, 'wb') as f:
     pickle.dump(vars_dict, f)
 
 
-#%%
-plane_2D = 'RG plane'
-file_name3 = 'Fitted_isothreshold_RG plane_sim240perCond_samplingNearContour_jitter0.3_bandwidth1e-04.pkl'
-path_str3  = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-            'ELPS_analysis/ModelFitting_DataFiles/'
-full_path3 = f"{path_str3}{file_name3}"
-
-with open(full_path3, 'rb') as f:
-    # Load the object from the file
-    data_load3 = pickle.load(f)
-    
-data = data_load3['data']
-W_init = data_load3['W_init']
-opt_params = data_load3['opt_params']
-W_est = data_load3['W_est']
-iters = data_load3['iters']
-objhist = data_load3['objhist']
-Sigmas_init_grid = data_load3['Sigmas_init_grid']
-Sigmas_est_grid = data_load3['Sigmas_est_grid']
