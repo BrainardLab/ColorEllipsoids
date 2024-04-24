@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Apr  8 11:52:44 2024
+Created on Tue Apr 23 21:01:22 2024
 
 @author: fangfang
-
-This fits a Wishart Process model to the simulated data using the CIELab color space. 
-
 """
+
 #%% import modules
 import jax
 jax.config.update("jax_enable_x64", True)
@@ -95,13 +93,16 @@ opt_params = {
     "mc_samples": MC_SAMPLES,
     "bandwidth": BANDWIDTH,
 }
-W_est, iters, objhist = optim.optimize_posterior(
-    W_init, data, model, OPT_KEY,
-    opt_params,
-    total_steps=1000,
-    save_every=1,
-    show_progress=True
-)
+
+outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
+                         'ELPS_analysis/ModelFitting_DataFiles/'  
+output_file = 'Fitted' + file_sim[4:-4] + '_bandwidth' + str(BANDWIDTH) + '.pkl'
+full_path = f"{outputDir}{output_file}"
+with open(full_path, 'rb') as f:  data_load = pickle.load(f)
+vars_dict = data_load
+W_est = vars_dict['W_est']
+iters = vars_dict['iters']
+objhist = vars_dict['objhist']
 
 #%%
 # -----------------------------
@@ -130,60 +131,80 @@ recover_fitEllipse_scaled, recover_fitEllipse_unscaled,\
     nThetaEllipse = nTheta, mc_samples = MC_SAMPLES,bandwidth = BANDWIDTH,\
     opt_key = OPT_KEY)
         
-#%%
-# -----------------------------
-# Visualize model predictions
-# -----------------------------
-
-fig, ax = plt.subplots(1, 1)
-ax.plot(iters, objhist)
-fig.tight_layout()
-
-#ground truth ellipses
-gt_sigma = results['fitEllipse_scaled'][plane_2D_idx]
-gt_sigma_scaled = (gt_sigma * 2 - 1)
-#specify figure name and path
-fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                        'ELPS_analysis/ModelFitting_FigFiles/Python_version/'
-fig_name_part1 = 'Fitted' + file_sim[4:-4] + '_bandwidth' + str(BANDWIDTH)
-
-flag_saveFig = False
-#visualize the model predictions with samples
-model_predictions.plot_2D_modelPredictions_byWishart(
-    xgrid, x1_jnp, [], Sigmas_est_grid,recover_fitEllipse_unscaled, plane_2D_idx,\
-    saveFig = flag_saveFig,visualize_samples= True, visualize_modelPred = True,\
-    samples_alpha = 0.2, nSims = nSims, plane_2D = plane_2D,\
-    figDir = fig_outputDir,fig_name = fig_name_part1 +'_withSamples')
-    
-#a different way to visualize it
-model_predictions.plot_2D_modelPredictions_byWishart(
-    xgrid, x1_jnp, gt_sigma_scaled, Sigmas_est_grid, 
-    recover_fitEllipse_unscaled, plane_2D_idx,\
-    visualize_samples= False, visualize_sigma = False,\
-    visualize_groundTruth = True, visualize_modelPred = True,\
-    gt_mc = 'r', gt_ls = '--', gt_lw = 1, gt_alpha = 0.5, modelpred_mc = 'g',\
-    modelpred_ls = '-', modelpred_lw = 2, modelpred_alpha = 0.5,\
-    plane_2D = plane_2D, saveFig = flag_saveFig, figDir = fig_outputDir,\
-    fig_name = fig_name_part1)
- 
+#%% visualize how sampled data looks like at discrete chromatic directions
+slc_ref_pts1 = 0
+slc_ref_pts2 = 0
+rgb_ref_s  = jnp.array(xref_raw[:,0,0])
+recover_rgb_comp_scaled_slc = recover_rgb_comp_scaled[slc_ref_pts1, slc_ref_pts2]
+recover_rgb_comp_unscaled_slc = (recover_rgb_comp_scaled_slc  -\
+                               jnp.reshape(rgb_ref_s, (2, 1)))/scaler_x1 + jnp.reshape(rgb_ref_s, (2, 1))
+numDirPts = stim['grid_theta_xy'].shape[1]
+Uref      = model.compute_U(W_est, rgb_ref_s)
+U0        = model.compute_U(W_est, rgb_ref_s)
+Z1 =[]
+Z0_to_zref = []
+Z1_to_zref = []
+#for each chromatic direction
+for i in range(numDirPts):
+    # Calculate RGB composition for current vector length
+    rgb_comp = recover_rgb_comp_unscaled_slc[:,i]
+    U1 = model.compute_U(W_est, rgb_comp)
         
-#%% save data
-# outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-#                         'ELPS_analysis/ModelFitting_DataFiles/'
-# output_file = fig_name_part1 + '.pkl'
-# full_path = f"{outputDir}{output_file}"
+    # Generate random draws from isotropic, standard gaussians
+    keys = jax.random.split(OPT_KEY, num=6)
+    nnref = jax.random.normal(keys[0], shape=(MC_SAMPLES, U1.shape[1]))
+    nn0 = jax.random.normal(keys[1], shape=(MC_SAMPLES, U1.shape[1]))
+    nn1 = jax.random.normal(keys[2], shape=(MC_SAMPLES, U1.shape[1]))
 
-# variable_names = ['plane_2D', 'sim_jitter','nSims', 'data','model',\
-#                   'NUM_GRID_PTS', 'MC_SAMPLES','BANDWIDTH', 'W_INIT_KEY',\
-#                   'DATA_KEY', 'OPT_KEY', 'W_init','opt_params', 'W_est',\
-#                   'iters', 'objhist','xgrid', 'Sigmas_init_grid',\
-#                   'Sigmas_est_grid','recover_fitEllipse_scaled',\
-#                   'recover_fitEllipse_unscaled', 'recover_rgb_comp_scaled',\
-#                   'recover_rgb_contour_cov','params_ellipses','gt_sigma_scaled']
-# vars_dict = {}
-# for i in variable_names: vars_dict[i] = eval(i)
+    # Re-scale and translate the noisy samples to have the correct mean and
+    # covariance. For example, zref ~ Normal(mref, Uref @ Uref.T).
+    zref = nnref @ Uref.T + rgb_ref_s[None, :]
+    z0 = nn0 @ U0.T + rgb_ref_s[None, :] 
+    z1 = nn1 @ U1.T + rgb_comp[None, :] 
+    
+    # Compute squared distance of each probe stimulus to reference
+    z0_to_zref = jnp.sum((z0 - zref) ** 2, axis=1)
+    z1_to_zref = jnp.sum((z1 - zref) ** 2, axis=1)
+    
+    Z0_to_zref.append(z0_to_zref)
+    Z1_to_zref.append(z1_to_zref)
+    
+    Z1.append(z1)
+    
+#%%
+default_cmap = plt.get_cmap('tab20b')
+values = np.linspace(0, 1, numDirPts)
+# Get the array of RGBA colors from the colormap
+colors_array = default_cmap(values)
+chromDir_deg = np.rad2deg(stim['grid_theta'])
+fig, ax1 = plt.subplots(1,1)
+plt.rcParams['figure.dpi'] = 250 
+for i in range(numDirPts):
+    ax1.scatter(Z1[i][:,0],Z1[i][:,1],c = colors_array[i],s = 5,\
+                label = str(chromDir_deg[i]))
+ax1.scatter(zref[:,0], zref[:,1],c=[0.5,0.5,0.5],s = 5)
+ax1.grid(True)
+ax1.set_aspect('equal')
+ax1.set_xlim([-0.75,-0.45])
+ax1.set_ylim([-0.75,-0.45])
+ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5), fontsize=8,ncol = 1,\
+           title='Chromatic \ndirection (deg)')
+plt.tight_layout()
+plt.show()
 
-# # Write the list of dictionaries to a file using pickle
-# with open(full_path, 'wb') as f:
-#     pickle.dump(vars_dict, f)
 
+fig, ax2 = plt.subplots(4,4,figsize = (10,8))
+plt.rcParams['figure.dpi'] = 250 
+for i in range(numDirPts):
+    ax2[i//4, i%4].set_xlim([0, 0.01])
+    ax2[i//4, i%4].hist(Z0_to_zref[i], bins = np.linspace(0,0.01,30),\
+                        color=[0.5,0.5,0.5],alpha = 0.7)
+    ax2[i//4, i%4].hist(Z1_to_zref[i], bins = np.linspace(0,0.01,30),\
+                        color=colors_array[i],alpha = 0.8)
+    if i%4 !=0: ax2[i//4, i%4].set_yticks([])
+    if i//4 != 3: ax2[i//4, i%4].set_xticks([]); 
+    else: ax2[i//4, i%4].set_xticks([0,0.01]); 
+    ax2[i//4, i%4].tick_params(axis='x', labelsize=18)
+    ax2[i//4, i%4].tick_params(axis='y', labelsize=18)
+plt.tight_layout()
+plt.show()
