@@ -16,6 +16,8 @@ import os
 import pickle
 import sys
 import numpy as np
+from matplotlib.cm import ScalarMappable
+from matplotlib.colors import Normalize
 
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
 from core import model_predictions
@@ -290,12 +292,55 @@ rgb_comp_varying = np.full((len(scaler_x1_vec), recover_rgb_comp_scaled_slc.shap
 for s in range(len(scaler_x1_vec)):
     rgb_comp_varying[s] = (recover_rgb_comp_unscaled_slc - jnp.reshape(rgb_ref_s, (2, 1)))*\
                     scaler_x1_vec[s] + jnp.reshape(rgb_ref_s, (2, 1))
-rgb_comp_varying_all = np.stack((rgb_comp_varying[:,0,:].ravel(),\
-                                rgb_comp_varying[:,1,:].ravel()), axis=0)
+rgb_comp_dim1 = rgb_comp_varying[:,0,:].ravel()
+rgb_comp_dim2 = rgb_comp_varying[:,1,:].ravel()
+rgb_comp_varying_all = np.stack((rgb_comp_dim1,rgb_comp_dim2), axis=0)
 _, _, _, _, _, _, pChoosingX1_all = \
     simulate_zref_z0_z1(D['W_est'], D['model'], rgb_ref_s,\
                         rgb_comp_varying_all, D['MC_SAMPLES'])
     
 fig, ax = plt.subplots(1,1)
+default_cmap = plt.get_cmap('viridis')
+values       = np.linspace(0, 1, 1000)
+colors_array = default_cmap(values)
+for i in range(pChoosingX1_all.shape[0]):
+    cmap_i = np.argmin(np.abs(pChoosingX1_all[i] - np.linspace(0.5,1,1000)))
+    ax.scatter(rgb_comp_dim1[i], rgb_comp_dim2[i], color = colors_array[cmap_i],\
+               s = 8)
+ax.set_aspect('equal')
+norm = Normalize(vmin=0.5, vmax=1)
+sm = ScalarMappable(norm=norm, cmap=default_cmap)
+sm.set_array([])  # You can optionally pass your data array here
+# Create the colorbar
+cbar = plt.colorbar(sm, ax=ax)
+cbar.set_label('Value Range')  # Set the label of the colorbar
+
+plt.show()
+
+#%%
+rgb_comp_dim1_vec = np.linspace(rgb_ref_s[0]-0.15, rgb_ref_s[0] + 0.15, 50)
+rgb_comp_dim2_vec = np.linspace(rgb_ref_s[0]-0.15, rgb_ref_s[0] + 0.15, 50)
+rgb_comp_dim1_grid, rgb_comp_dim2_grid = np.meshgrid(rgb_comp_dim1_vec, rgb_comp_dim2_vec) 
+rgb_comp_varying_grid = np.stack((rgb_comp_dim1_grid.ravel(), rgb_comp_dim2_grid.ravel()), axis = 0)
+_, _, _, _, _, _, pChoosingX1_grid = \
+    simulate_zref_z0_z1(D['W_est'], D['model'], rgb_ref_s,\
+                        rgb_comp_varying_grid, D['MC_SAMPLES'])
+pChoosingX1_grid_reshape = np.reshape(pChoosingX1_grid,(50,50))
+
+#%%
+fig, ax = plt.subplots(1,1)
+contour_levels = np.linspace(0.5,1,100)
+plt.contourf(rgb_comp_dim1_grid,rgb_comp_dim2_grid,pChoosingX1_grid_reshape,\
+             levels = contour_levels, cmap = 'viridis')
+ax.set_aspect('equal')  
+cbar = plt.colorbar()  # Show color scale
+tick_values = np.linspace(0.5, 1, num=5)
+cbar.set_ticks(tick_values)
+cbar.set_ticklabels([f"{v:.2f}" for v in tick_values])
+plt.title("Probability of choosing x1")
+plt.xlabel('X')
+plt.ylabel('Y')
+
+
 
 
