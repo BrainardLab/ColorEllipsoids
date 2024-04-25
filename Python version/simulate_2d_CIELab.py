@@ -69,14 +69,13 @@ model = WishartProcessModel(
     2,     # Number of stimulus dimensions
     1,     # Number of extra inner dimensions in `U`.
     4e-2,  # Scale parameter for prior on `W`.
-    0.2,   # Geometric decay rate on `W`.
+    0.2,   # Geometric decay rate on `W`. 
     0,     # Diagonal term setting minimum variance for the ellipsoids.
 )
 
 NUM_GRID_PTS = 5      # Number of grid points over stimulus space.
-MC_SAMPLES   = 1000        # Number of simulated trials to compute likelihood.
-#BANDWIDTH    = 1e-2        # Bandwidth for logistic density function.
-BANDWIDTH    = 1e-3        # Bandwidth for logistic density function.
+MC_SAMPLES   = 3000        # Number of simulated trials to compute likelihood.
+BANDWIDTH    = 1e-4        # Bandwidth for logistic density function.
 
 # Random number generator seeds
 W_INIT_KEY   = jax.random.PRNGKey(223)  # Key to initialize `W_est`. 
@@ -119,7 +118,7 @@ Sigmas_est_grid = model.compute_Sigmas(model.compute_U(W_est, xgrid))
 # Compute model predictions
 # -----------------------------
 ngrid_search            = 500
-bds_scaler_gridsearch   = [0.5, 3]
+bds_scaler_gridsearch   = [0.5, 4]
 nTheta                  = 200
 recover_fitEllipse_scaled, recover_fitEllipse_unscaled,\
     recover_rgb_comp_scaled, recover_rgb_contour_cov, params_ellipses =\
@@ -147,7 +146,7 @@ fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
                         'ELPS_analysis/ModelFitting_FigFiles/Python_version/'
 fig_name_part1 = 'Fitted' + file_sim[4:-4] + '_bandwidth' + str(BANDWIDTH)
 
-flag_saveFig = False
+flag_saveFig = True
 #visualize the model predictions with samples
 model_predictions.plot_2D_modelPredictions_byWishart(
     xgrid, x1_jnp, [], Sigmas_est_grid,recover_fitEllipse_unscaled, plane_2D_idx,\
@@ -168,22 +167,22 @@ model_predictions.plot_2D_modelPredictions_byWishart(
  
         
 #%% save data
-# outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-#                         'ELPS_analysis/ModelFitting_DataFiles/'
-# output_file = fig_name_part1 + '.pkl'
-# full_path = f"{outputDir}{output_file}"
+outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
+                        'ELPS_analysis/ModelFitting_DataFiles/'
+output_file = fig_name_part1 + '.pkl'
+full_path = f"{outputDir}{output_file}"
 
-# variable_names = ['plane_2D', 'sim_jitter','nSims', 'data','model',\
-#                   'NUM_GRID_PTS', 'MC_SAMPLES','BANDWIDTH', 'W_INIT_KEY',\
-#                   'DATA_KEY', 'OPT_KEY', 'W_init','opt_params', 'W_est',\
-#                   'iters', 'objhist','xgrid', 'Sigmas_init_grid',\
-#                   'Sigmas_est_grid','recover_fitEllipse_scaled',\
-#                   'recover_fitEllipse_unscaled', 'recover_rgb_comp_scaled',\
-#                   'recover_rgb_contour_cov','params_ellipses','gt_sigma_scaled']
-# vars_dict = {}
-# for i in variable_names: vars_dict[i] = eval(i)
+variable_names = ['plane_2D', 'sim_jitter','nSims', 'data','model',\
+                  'NUM_GRID_PTS', 'MC_SAMPLES','BANDWIDTH', 'W_INIT_KEY',\
+                  'DATA_KEY', 'OPT_KEY', 'W_init','opt_params', 'W_est',\
+                  'iters', 'objhist','xgrid', 'Sigmas_init_grid',\
+                  'Sigmas_est_grid','recover_fitEllipse_scaled',\
+                  'recover_fitEllipse_unscaled', 'recover_rgb_comp_scaled',\
+                  'recover_rgb_contour_cov','params_ellipses','gt_sigma_scaled']
+vars_dict = {}
+for i in variable_names: vars_dict[i] = eval(i)
 
-# # Write the list of dictionaries to a file using pickle
-# with open(full_path, 'wb') as f:
-#     pickle.dump(vars_dict, f)
+# Write the list of dictionaries to a file using pickle
+with open(full_path, 'wb') as f:
+    pickle.dump(vars_dict, f)
 
