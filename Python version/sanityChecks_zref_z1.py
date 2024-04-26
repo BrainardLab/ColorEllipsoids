@@ -378,21 +378,25 @@ def visualize_samplesZ_givenW(plane_2D, sim_jitter, nSims, BANDWIDTH,
                 figDir = fig_outputDir, figName = figName1 + '_diff_hist')
     
 #%%
-plane_2D     = 'RB plane'
-sim_jitter   = '0.1'
-nSims        = 240 #number of simulations: 240 trials for each ref stimulus
-BANDWIDTH    = 1e-3
-slc_ref_pts1 = [0,4]
-slc_ref_pts2 = [0,0]
-
-fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                'ELPS_analysis/SanityChecks_FigFiles'
-                    
-for i in range(len(slc_ref_pts1)):
-    visualize_samplesZ_givenW(plane_2D, sim_jitter, nSims, BANDWIDTH,\
-                              slc_ref_pts1[i], slc_ref_pts2[i],\
-                              saveFig = False, figDir = fig_outputDir)
-    #'visualize_samples_allPlanes': make it true if we want to first visualize
-    #which plane we are smapling
-
+def main():
+    plane_2D     = 'RB plane'
+    sim_jitter   = '0.1'
+    nSims        = 240 #number of simulations: 240 trials for each ref stimulus
+    BANDWIDTH    = 1e-3
+    slc_ref_pts1 = [0,4]
+    slc_ref_pts2 = [0,0]
+    
+    fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
+                    'ELPS_analysis/SanityChecks_FigFiles'
+                        
+    for i in range(len(slc_ref_pts1)):
+        visualize_samplesZ_givenW(plane_2D, sim_jitter, nSims, BANDWIDTH,\
+                                  slc_ref_pts1[i], slc_ref_pts2[i],\
+                                  saveFig = False, figDir = fig_outputDir)
+        #'visualize_samples_allPlanes': make it true if we want to first visualize
+        #which plane we are smapling
+        
+if __name__ == "__main__":
+    main()    
+    
 
