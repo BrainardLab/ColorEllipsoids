@@ -93,9 +93,31 @@ def simulate_zref_z0_z1(W, model, rgb_ref, rgb_comp, mc_samples, **kwargs):
         zref_all[i], z0_all[i], z1_all[i] = zref, z0, z1
         
         # Compute squared distance of each probe stimulus to reference
-        z0_to_zref = jnp.sum((z0 - zref) ** 2, axis=1)
-        z1_to_zref = jnp.sum((z1 - zref) ** 2, axis=1)
+        # z0_to_zref = jnp.sum((z0 - zref) ** 2, axis=1)
+        # z1_to_zref = jnp.sum((z1 - zref) ** 2, axis=1)
         # Reshape U, flattening all but the last two dimensions.
+        Uref_z = model.compute_U(W, zref)
+        U0_z = model.compute_U(W, z0)
+        U1_z = model.compute_U(W, z1)
+
+        # Compute covariance matrix
+        Sig0 = model.compute_Sigmas(U0_z)
+        Sig1 = model.compute_Sigmas(U1_z)
+        Sigref = model.compute_Sigmas(Uref_z)
+
+        # Calculate the inverse of the covariance matrices
+        inv_U0_Uref = jnp.linalg.inv(Sigref + Sig0)
+        inv_U1_Uref = jnp.linalg.inv(Sigref + Sig1)
+
+        # Compute squared Mahalanobis distance of each probe stimulus to reference
+        z0_to_zref_temp = z0 - zref
+        z1_to_zref_temp = z1 - zref
+            
+        einsum_prod_z0 = jnp.einsum('ij,ijk->ik', z0_to_zref_temp, inv_U0_Uref)
+        einsum_prod_z1 = jnp.einsum('ij,ijk->ik', z1_to_zref_temp, inv_U1_Uref)
+        
+        z0_to_zref = jnp.sqrt(jnp.einsum('ik,ki->i', einsum_prod_z0, z0_to_zref_temp.T))
+        z1_to_zref = jnp.sqrt(jnp.einsum('ik,ki->i', einsum_prod_z1, z1_to_zref_temp.T))
         
         zdiff = z0_to_zref - z1_to_zref
         #save
@@ -317,6 +339,8 @@ def visualize_samplesZ_givenW(plane_2D, sim_jitter, nSims, BANDWIDTH,
     full_path1    = f"{path_str}{file_CIE}"
     with open(full_path1, 'rb') as f: data_load1 = pickle.load(f)
     stim          = data_load1[1]
+    results       = data_load1[2]
+    gt_rgb_comp_scaled = results['rgb_comp_contour_scaled'][0] * 2 - 1
     
     #file 2
     file_sim      = 'Sims_isothreshold_'+plane_2D+'_sim'+str(nSims)+'perCond_'+\
@@ -334,14 +358,15 @@ def visualize_samplesZ_givenW(plane_2D, sim_jitter, nSims, BANDWIDTH,
     #file 3: model fits
     path_str2 = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
                              'ELPS_analysis/ModelFitting_DataFiles/'  
-    file_fits = 'Fitted' + file_sim[4:-4] + '_bandwidth' + str(BANDWIDTH) + '.pkl' 
+    file_fits = 'Fitted' + file_sim[4:-4] + '_bandwidth' + str(BANDWIDTH) + '_maha.pkl' 
     full_path3 = f"{path_str2}{file_fits}"
     with open(full_path3, 'rb') as f:  data_load3 = pickle.load(f)
     D = data_load3
             
     #%% 
     rgb_ref_s  = jnp.array(xref_raw[:,idx1,idx2])
-    recover_rgb_comp_scaled_slc = D['recover_rgb_comp_scaled'][idx1, idx2]
+    #recover_rgb_comp_scaled_slc = D['recover_rgb_comp_scaled'][idx1, idx2]
+    recover_rgb_comp_scaled_slc = gt_rgb_comp_scaled[idx1, idx2]
     # Retrieve and adjust comparison RGB values based on model recovery and scaling.
     recover_rgb_comp_unscaled_slc = (recover_rgb_comp_scaled_slc  -\
                                    jnp.reshape(rgb_ref_s, (2, 1)))/scaler_x1 +\
@@ -364,13 +389,13 @@ def visualize_samplesZ_givenW(plane_2D, sim_jitter, nSims, BANDWIDTH,
                 figDir = params['figDir'], figName = figName1)
     
     # Define histogram bin edges
-    hist_bin_edges = np.linspace(0,plt_bds/8, 30)
+    hist_bin_edges = np.linspace(0,15, 30)#np.linspace(0,plt_bds/8, 30)
     plot_EuclideanDist_hist(Z0_to_zref_all, Z1_to_zref_all,hist_bin_edges,\
                             saveFig = params['saveFig'],\
                 legends = [str(items) for items in np.rad2deg(stim['grid_theta'])],\
                 figDir = params['figDir'], figName = figName1 + '_hist')
     
-    hist_diff_bin_edges  = np.linspace(-plt_bds/8,plt_bds/16, 30)
+    hist_diff_bin_edges  = np.linspace(-15,10, 30)#np.linspace(-plt_bds/8,plt_bds/16, 30)
     plot_EuclieanDist_diff_hist(Zdiff_all, hist_diff_bin_edges, \
                                 saveFig = params['saveFig'],\
                 legends = [str(items) for items in np.rad2deg(stim['grid_theta'])],\
@@ -381,9 +406,9 @@ def main():
     plane_2D     = 'GB plane'
     sim_jitter   = '0.1'
     nSims        = 240 #number of simulations: 240 trials for each ref stimulus
-    BANDWIDTH    = 1e-3
+    BANDWIDTH    = 0.1
     slc_ref_pts1 = [0,4]
-    slc_ref_pts2 = [0,0]
+    slc_ref_pts2 = [4,0]
     
     fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
                     'ELPS_analysis/SanityChecks_FigFiles'

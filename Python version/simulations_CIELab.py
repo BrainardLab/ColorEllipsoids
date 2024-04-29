@@ -20,23 +20,14 @@ os.chdir(path_str)
 
 #%% LOAD DATA WE NEED
 #load data
-param = {}
 T_cones_mat = loadmat('T_cones.mat')
-param['T_cones'] = T_cones_mat['T_cones'] #size: (3, 61)
+T_cones = T_cones_mat['T_cones'] #size: (3, 61)
 
 B_monitor_mat = loadmat('B_monitor.mat')
-param['B_monitor'] = B_monitor_mat['B_monitor'] #size: (61, 3)
+B_monitor = B_monitor_mat['B_monitor'] #size: (61, 3)
 
 M_LMSToXYZ_mat = loadmat('M_LMSToXYZ.mat')
-param['M_LMSToXYZ'] = M_LMSToXYZ_mat['M_LMSToXYZ'] #size: (3, 3)
-
-#First create a cube and select the RG, the RB and the GB planes
-param['nGridPts'] = 100
-param['grid'] = np.linspace(0,1,param['nGridPts'])
-param['x_grid'], param['y_grid'] = np.meshgrid(param['grid'], param['grid'])
-
-#number of selected planes
-param['nPlanes'] = 3
+M_LMSToXYZ = M_LMSToXYZ_mat['M_LMSToXYZ'] #size: (3, 3)
 
 #%% FUNCTIONS
 def get_gridPts(X, Y, val_fixed_dim, fixed_dim = list(range(3))):
@@ -104,8 +95,7 @@ def UnitCircleGenerate(nTheta):
 
 #%% FUNCTIONS
 def convert_rgb_lab(monitor_Spd, background_RGB, color_RGB,\
-                    T_CONES = param['T_cones'],\
-                    M_LMS_TO_XYZ = param['M_LMSToXYZ']):
+                    T_CONES = T_cones, M_LMS_TO_XYZ = M_LMSToXYZ):
     """
     Convert an RGB color value into the CIELab color space using the monitor's 
     spectral power distribution (SPD), the background RGB values, cone sensitivities 
@@ -154,9 +144,8 @@ def convert_rgb_lab(monitor_Spd, background_RGB, color_RGB,\
     return color_Lab, color_XYZ, color_LMS
 
 def compute_deltaE(vecLen, background_RGB, ref_RGB, ref_Lab, vecDir,\
-                  T_CONES = param['T_cones'], \
-                  M_LMS_TO_XYZ = param['M_LMSToXYZ'],\
-                  B_monitor = param['B_monitor']):
+                  T_CONES = T_cones, M_LMS_TO_XYZ = M_LMSToXYZ,\
+                  B_MONITOR = B_monitor):
     """
     Computes the perceptual difference (deltaE) between a reference stimulus
     and a comparison stimulus in the CIELab color space. The comparison stimulus
@@ -184,7 +173,7 @@ def compute_deltaE(vecLen, background_RGB, ref_RGB, ref_Lab, vecDir,\
     
     # Convert the computed RGB values of the comparison stimulus into Lab values
     # using the provided parameters and the background RGB. 
-    comp_Lab,_,_ = convert_rgb_lab(B_monitor, background_RGB, comp_RGB,\
+    comp_Lab,_,_ = convert_rgb_lab(B_MONITOR, background_RGB, comp_RGB,\
                                   T_CONES, M_LMS_TO_XYZ)
     
     # Calculate the perceptual difference (deltaE) between the reference and comparison
@@ -194,8 +183,7 @@ def compute_deltaE(vecLen, background_RGB, ref_RGB, ref_Lab, vecDir,\
     return deltaE
 
 def find_vecLen(background_RGB, ref_RGB_test, ref_Lab_test, vecDir_test, deltaE = 1,                  
-                T_CONES = param['T_cones'], M_LMS_TO_XYZ = param['M_LMSToXYZ'],
-                B_monitor = param['B_monitor']):
+                T_CONES = T_cones, M_LMS_TO_XYZ = M_LMSToXYZ, B_MONITOR = B_monitor):
     """
     This function finds the optimal vector length for a chromatic direction
     that achieves a target perceptual difference in the CIELab color space.
@@ -214,7 +202,7 @@ def find_vecLen(background_RGB, ref_RGB_test, ref_Lab_test, vecDir_test, deltaE 
     #deltaE obtained from compute_deltaE function and the target deltaE.
     deltaE_func = lambda d: abs(compute_deltaE(d, background_RGB, ref_RGB_test,\
                                                ref_Lab_test, vecDir_test, T_CONES,\
-                                               M_LMS_TO_XYZ, B_monitor) - deltaE)
+                                               M_LMS_TO_XYZ, B_MONITOR) - deltaE)
         
     # Define the lower and upper bounds for the search of the vector length.
     # Define the number of runs for optimization to ensure we don't get stuck 

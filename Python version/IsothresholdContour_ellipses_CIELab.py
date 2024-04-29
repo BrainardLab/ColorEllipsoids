@@ -45,25 +45,25 @@ plane_points = simulations_CIELab.get_gridPts(x_grid,y_grid,np.full(3, fixed_RGB
 
 #set a grid for the reference stimulus
 #pick 5 x 5 reference points 
-grid_ref = np.arange(0.2, 0.8, 0.15)
+grid_ref     = np.arange(0.2, 0.8, 0.15)
 nGridPts_ref = len(grid_ref)
-
 x_grid_ref,y_grid_ref = np.meshgrid(grid_ref,grid_ref)
 
 #get the grid points for the reference stimuli of each plane
-ref_points = simulations_CIELab.get_gridPts(x_grid_ref,y_grid_ref,np.full(3, fixed_RGBvec))
+ref_points     = simulations_CIELab.get_gridPts(x_grid_ref,y_grid_ref,np.full(3,\
+                                                fixed_RGBvec))
     
 #compute iso-threshold contour
 #set the background RGB
 background_RGB = fixed_RGBvec * np.ones((nPlanes,1))
 
 #sample total of 16 directions (0 to 360 deg) 
-numDirPts = 16
-grid_theta = np.linspace(0,2*math.pi-math.pi/8,numDirPts)
+numDirPts     = 16
+grid_theta    = np.linspace(0,2*math.pi-math.pi/8,numDirPts)
 grid_theta_xy = np.stack((np.cos(grid_theta),np.sin(grid_theta)),axis = 0)
 
 #define threshold as deltaE = 0.5
-deltaE_1JND = 1
+deltaE_1JND   = 1
 
 #%%make a finer grid for the direction (just for the purpose of visualization)
 #the raw isothreshold contou is very tiny, we can amplify it by 5 times for the purpose of visualization
@@ -127,26 +127,31 @@ simulations_CIELab.plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref,\
                              EllipsesLine = '-', fontsize =12)    
 
 #%%save to CSV
-file_name = 'Isothreshold_contour_CIELABderived.pkl'
-path_output = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_analysis/Simulation_DataFiles/'
-full_path = f"{path_output}{file_name}"
+file_name   = 'Isothreshold_contour_CIELABderived.pkl'
+path_output = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
+                'ELPS_analysis/Simulation_DataFiles/'
+full_path   = f"{path_output}{file_name}"
 
-param_keys = ['T_cones', 'B_monitor', 'M_LMSToXYZ', 'nGridPts', 'grid', 'x_grid',\
+#save all the parameters
+param_keys  = ['T_cones', 'B_monitor', 'M_LMSToXYZ', 'nGridPts', 'grid', 'x_grid',\
               'y_grid', 'nPlanes']
 param = {}
 for i in param_keys: param[i] = eval(i)
 
+#save all the stim info
 stim_keys = ['fixed_RGBvec', 'plane_points', 'grid_ref', 'nGridPts_ref', \
              'x_grid_ref', 'y_grid_ref', 'ref_points', 'background_RGB', \
              'numDirPts', 'grid_theta', 'grid_theta_xy', 'deltaE_1JND']
 stim = {}
 for i in stim_keys: stim[i] = eval(i)
 
-plt_specifics_keys = ['contour_scaler', 'nThetaEllipse', 'colorMatrix', 'circleIn2D', 'subTitles']
+#save all the plotting specifics
+plt_specifics_keys = ['contour_scaler', 'nThetaEllipse', 'colorMatrix', \
+                      'circleIn2D', 'subTitles']
 plt_specifics = {}
 for i in plt_specifics_keys: plt_specifics[i] = eval(i)
 
-
+#save the results
 results_keys = ['ref_Lab', 'opt_vecLen', 'fitEllipse_scaled', 'fitEllipse_unscaled',\
                 'rgb_comp_contour_scaled', 'rgb_comp_contour_cov', 'ellParams']
 results = {}
