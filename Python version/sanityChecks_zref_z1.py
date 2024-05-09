@@ -92,10 +92,21 @@ def simulate_zref_z0_z1(W, model, rgb_ref, rgb_comp, mc_samples, **kwargs):
         #save
         zref_all[i], z0_all[i], z1_all[i] = zref, z0, z1
         
-        # Compute squared distance of each probe stimulus to reference
-        z0_to_zref = jnp.sum((z0 - zref) ** 2, axis=1)
-        z1_to_zref = jnp.sum((z1 - zref) ** 2, axis=1)
-        # Reshape U, flattening all but the last two dimensions.
+        # Compute covariances
+        Sref = Uref @ Uref.T 
+        S0 = U0 @ U0.T 
+        S1 = U1 @ U1.T 
+        
+        # Average covariances
+        Sbar = (Sref + S0 + S1) / 3
+
+        # Compute residuals
+        r0 = z0 - zref
+        r1 = z1 - zref
+        
+        # Compute squared Mahalanobis distances
+        z0_to_zref = jnp.sum(r0 * jnp.linalg.solve(Sbar, r0.T).T, axis=1)
+        z1_to_zref = jnp.sum(r1 * jnp.linalg.solve(Sbar, r1.T).T, axis=1)
         
         zdiff = z0_to_zref - z1_to_zref
         #save
@@ -303,6 +314,7 @@ def visualize_samplesZ_givenW(plane_2D, sim_jitter, nSims, BANDWIDTH,
         'scaler_x1':5,
         'saveFig':False,
         'figDir':'',
+        'figNameExt':''
         } 
     params.update(kwargs)
     
@@ -361,37 +373,37 @@ def visualize_samplesZ_givenW(plane_2D, sim_jitter, nSims, BANDWIDTH,
     plt_bds = plot_sampled_zref_z1(Z1_all, Zref_all, rgb_ref_s, \
                                    saveFig = params['saveFig'],\
                 legends = [str(items) for items in np.rad2deg(stim['grid_theta'])], \
-                figDir = params['figDir'], figName = figName1)
+                figDir = params['figDir'], figName = figName1 + params['figNameExt'])
     
     # Define histogram bin edges
     hist_bin_edges = np.linspace(0,plt_bds/8, 30)
     plot_EuclideanDist_hist(Z0_to_zref_all, Z1_to_zref_all,hist_bin_edges,\
                             saveFig = params['saveFig'],\
                 legends = [str(items) for items in np.rad2deg(stim['grid_theta'])],\
-                figDir = params['figDir'], figName = figName1 + '_hist')
+                figDir = params['figDir'], figName = figName1 + '_hist' + params['figNameExt'])
     
     hist_diff_bin_edges  = np.linspace(-plt_bds/8,plt_bds/16, 30)
     plot_EuclieanDist_diff_hist(Zdiff_all, hist_diff_bin_edges, \
                                 saveFig = params['saveFig'],\
                 legends = [str(items) for items in np.rad2deg(stim['grid_theta'])],\
-                figDir = params['figDir'], figName = figName1 + '_diff_hist')
+                figDir = params['figDir'], figName = figName1 + '_diff_hist' + params['figNameExt'])
     
 #%%
 def main():
     plane_2D     = 'GB plane'
     sim_jitter   = '0.1'
     nSims        = 240 #number of simulations: 240 trials for each ref stimulus
-    BANDWIDTH    = 1e-3
+    BANDWIDTH    = 5e-3
     slc_ref_pts1 = [0,4]
     slc_ref_pts2 = [0,0]
     
     fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                    'ELPS_analysis/SanityChecks_FigFiles'
+                    'ELPS_analysis/SanityChecks_FigFiles/sampled_zref_z1'
                         
     for i in range(len(slc_ref_pts1)):
         visualize_samplesZ_givenW(plane_2D, sim_jitter, nSims, BANDWIDTH,\
                                   slc_ref_pts1[i], slc_ref_pts2[i],\
-                                  saveFig = False, figDir = fig_outputDir)
+                                  saveFig = True, figDir = fig_outputDir,figNameExt = '_maha')
         #'visualize_samples_allPlanes': make it true if we want to first visualize
         #which plane we are smapling
         

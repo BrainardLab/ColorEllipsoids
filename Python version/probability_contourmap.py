@@ -21,7 +21,8 @@ import simulations_CIELab
 from sanityChecks_zref_z1 import simulate_zref_z0_z1
 
 #%% plotting function
-def plot_contour_pChoosingX1(ref_grids, ref_grids_X, ref_grids_Y, P_X1, **kwargs):
+def plot_contour_pChoosingX1(ref_grids, ref_grids_X, 
+                             ref_grids_Y, P_X1, **kwargs):
     # Default parameters for ellipsoid fitting. Can be overridden by kwargs.
     pltP = {
         'cmap_filled':'twilight',
@@ -47,19 +48,26 @@ def plot_contour_pChoosingX1(ref_grids, ref_grids_X, ref_grids_Y, P_X1, **kwargs
                                        P_X1[i,jj], levels=[0.78], \
                                        colors=[pltP['cmap_contour']],\
                                        linewidths=2)
-            ax[i,j].clabel(contour_line, fmt={0.78: '78%'})
-            ax[i,j].set_aspect('equal')  
-            if j != 0: ax[i,j].set_yticks([])
-            if i != num_ref_pts2-1: ax[i,j].set_xticks([])
-    fig.suptitle(pltP['title'], fontsize = 14)
+            ax[j,i].clabel(contour_line, fmt={0.78: '78%'})
+            ax[j,i].set_aspect('equal')  
+            if i != 0: ax[j,i].set_yticks([])
+            else:
+                # Setting tick font size for x and y axes
+                ax[j,i].set_yticks(ref_grids[1][jj,i]*2-1+ np.array([-0.2, 0, 0.2])) 
+                ax[j,i].tick_params(axis='y', labelsize=16)  # Set fontsize for x-axis ticks
+            if j != num_ref_pts2-1: ax[j,i].set_xticks([])
+            else:
+                ax[j,i].set_xticks(ref_grids[0][jj,i]*2-1+ np.array([-0.2, 0, 0.2])) 
+                ax[j,i].tick_params(axis='x', labelsize=16)  # Set fontsize for y-axis ticks
+    fig.suptitle(pltP['title'], fontsize = 20)
     fig.subplots_adjust(right=1.1) 
-    cbar_ax = fig.add_axes([0.93, 0.15, 0.02, 0.7])  # x, y, width, height
+    cbar_ax = fig.add_axes([0.94, 0.15, 0.02, 0.7])  # x, y, width, height
     cbar = fig.colorbar(contour_filled, cax=cbar_ax)
     tick_values = np.linspace(0.5, 1, num=5)
     cbar.set_ticks(tick_values)
     cbar.set_ticklabels([f"{v:.2f}" for v in tick_values])
-    fig.supxlabel(plane_2D[0])
-    fig.supylabel(plane_2D[1])
+    fig.supxlabel(plane_2D[0], fontsize = 20)
+    fig.supylabel(plane_2D[1], fontsize = 20)
     plt.tight_layout(rect=[0, 0, 0.95, 0.95]) 
     plt.show()
     if pltP['saveFig'] and pltP['figDir'] != '':
@@ -67,18 +75,8 @@ def plot_contour_pChoosingX1(ref_grids, ref_grids_X, ref_grids_Y, P_X1, **kwargs
         fig.savefig(full_path2)
 
 #%%
-def visualize_probC1_contour(plane_2D, sim_jitter, nSims, bandwidth, scaler_x1,
-                             nGrid_x, nGrid_y, width, **kwargs):
-    # Default parameters for ellipsoid fitting. Can be overridden by kwargs.
-    pltP = {
-        'cmap_filled':'twilight',
-        'cmap_nLevels': 15,
-        'cmap_contour':'white',
-        'title':"",
-        'saveFig':False,
-        'figDir':''} 
-    pltP.update(kwargs)
-    
+def compute_probC1_contour(plane_2D, sim_jitter, nSims, bandwidth, scaler_x1,
+                             nGrid_x, nGrid_y, width):    
     # -----------------------------------------------------------
     # Load data simulated using CIELab and organize data
     # -----------------------------------------------------------
@@ -107,7 +105,7 @@ def visualize_probC1_contour(plane_2D, sim_jitter, nSims, bandwidth, scaler_x1,
                     "FilesFromPsychtoolbox/B_monitor.mat")
     B_monitor      = B_monitor_mat['B_monitor'] #size: (61, 3)
     
-    #%% -------------------------------------------------------------
+    # -------------------------------------------------------------
     # probability contour map predicted by the Wishart process model
     # ---------------------------------------------------------------
     # create a grid of x1 
@@ -148,14 +146,7 @@ def visualize_probC1_contour(plane_2D, sim_jitter, nSims, bandwidth, scaler_x1,
             #reshape pChoosingX1_grid to have a size of (nGrid_y, nGrid_x) and save
             pChoosingX1_grid_allRef[j,i] = np.reshape(pChoosingX1_grid,(nGrid_y,nGrid_x))
     
-    #visualize 
-    plot_contour_pChoosingX1(sim['ref_points'], rgb_comp_dim1_grid,\
-        rgb_comp_dim2_grid, pChoosingX1_grid_allRef,cmap_nLevels = pltP['cmap_nLevels'],\
-        title   = "Probability of choosing X1 predicted by the Wishart model",\
-        saveFig = pltP['saveFig'], figDir  = pltP['figDir'],\
-        figName = 'Contour_pChoosingX1_'+plane_2D+'_WishartFits')
-    
-    #%% -------------------------------------------------------------
+    # -------------------------------------------------------------
     # probability contour map predicted by the Wishart process model
     # ---------------------------------------------------------------
     #background RGB
@@ -209,21 +200,15 @@ def visualize_probC1_contour(plane_2D, sim_jitter, nSims, bandwidth, scaler_x1,
             #store them
             deltaE_allRef[i,j] = np.reshape(deltaE, (nGrid_y,nGrid_x))
             pC_weibull_allRef[i,j] = np.reshape(pC_weibull,(nGrid_y,nGrid_x))
-    
-    #visualize
-    plot_contour_pChoosingX1(sim['ref_points'], rgb_comp_dim1_grid,\
-        rgb_comp_dim2_grid, pC_weibull_allRef, cmap_nLevels = pltP['cmap_nLevels'],\
-        title = "Probability of choosing X1 predicted by Weibull"+\
-                " Psychometric function",\
-        saveFig = pltP['saveFig'], figDir  = pltP['figDir'],\
-        figName = 'Contour_pChoosingX1_'+plane_2D+'_WeibullPMF')
-
+        
+    return sim, rgb_comp_dim1_grid, rgb_comp_dim2_grid, pChoosingX1_grid_allRef,\
+        pC_weibull_allRef, deltaE_allRef, rgb_comp_varying_grid
 
 #%% three variables we need to define for loading the data
-plane_2D   = 'GB plane'
+plane_2D   = 'RG plane'
 sim_jitter = '0.1'
 nSims      = 240 #number of simulations: 240 trials for each ref stimulus
-BANDWIDTH  = 1e-3
+BANDWIDTH  = 5e-3
 scaler_x1  = 5
 nGrid_x    = 40
 nGrid_y    = 50
@@ -231,9 +216,33 @@ width      = 0.25
 
 fig_outputDir2 = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
                  'ELPS_analysis/ModelFitting_FigFiles/'
-visualize_probC1_contour(plane_2D, sim_jitter, nSims, BANDWIDTH, scaler_x1,
-                             nGrid_x, nGrid_y, width, cmap_nLevels = 20,\
-                             saveFig = False, figDir = fig_outputDir2)
+sim, rgb_comp_dim1_grid, rgb_comp_dim2_grid, pChoosingX1_grid_allRef,\
+    pC_weibull_allRef, deltaE_allRef, rgb_comp_varying_grid = compute_probC1_contour(\
+    plane_2D, sim_jitter, nSims, BANDWIDTH, scaler_x1, nGrid_x, nGrid_y, width)
 
+#%%
+# Default parameters for ellipsoid fitting. Can be overridden by kwargs.
+pltP = {
+    'cmap_filled':'twilight',
+    'cmap_nLevels': 20,
+    'cmap_contour':'white',
+    'title':"",
+    'saveFig':True,
+    'figDir': fig_outputDir2} 
 
+#visualize 
+plot_contour_pChoosingX1(sim['ref_points'][sim['varying_RGBplane']], rgb_comp_dim1_grid,\
+    rgb_comp_dim2_grid, pChoosingX1_grid_allRef,cmap_nLevels = pltP['cmap_nLevels'],\
+    title   = "Probability of choosing X1 predicted by the Wishart model",\
+    saveFig = pltP['saveFig'], figDir  = pltP['figDir'],\
+    figName = 'Contour_pChoosingX1_'+plane_2D +'_sim'+str(nSims)+'perCond_'+\
+                    'samplingNearContour_jitter'+sim_jitter+'_WishartFits')
 
+plot_contour_pChoosingX1(sim['ref_points'][sim['varying_RGBplane']], rgb_comp_dim1_grid,\
+    rgb_comp_dim2_grid, pC_weibull_allRef, cmap_nLevels = pltP['cmap_nLevels'],\
+    title = "Probability of choosing X1 predicted by Weibull"+\
+            " Psychometric function",\
+    saveFig = pltP['saveFig'], figDir  = pltP['figDir'],\
+    figName = 'Contour_pChoosingX1_'+plane_2D+'_WeibullPMF')
+    
+    

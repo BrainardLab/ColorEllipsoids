@@ -15,7 +15,7 @@ import pickle
 #import functions from the other script
 func_path = '/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version/'
 os.chdir(func_path)
-from IsothresholdContour_RGBcube import convert_rgb_lab
+from simulations_CIELab import convert_rgb_lab
 
 #%% FUNCTIONS
 def query_simCondition(default_value = 'R', default_str = 'NearContour',
@@ -303,7 +303,7 @@ def main():
         data_load = pickle.load(f)
     param, stim, results, plt_specifics = data_load[0], data_load[1], data_load[2], data_load[3]
         
-    #%% Define dictionary sim
+    # Define dictionary sim
     sim = query_simCondition();
     
     # Configure the varying RGB planes based on the fixed plane selected by the user.
@@ -324,7 +324,7 @@ def main():
     # Calculate the probability of correct response given alpha and beta.
     sim['pC_given_alpha_beta'] = WeibullFunc(stim['deltaE_1JND'])
     
-    #%% SIMULATION STARTS HERE
+    # SIMULATION STARTS HERE
     # Initialize arrays to store the RGB and Lab compositions of comparison stimuli,
     # their color differences (deltaE) from a reference, probabilities of correct
     # identification (probC), and binary responses (resp_binary) for each simulation.
@@ -386,7 +386,7 @@ def main():
                                                            (sim['nSims'],))
                 
                 
-    #%% visualize the samples and save the data
+    # visualize the samples and save the data
     plot_2D_sampledComp(stim['grid_ref'], stim['grid_ref'], sim['rgb_comp'],\
                         sim['varying_RGBplane'], sim['method_sampling'], \
                         responses = sim['resp_binary'], \
