@@ -102,7 +102,7 @@ OPT_KEY      = jax.random.PRNGKey(444)  # Key passed to optimizer.
 W_init = model.sample_W_prior(W_INIT_KEY) #1e-1*
 
 opt_params = {
-    "learning_rate": 1e-2,
+    "learning_rate": 5e-2,
     "momentum": 0.2,
     "mc_samples": MC_SAMPLES,
     "bandwidth": BANDWIDTH,
@@ -227,7 +227,10 @@ for _idx in range(3):
                 Sigmas_est_grid[jj,ii,kk][idx][:, idx],
                 color="k", lw=1
             )      
-    axes[0].set_aspect('equal'); axes[1].set_aspect('equal')    
+            
+            viz.plot_ellipse(axes[1],xgrid[jj,ii,kk,idx], 1e2*results3D['rgb_surface_cov'][jj,ii,kk][idx][:, idx],
+            color="r", lw=1
+            )      
     axes[0].set_xlim([-1,1]); axes[0].set_ylim([-1,1])
     axes[1].set_xlim([-1,1]); axes[1].set_ylim([-1,1])
     ticks = np.unique(xgrid)

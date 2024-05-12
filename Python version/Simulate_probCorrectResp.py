@@ -351,21 +351,28 @@ def main():
                 # If 'NearContour', use ellipsoidal parameters to generate 
                 #comparison stimuli.
                 ellPara = results['ellParams'][sim['slc_RGBplane']][i,j,:]
-                sim['rgb_comp'][i,j,:,:] = sample_rgb_comp_2DNearContour(\
+                rgb_comp_temp = sample_rgb_comp_2DNearContour(\
                     rgb_ref_ij[sim['varying_RGBplane']], sim['varying_RGBplane'],
                     sim['fixed_RGBvec'], sim['nSims'], ellPara, sim['random_jitter'])
             elif sim['method_sampling'] == 'Random':
                 # If 'Random', generate comparison stimuli within a specified 
                 #square range.
-                sim['rgb_comp'][i,j,:,:] = sample_rgb_comp_random(\
+                rgb_comp_temp = sample_rgb_comp_random(\
                     rgb_ref_ij[sim['varying_RGBplane']],sim['varying_RGBplane'],\
                     sim['fixed_RGBvec'], sim['range_randomSampling'], sim['nSims'])
             elif sim['method_sampling'] == 'Gaussian':
-                sim['rgb_comp'][i,j,:,:] = sample_rgb_comp_Gaussian(\
+                rgb_comp_temp = sample_rgb_comp_Gaussian(\
                     rgb_ref_ij[sim['varying_RGBplane']],sim['varying_RGBplane'],\
                     sim['fixed_RGBvec'], \
                     results['rgb_comp_contour_cov'][sim['slc_RGBplane'],i,j,:,:],\
-                    sim['nSims'], sim['covMatrix_scaler'])                
+                    sim['nSims'], sim['covMatrix_scaler'])        
+                    
+            #RGB values can't exceed 1 and go below 0
+            if np.max(rgb_comp_temp) > 1:
+                print('Hi')
+            rgb_comp_temp[rgb_comp_temp > 1] = 1
+            rgb_comp_temp[rgb_comp_temp < 0] = 0
+            sim['rgb_comp'][i,j,:,:] = rgb_comp_temp
                 
             # For each simulation, calculate color difference, probability of 
             #correct identification, and simulate binary responses based on the 
