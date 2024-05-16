@@ -15,7 +15,7 @@ import pickle
 func_path = '/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version/'
 os.chdir(func_path)
 from Simulate_probCorrectResp import query_simCondition,sample_rgb_comp_random, sample_rgb_comp_Gaussian
-from IsothresholdContour_RGBcube import convert_rgb_lab
+from simulations_CIELab import convert_rgb_lab
 
 #%%
 def sample_rgb_comp_3DNearContour(rgb_ref, nSims, radii, eigenVec, jitter):
@@ -74,15 +74,18 @@ def plot_3D_sampledComp(ref_points, fitEllipsoid_unscaled, sampledComp,
     pltP = {
         'visualize_ellipsoid':True, 
         'visualize_samples':True, 
+        'scaled_neg12pos1':False,
         'slc_grid_ref_dim1': np.array(list(range(len(ref_points)))),
         'slc_grid_ref_dim2': np.array(list(range(len(ref_points)))),
         'surf_alpha': 0.3,
         'samples_alpha': 0.2,
-        'lineWidth_ellipse':2,
-        'lineWidth_ellipse_2Dsim':1,
         'markerSize_samples':2,
         'default_viewing_angle':False,
+        'x_bds_symmetrical': 0.025,
+        'y_bds_symmetrical': 0.025,
+        'z_bds_symmetrical': 0.025,
         'fontsize':15,
+        'figsize':(8,8),
         'title':'',
         'saveFig':False,
         'figName':'Sampled comparison stimuli'
@@ -92,11 +95,11 @@ def plot_3D_sampledComp(ref_points, fitEllipsoid_unscaled, sampledComp,
     #Determine the indices of the reference points based on the fixed 
     # plane specified ('R', 'G', or 'B' for different color channels)
     if fixedPlane =='R':
-        idx_x = np.where(ref_points == fixedPlaneVal)[0][0]
+        idx_x = np.where(np.abs(ref_points - fixedPlaneVal)< 1e-6)[0][0]
     elif fixedPlane == 'G':
-        idx_y = np.where(ref_points == fixedPlaneVal)[0][0]
+        idx_y = np.where(np.abs(ref_points - fixedPlaneVal)< 1e-6)[0][0]
     elif fixedPlane == 'B':
-        idx_z = np.where(ref_points == fixedPlaneVal)[0][0]
+        idx_z = np.where(np.abs(ref_points - fixedPlaneVal)< 1e-6)[0][0]
     else:
         return
     
@@ -105,7 +108,7 @@ def plot_3D_sampledComp(ref_points, fitEllipsoid_unscaled, sampledComp,
     ref_points_idx = np.array(list(range(len(ref_points))))
     
     fig, axs = plt.subplots(nGridPts_dim2, nGridPts_dim1, subplot_kw={'projection': '3d'}, \
-                            figsize=(8,8))
+                            figsize=pltP['figsize'])
     for j in range(nGridPts_dim2-1,-1,-1):
         jj = ref_points_idx[pltP['slc_grid_ref_dim2'][nGridPts_dim2-j-1]]
         for i in range(nGridPts_dim1):
@@ -136,32 +139,37 @@ def plot_3D_sampledComp(ref_points, fitEllipsoid_unscaled, sampledComp,
                    
             #subplot
             if pltP['visualize_ellipsoid']:
+                if pltP['scaled_neg12pos1']: color_v = (slc_ref+1)/2
+                else: color_v = slc_ref
                 ax.plot_surface(slc_gt_x, slc_gt_y, slc_gt_z, \
-                    color=slc_ref, edgecolor='none', alpha=0.5)
+                    color=color_v, edgecolor='none', alpha=0.5)
                 
             if pltP['visualize_samples']:
                 ax.scatter(slc_rgb_comp[0,:], slc_rgb_comp[1,:], slc_rgb_comp[2,:],\
                            s=pltP['markerSize_samples'], c= [0,0,0], alpha=pltP['samples_alpha'])
                     
-            ax.set_xlim(slc_ref[0]+np.array([-0.025,0.025])); 
-            ax.set_ylim(slc_ref[1]+np.array([-0.025,0.025]));  
-            ax.set_zlim(slc_ref[2]+np.array([-0.025,0.025]));  
+            ax.set_xlim(slc_ref[0]+np.array(pltP['x_bds_symmetrical']*np.array([-1,1]))); 
+            ax.set_ylim(slc_ref[1]+np.array(pltP['y_bds_symmetrical']*np.array([-1,1])));  
+            ax.set_zlim(slc_ref[2]+np.array(pltP['z_bds_symmetrical']*np.array([-1,1])));  
             ax.set_xlabel('');ax.set_ylabel('');ax.set_zlabel('');
             #set tick marks
             if fixedPlane == 'R':
                 ax.set_xticks([]); 
             else:
-                ax.set_xticks(np.round(slc_ref[0]+np.array([-0.02,0,0.02]),2))
+                ax.set_xticks(np.round(slc_ref[0]+np.array(np.ceil(pltP['x_bds_symmetrical']*100)/100*\
+                                                           np.array([-1,0,1])),2))
                 
             if fixedPlane == 'G':
                 ax.set_yticks([]); 
             else:
-                ax.set_yticks(np.round(slc_ref[1]+np.array([-0.02,0,0.02]),2))
+                ax.set_yticks(np.round(slc_ref[1]+np.array(np.ceil(pltP['y_bds_symmetrical']*100)/100*\
+                                                           np.array([-1,0,1])),2))
                 
             if fixedPlane == 'B':
                 ax.set_zticks([]);
             else:
-                ax.set_zticks(np.round(slc_ref[2]+np.array([-0.02,0,0.02]),2))
+                ax.set_zticks(np.round(slc_ref[2]+np.array(np.ceil(pltP['z_bds_symmetrical']*100)/100*\
+                                                           np.array([-1,0,1])),2))
             # Adjust viewing angle for better visualization
             if not pltP['default_viewing_angle']:
                 if fixedPlane == 'R':

@@ -209,6 +209,7 @@ def plot_3D_isothreshold_ellipsoid(x_grid_ref, y_grid_ref, z_grid_ref,
         'color_threshold':[],
         'fontsize':15,
         'saveFig':False,
+        'figDir':'',
         'figName':'Isothreshold_ellipsoids'} 
     pltP.update(kwargs)
     
@@ -269,6 +270,9 @@ def plot_3D_isothreshold_ellipsoid(x_grid_ref, y_grid_ref, z_grid_ref,
     ax.set_xlabel('R'); ax.set_ylabel('G'); ax.set_zlabel('B')
     ax.view_init(elev=35, azim=-120)   # Adjust viewing angle for better visualization
     plt.show()
+    if pltP['saveFig'] and pltP['figDir'] != '':
+        full_path2 = os.path.join(pltP['figDir'],pltP['figName']+'.png')
+        fig.savefig(full_path2)
     
 
 #%%

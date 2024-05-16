@@ -15,6 +15,8 @@ import jax.numpy as jnp
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm, trange
+import imageio.v2 as imageio
+import datetime
 
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
 from core import chebyshev, viz, utils, oddity_task, optim, model_predictions
@@ -110,7 +112,7 @@ def simulate_oddityData_given_W_gt(M, W_gt, xGrid, nS, DATA_KEY, **kwargs):
     return data, noise_x1, Uref, U0, U1
 
 #%%
-NOISE_LEVEL = 0.02
+NOISE_LEVEL = 0.08 #0.005, 0.02
 nRepeats    = 10
 nIters      = 3
 opt_steps   = 500
@@ -121,7 +123,7 @@ objhist_min_idx = np.full((nRepeats), np.nan)
 W_est_all       = np.full((nRepeats,) + W_gt.shape, np.nan)
 Sigmas_est_grid_all = np.full((nRepeats,) + Sigma_gt_grid.shape, np.nan)
 
-for i in range(nRepeats):
+for i in range(1,nRepeats):#nRepeats):
     DATA_KEY_i = jax.random.PRNGKey(i+200) 
     
     data_i, noise_x1_i, Uref_i, U0_i, U1_i = simulate_oddityData_given_W_gt(\
@@ -176,11 +178,8 @@ for i in range(nRepeats):
         samples_alpha = 0.2, nSims = nSims, plane_2D = plane_2D)
 
 #%% save the data
-import datetime
-
 # Get today's date
 today = datetime.date.today()
-
 # Convert the date to a string (format: YYYY-MM-DD)
 date_string = today.strftime("%Y-%m-%d")
 
@@ -206,57 +205,87 @@ with open(full_path, 'wb') as f:
 # -----------------------------
 # Compute model predictions
 # -----------------------------
-ngrid_search            = 250
-bds_scaler_gridsearch   = [0.5, 3]
+ngrid_search            = 400
+bds_scaler_gridsearch   = [0.5, 10]
 nTheta                  = 200
 outputDir_fig = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
                         'ELPS_analysis/ParameterRecovery_FigFiles/'
                         
 #initalize
-recover_fitEllipse_scaled, recover_fitEllipse_unscaled,\
-    recover_rgb_comp_scaled, recover_rgb_contour_cov, params_ellipses = [],[],[],[],[]
+xgrid_3D = np.zeros((3,NUM_GRID_PTS,NUM_GRID_PTS))
+xgrid_3D[0:2,:,:] = np.transpose(xgrid,(2,0,1))
 
-for i in range(1):
+for i in [1,2]:#range(nRepeats):
     recover_fitEllipse_scaled_i, recover_fitEllipse_unscaled_i,\
         recover_rgb_comp_scaled_i, recover_rgb_contour_cov_i, params_ellipses_i =\
-        model_predictions.convert_Sig_2DisothresholdContour_oddity_batch(xgrid,\
+        model_predictions.convert_Sig_2DisothresholdContour_oddity_batch(xgrid_3D,\
         [1,2], stim['grid_theta_xy'], 0.78,\
         W_est_all[i], model, results['opt_vecLen'], ngrid_bruteforce = ngrid_search,\
         scaler_bds_bruteforce = bds_scaler_gridsearch, scaler_x1 = 5,\
         nThetaEllipse = nTheta, mc_samples = opt_params['mc_samples'],bandwidth = BANDWIDTH,\
-        opt_key = OPT_KEY)
-    
-    recover_fitEllipse_scaled.append(recover_fitEllipse_scaled_i)
-    recover_fitEllipse_unscaled.append(recover_fitEllipse_unscaled_i)
-    recover_rgb_comp_scaled.append(recover_rgb_comp_scaled_i)
-    recover_rgb_contour_cov.append(recover_rgb_contour_cov_i)
-    params_ellipses.append(params_ellipses_i)
+        opt_key = OPT_KEY[i][int(objhist_min_idx[i])])
+    #append data to existing file
+    # Load existing data from the pickle file
+    with open(full_path, 'rb') as f:
+        data_existing = pickle.load(f)
+    # Append new data
+    new_data = {'recover_fitEllipse_scaled'+str(i): recover_fitEllipse_scaled_i,\
+                'recover_fitEllipse_unscaled'+str(i): recover_fitEllipse_unscaled_i,\
+                'recover_rgb_comp_scaled'+str(i): recover_rgb_comp_scaled_i,\
+                'recover_rgb_contour_cov'+str(i): recover_rgb_contour_cov_i,\
+                'params_ellipses' +str(i): params_ellipses_i}
+    data_existing.update(new_data)
+    # Save the updated dictionary back to the pickle file
+    with open(full_path, 'wb') as f:
+        pickle.dump(data_existing, f)
             
     #visualize
     y_i, xref_i, x0_i, x1_i = data_all[i]
     model_predictions.plot_2D_modelPredictions_byWishart(
-        xgrid, x1_i, Ellipses_gt, Sigmas_est_grid_all[i],recover_fitEllipse_unscaled_i, plane_2D_idx,\
-        saveFig = False, visualize_samples= True, visualize_sigma = False,\
-        visualize_modelPred = True,\
-        visualize_groundTruth = True, samples_alpha = 0.2, \
-        gt_mc = 'k', gt_ls = '--', gt_lw = 1, gt_alpha = 1,\
-        modelpred_mc = 'k', modelpred_ls = '-', modelpred_lw = 2, modelpred_alpha = 1,\
+        xgrid, x1_i, Ellipses_gt, Sigmas_est_grid_all[i],\
+        recover_fitEllipse_unscaled_i, plane_2D_idx,\
+        saveFig = True, visualize_samples= True, visualize_sigma = False,\
+        visualize_modelPred = True, visualize_groundTruth = True, \
+        samples_alpha = 0.2, samples_label = 'Simulated data based on WP model',\
+        gt_mc = 'k', gt_ls = '-', gt_lw = 2, gt_alpha = 0.4, gt_label = 'Ground truths (WP model)',\
+        modelpred_mc = 'k', modelpred_ls = '--', modelpred_lw = 0.5, modelpred_alpha = 1,\
         nSims = nSims, plane_2D = plane_2D,\
         figDir = outputDir_fig,fig_name = output_file[0:-4] +'_'+str(i))
 
+#%
+# output_file_temp = 'ParameterRecovery' + fileName[6:-4] + '_Repeat'+str(nRepeats) +\
+#     '_noise' +str(NOISE_LEVEL) + '_2024-05-12.pkl'
+# full_path_temp = f"{outputDir}{output_file_temp}"
+# with open(full_path_temp, 'rb') as f:
+#     data_existing = pickle.load(f)
+    
+# for i in range(nRepeats):
+#     #visualize
+#     y_i, xref_i, x0_i, x1_i = data_existing['data_all'][i]
+#     recover_fitEllipse_unscaled_i = data_existing['recover_fitEllipse_unscaled'+str(i)]
+#     model_predictions.plot_2D_modelPredictions_byWishart(
+#         xgrid, x1_i, Ellipses_gt, Sigmas_est_grid_all[i],\
+#         recover_fitEllipse_unscaled_i, plane_2D_idx,\
+#         saveFig = True, visualize_samples= True, visualize_sigma = False,\
+#         visualize_modelPred = True, visualize_groundTruth = True, \
+#         samples_alpha = 0.2, samples_label = 'Simulated data based on WP model',\
+#         gt_mc = 'k', gt_ls = '-', gt_lw = 2, gt_alpha = 0.4, gt_label = 'Ground truths (WP model)',\
+#         modelpred_mc = 'k', modelpred_ls = '--', modelpred_lw = 0.5, modelpred_alpha = 1,\
+#         nSims = nSims, plane_2D = plane_2D,\
+#         figDir = outputDir_fig,fig_name = output_file[0:-4] +'_'+str(i))
+        
 #%% Directory containing images
-image_folder = 'path/to/your/images'
-
 # Collect image file names
-images = [img for img in os.listdir(image_folder) if img.endswith(".png")]
+images = [img for img in os.listdir(outputDir_fig) if img.endswith(".png")]
 images.sort()  # Sort the images by name (optional)
 
-# Load images
-image_list = [imageio.imread(f"{image_folder}/{img}") for img in images]
+# Load images using imageio.v2 explicitly to avoid deprecation warnings
+image_list = [imageio.imread(f"{outputDir_fig}/{img}") for img in images]
 
 # Create a GIF
-output_path = 'output.gif'
-imageio.mimsave(output_path, image_list, fps=2)        
+gif_name = output_file[0:-4] + '.gif'
+output_path = f"{outputDir_fig}{gif_name}" 
+imageio.mimsave(output_path, image_list, fps=2)    
         
         
         

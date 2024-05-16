@@ -10,12 +10,15 @@ import sys
 import math
 import numpy as np
 import pickle
+import os
 
-sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/"+\
-                "FilesFromPsychtoolbox")
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/"+\
                 "Python version")
 import simulations_CIELab
+path_str = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/"+\
+                "FilesFromPsychtoolbox"
+sys.path.append(path_str)
+os.chdir(path_str)
 
 #%% LOAD DATA WE NEED
 #load data
@@ -38,7 +41,7 @@ nPlanes        = 3
 
 #%% DEINE STIMULUS PROPERTIES AND PLOTTING SPECIFICS
 #for RG / RB / GB plane, we fix the B / G / R value to be one of the following
-fixed_RGBvec = 0.5
+fixed_RGBvec = 0.8
 
 #get the grid points for those three planes with one dimension having a specific fixed value
 plane_points = simulations_CIELab.get_gridPts(x_grid,y_grid,np.full(3, fixed_RGBvec))
@@ -127,7 +130,7 @@ simulations_CIELab.plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref,\
                              EllipsesLine = '-', fontsize =12)    
 
 #%%save to CSV
-file_name   = 'Isothreshold_contour_CIELABderived.pkl'
+file_name   = 'Isothreshold_contour_CIELABderived_fixedVal' +str(fixed_RGBvec)+'.pkl'
 path_output = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
                 'ELPS_analysis/Simulation_DataFiles/'
 full_path   = f"{path_output}{file_name}"
