@@ -88,7 +88,8 @@ def plot_3D_sampledComp(ref_points, fitEllipsoid_unscaled, sampledComp,
         'figsize':(8,8),
         'title':'',
         'saveFig':False,
-        'figName':'Sampled comparison stimuli'
+        'figDir':'',
+        'figName':'Sampled_comparison_stimuli_3D'
         }
     pltP.update(kwargs)
     
@@ -186,7 +187,9 @@ def plot_3D_sampledComp(ref_points, fitEllipsoid_unscaled, sampledComp,
     plt.tight_layout()
     plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05, wspace=-0.05, hspace=-0.05)
     plt.show()
-                
+    if pltP['saveFig'] and pltP['figDir'] != '':
+        full_path2 = os.path.join(pltP['figDir'],pltP['figName']+'.png')
+        fig.savefig(full_path2)            
 
 #%%
 def main():

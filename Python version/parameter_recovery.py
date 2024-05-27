@@ -215,7 +215,7 @@ outputDir_fig = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
 xgrid_3D = np.zeros((3,NUM_GRID_PTS,NUM_GRID_PTS))
 xgrid_3D[0:2,:,:] = np.transpose(xgrid,(2,0,1))
 
-for i in [1,2]:#range(nRepeats):
+for i in range(nRepeats):
     recover_fitEllipse_scaled_i, recover_fitEllipse_unscaled_i,\
         recover_rgb_comp_scaled_i, recover_rgb_contour_cov_i, params_ellipses_i =\
         model_predictions.convert_Sig_2DisothresholdContour_oddity_batch(xgrid_3D,\

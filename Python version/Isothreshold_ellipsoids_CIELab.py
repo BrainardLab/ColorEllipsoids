@@ -22,7 +22,7 @@ from ellipsoid_fit import ellipsoid_fit
 #import functions from the other script
 func_path = '/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version/'
 os.chdir(func_path)
-from IsothresholdContour_RGBcube import convert_rgb_lab, find_vecLen
+from simulations_CIELab import convert_rgb_lab, find_vecLen
 
 #%% FUNCTIONS
 def UnitCircleGenerate_3D(nTheta, nPhi):
@@ -154,7 +154,7 @@ def fit_3d_isothreshold_ellipsoid(rgb_ref, rgb_comp, grid_xyz, **kwargs):
                                        ellP['nPhiEllipsoid'])
     # If comparison stimuli are not provided, compute them based on the reference
     # stimulus, vector length, and the grid of XYZ coordinates.
-    if rgb_comp == []:
+    if len(rgb_comp) == []:
         #compute the comparison stimuli if not provided
         rgb_comp_unscaled = np.reshape(rgb_ref,(1,1,3)) +\
             np.tile(ellP['vecLen'][:,:,np.newaxis],(1,1,3)) *grid_xyz

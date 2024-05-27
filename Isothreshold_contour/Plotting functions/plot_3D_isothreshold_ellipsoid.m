@@ -15,6 +15,8 @@ function plot_3D_isothreshold_ellipsoid(x_grid_ref, y_grid_ref, z_grid_ref,...
     p.addParameter('color_ref_rgb',[],@(x)(isnumeric(x)));
     p.addParameter('color_surf',[],@(x)(isnumeric(x)));
     p.addParameter('color_threshold',[],@(x)(isnumeric(x)));
+    p.addParameter('azimuthAngle', -37.5, @isnumeric);   
+    p.addParameter('elevationAngle', 30, @isnumeric); 
     p.addParameter('fontsize',15,@isnumeric);
     p.addParameter('normalizedFigPos', [0,0.1,0.3,0.5], @(x)(isnumeric(x) && numel(x)==4));
     p.addParameter('saveFig', false, @islogical);
@@ -30,11 +32,13 @@ function plot_3D_isothreshold_ellipsoid(x_grid_ref, y_grid_ref, z_grid_ref,...
     visualize_ellipsoids = p.Results.visualize_ellipsoids;
     visualize_thresholdPoints = p.Results.visualize_thresholdPoints;
     threshold_points = p.Results.threshold_points;
-    ms_ref     = p.Results.ms_ref;
-    lw_ref     = p.Results.lw_ref;
-    color_ref_rgb = p.Results.color_ref_rgb;
-    color_surf = p.Results.color_surf;
-    color_threshold = p.Results.color_threshold;
+    ms_ref           = p.Results.ms_ref;
+    lw_ref           = p.Results.lw_ref;
+    color_ref_rgb    = p.Results.color_ref_rgb;
+    color_surf       = p.Results.color_surf;
+    color_threshold  = p.Results.color_threshold;
+    azimuthAngle     = p.Results.azimuthAngle;
+    elevationAngle   = p.Results.elevationAngle;
     fontsize   = p.Results.fontsize;
     saveFig    = p.Results.saveFig;
     figName    = p.Results.figName;
@@ -109,7 +113,7 @@ function plot_3D_isothreshold_ellipsoid(x_grid_ref, y_grid_ref, z_grid_ref,...
             end
         end
     end
-    camlight right; lighting phong
+    view(azimuthAngle, elevationAngle);
     xlim([0,1]); ylim([0,1]); zlim([0,1])
     xticks(sort([0,1,x_grid_ref_trunc])); yticks(sort([0,1,y_grid_ref_trunc])); 
     zticks(sort([0,1,z_grid_ref_trunc])); 
@@ -118,7 +122,7 @@ function plot_3D_isothreshold_ellipsoid(x_grid_ref, y_grid_ref, z_grid_ref,...
     set(gca,'FontSize', fontsize);
     set(gcf,'Units','normalized','Position',figPos);
 
-    if saveFig 
+    if saveFig
         set(gcf,'PaperUnits','centimeters','PaperSize',paperSize);
         analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
         myFigDir = 'Simulation_FigFiles';
@@ -126,8 +130,18 @@ function plot_3D_isothreshold_ellipsoid(x_grid_ref, y_grid_ref, z_grid_ref,...
         if ~exist(outputDir, 'dir')
             mkdir(outputDir);
         end
-        % Full path for the figure file
         figFilePath = fullfile(outputDir, [figName, '.pdf']);
         saveas(gcf, figFilePath);
     end
+
+    % % Initial camlight
+    light_handle = camlight('right'); lighting phong
+    % for az = 0:5:360
+    %     view(az, -37.5);
+    %     delete(light_handle);
+    %     light_handle = camlight('right');  % Adjust the camlight to headlight first
+    %     lighting phong
+    %     drawnow;  % Update the figure window
+    %     pause(0.05);  % Pause for 0.05 seconds between updates
+    % end
 end
