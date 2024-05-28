@@ -82,14 +82,14 @@ param3D, stim3D, results3D, plt_specifics = data_load[0], data_load[1], data_loa
 for fixedPlane, varyingPlanes in zip(['R','G','B'], ['GB','RB','RG']):
     for val in fixedRGB_val:
         plot_3D_sampledComp(stim3D['grid_ref']*2-1, results3D['fitEllipsoid_unscaled']*2-1,\
-                            x1_raw, fixedPlane, val*2-1, plt_specifics['nPhiEllipsoid'],\
-                            plt_specifics['nThetaEllipsoid'], slc_grid_ref_dim1 = [0,2,4],\
-                            slc_grid_ref_dim2 = [0,2,4], surf_alpha =  0.1,\
-                            samples_alpha = 0.1,scaled_neg12pos1 = True,\
-                            x_bds_symmetrical = 0.05,y_bds_symmetrical = 0.05,\
-                            z_bds_symmetrical = 0.05,title = varyingPlanes+' plane',\
-                            saveFig = True, figDir = path_str[0:-10] + 'FigFiles/',\
-                            figName = file_name + '_' + varyingPlanes + 'plane' +'_fixedVal'+str(val))
+            x1_raw, fixedPlane, val*2-1, plt_specifics['nPhiEllipsoid'],\
+            plt_specifics['nThetaEllipsoid'], slc_grid_ref_dim1 = [0,2,4],\
+            slc_grid_ref_dim2 = [0,2,4], surf_alpha =  0.1,\
+            samples_alpha = 0.1,scaled_neg12pos1 = True,\
+            x_bds_symmetrical = 0.05,y_bds_symmetrical = 0.05,\
+            z_bds_symmetrical = 0.05,title = varyingPlanes+' plane',\
+            saveFig = True, figDir = path_str[0:-10] + 'FigFiles/',\
+            figName = file_name + '_' + varyingPlanes + 'plane' +'_fixedVal'+str(val))
 
 #%%
 # -------------------------------
@@ -138,7 +138,7 @@ ax.plot(iters, objhist)
 fig.tight_layout()
 plt.show()
 
-#%% -----------------------------
+# -----------------------------
 # Rocover covariance matrices
 # -----------------------------
 # Specify grid over stimulus space
@@ -148,11 +148,12 @@ xgrid = jnp.stack(jnp.meshgrid(*[xgrid_1d for _ in range(model.num_dims)]), axis
 Sigmas_init_grid = model.compute_Sigmas(model.compute_U(W_init, xgrid))
 Sigmas_est_grid = model.compute_Sigmas(model.compute_U(W_est, xgrid))
 
+
 #%% save data
 outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
                         'ELPS_analysis/ModelFitting_DataFiles/'
 output_file = 'Fitted'+file_name[4:-4]+'_bandwidth' + str(BANDWIDTH) + '.pkl'
-full_path = f"{outputDir}{output_file}"
+full_path4 = f"{outputDir}{output_file}"
 
 variable_names = ['data', 'x1_raw', 'xref_raw', 'gt_ellipses','model',\
                   'NUM_GRID_PTS', 'MC_SAMPLES','BANDWIDTH', 'W_INIT_KEY',\
@@ -163,7 +164,7 @@ vars_dict = {}
 for i in variable_names: vars_dict[i] = eval(i)
 
 # Write the list of dictionaries to a file using pickle
-with open(full_path, 'wb') as f:
+with open(full_path4, 'wb') as f:
     pickle.dump(vars_dict, f)
 
 #%% Model predictions
@@ -177,66 +178,76 @@ nSteps_bruteforce     = 200 #ngrid_search
 bds_scaler_gridsearch = [0.5, 3]
 pC_threshold          = 0.78            
 
-num_grid_pts1, num_grid_pts2, num_grid_pts3 = xref_raw.shape[0], xref_raw.shape[1], xref_raw.shape[2]
-params_ellipsoids             = [[]]*num_grid_pts1
-recover_fitEllipse_scaled   = np.full((num_grid_pts1, num_grid_pts2, num_grid_pts3,\
-                                       3, n_phi_finergrid*n_theta_finergrid), np.nan)
-recover_fitEllipse_unscaled = np.full(recover_fitEllipse_scaled.shape, np.nan)
-recover_rgb_comp_scaled     = np.full((num_grid_pts1, num_grid_pts2, num_grid_pts3,\
-                                       n_phi, n_theta, 3), np.nan)
-recover_rgb_contour_cov     = np.full((num_grid_pts1, num_grid_pts2,\
-                                       num_grid_pts3, 3, 3), np.nan)
+recover_fitEllipsoid_scaled, recover_fitEllipsoid_unscaled,\
+    recover_rgb_comp_scaled, recover_rgb_contour_cov,\
+    params_ellipsoids = model_predictions.convert_Sig_3DisothresholdContour_oddity_batch(\
+        xref_raw, stim3D['grid_xyz'], pC_threshold, W_est, model,\
+        results3D['opt_vecLen'], scaler_x1 = scaler_x1,\
+        ngrid_bruteforce=nSteps_bruteforce,\
+        scaler_bds_bruteforce = bds_scaler_gridsearch,\
+        bandwidth = opt_params['bandwidth'], opt_key = OPT_KEY)
+        
+#%%derive 2D slices
+#initialization
+gt_covMat             = np.full((ref_size_dim1, ref_size_dim2, ref_size_dim3, 3, 3), np.nan)
+pred_covMat           = np.full(gt_covMat.shape, np.nan)
+gt_slice_2d_ellipse   = np.full((ref_size_dim1, ref_size_dim2, ref_size_dim3, 3, 2,2), np.nan)
+pred_slice_2d_ellipse = np.full(gt_slice_2d_ellipse.shape, np.nan)
 
-#%%for each reference stimulus
-for i in range(num_grid_pts1):
-    params_ellipsoids[i] = [[]]*num_grid_pts2
-    for j in range(num_grid_pts2):
-        params_ellipsoids[i][j] = [[]]*num_grid_pts3
-        for k in range(num_grid_pts3):
-            print([i,j,k])
-            #first grab the reference stimulus' RGB
-            rgb_ref_scaled_ijk = jnp.array(xref_raw[i,j,k])
-            #from previous results, get the optimal vector length
-            vecLength_ijk = results3D['opt_vecLen'][i,j,k]
-            #use brute force to find the optimal vector length
-            vecLength_test = np.linspace(\
-                np.min(vecLength_ijk)*scaler_x1*bds_scaler_gridsearch[0],\
-                np.max(vecLength_ijk)*scaler_x1*bds_scaler_gridsearch[1],\
-                nSteps_bruteforce) 
-            
-            #fit an ellipse to the estimated comparison stimuli
-            recover_fitEllipse_scaled[i,j,k], recover_fitEllipse_unscaled[i,j,k],\
-                recover_rgb_comp_scaled[i,j,k], recover_rgb_contour_cov[i,j,k],\
-                params_ellipsoids[i][j][k] = model_predictions.convert_Sig_3DisothresholdContour_oddity(\
-                rgb_ref_scaled_ijk, stim3D['grid_xyz'], vecLength_test,\
-                pC_threshold, W_est, model, scaler_x1,\
-                nPhiEllipsoid = n_phi_finergrid, nThetaEllipse = n_theta_finergrid, opt_key = OPT_KEY,
-                mc_samples = opt_params['mc_samples'], bandwidth = opt_params['bandwidth'])
+for g1 in range(ref_size_dim1):
+    for g2 in range(ref_size_dim2):
+        for g3 in range(ref_size_dim3):
+            #3D ellipsoid covariance matrix
+            gt_covMat[g1,g2,g3] = model_predictions.ellParams_to_covMat(\
+                            results3D['ellipsoidParams'][g1,g2,g3]['radii'],\
+                            results3D['ellipsoidParams'][g1,g2,g3]['evecs'])
+            #model predictions
+            pred_covMat[g1,g2,g3] = model_predictions.ellParams_to_covMat(\
+                            params_ellipsoids[g1][g2][g3]['radii'],\
+                            params_ellipsoids[g1][g2][g3]['evecs'])
+            for _idx, _idx_varying in zip([0,1,2], [[1, 2],[0, 2],[0, 1]]):
+                idx = jnp.array(_idx_varying)
+                #projection onto 2d plane
+
+                # Invert the 3D covariance matrix to get the precision matrix
+                gt_precision_matrix = np.linalg.inv(gt_covMat[g1,g2,g3])
+                # Extract the 2x2 matrix corresponding to the x and y dimensions
+                gt_precision_2d = gt_precision_matrix[idx][:,idx]
+                # Invert the 2x2 precision matrix to get the covariance matrix of the 2D ellipse
+                gt_slice_2d_ellipse[g1,g2,g3,_idx] = np.linalg.inv(gt_precision_2d)
+                    
+                #slices
+                pred_precision_matrix = np.linalg.inv(pred_covMat[g1,g2,g3])
+                pred_precision_2d = pred_precision_matrix[idx][:,idx]
+                pred_slice_2d_ellipse[g1,g2,g3,_idx] = np.linalg.inv(pred_precision_2d)
 
 #%% append data
 #append data to existing file
 # Load existing data from the pickle file
-with open(full_path, 'rb') as f:
+with open(full_path4, 'rb') as f:
     data_existing = pickle.load(f)
 # Append new data
-new_data = {'recover_fitEllipse_scaled': recover_fitEllipse_scaled,\
-            'recover_fitEllipse_unscaled': recover_fitEllipse_unscaled,\
+new_data = {'recover_fitEllipsoid_scaled': recover_fitEllipsoid_scaled,\
+            'recover_fitEllipsoid_unscaled': recover_fitEllipsoid_unscaled,\
             'recover_rgb_comp_scaled': recover_rgb_comp_scaled,\
             'recover_rgb_contour_cov': recover_rgb_contour_cov,\
-            'params_ellipsoids': params_ellipsoids}
+            'params_ellipsoids': params_ellipsoids,\
+            'gt_covMat':gt_covMat,\
+            'pred_covMat':pred_covMat,\
+            'gt_slice_2d_ellipse':gt_slice_2d_ellipse,\
+            'pred_slice_2d_ellipse':pred_slice_2d_ellipse}
 data_existing.update(new_data)
 # Save the updated dictionary back to the pickle file
-with open(full_path, 'wb') as f:
+with open(full_path4, 'wb') as f:
     pickle.dump(data_existing, f)
 
-#%% plotting
-k = 3; 
+#%% plotting 
 for k, fixedRGB_val_scaled_k in zip(list(range(NUM_GRID_PTS)), fixedRGB_val_scaled):
     for _idx, fixedPlane, _idx_varying, varyingPlanes in zip([0,1,2],\
                                                              ['R','G','B'],\
                                                              [[1, 2],[0, 2],[0, 1]],\
                                                              ['GB','RB','RG']):
-        fig, axes = plt.subplots(1, 2, figsize=(8,5.5))
+        fig, axes = plt.subplots(1, 2, figsize=(8,5))
         plt.rcParams['figure.dpi'] = 250
         idx = jnp.array(_idx_varying)
         
@@ -274,51 +285,31 @@ for k, fixedRGB_val_scaled_k in zip(list(range(NUM_GRID_PTS)), fixedRGB_val_scal
                 #scale up x1_raw
                 x1_ij        = x1_raw[ii,jj,kk,idx]
                 xref_ij      = xref_raw[ii,jj,kk,idx].reshape((2,1))
-                    
-                #3D ellipsoid covariance matrix
-                covariance_matrix = model_predictions.ellParams_to_covMat(\
-                                results3D['ellipsoidParams'][ii,jj,kk]['radii'],\
-                                results3D['ellipsoidParams'][ii,jj,kk]['evecs'])
-                # Invert the 3D covariance matrix to get the precision matrix
-                gt_precision_matrix = np.linalg.inv(covariance_matrix)
-                # Extract the 2x2 matrix corresponding to the x and y dimensions
-                gt_precision_2d = gt_precision_matrix[idx][:,idx]
-                # Invert the 2x2 precision matrix to get the covariance matrix of the 2D ellipse
-                gt_sigma_2d_ellipse = np.linalg.inv(gt_precision_2d)
-                    
-                covariance_matrix_pred = model_predictions.ellParams_to_covMat(\
-                                params_ellipsoids[ii][jj][kk]['radii'],\
-                                params_ellipsoids[ii][jj][kk]['evecs'])
-                # Invert the 3D covariance matrix to get the precision matrix
-                precision_matrix = np.linalg.inv(covariance_matrix_pred)
-                # Extract the 2x2 matrix corresponding to the x and y dimensions
-                precision_2d = precision_matrix[idx][:,idx]
-                # Invert the 2x2 precision matrix to get the covariance matrix of the 2D ellipse
-                sigma_2d_ellipse = np.linalg.inv(precision_2d)
                 
                 #visualize                      
                 viz.plot_ellipse(axes[0], xgrid[jj,ii,kk, idx],
-                    (scaler_x1*2)**2*covariance_matrix[idx][:, idx],
-                    color=np.array(cm), lw=1.5, label=contour_3D_label
-                )
+                    (scaler_x1*2)**2*gt_covMat[ii,jj,kk][idx][:, idx],
+                    color=np.array(cm), lw=2, label=contour_3D_label)
                     
                 #visualize the fits
                 viz.plot_ellipse(axes[0],  xgrid[jj,ii,kk, idx],
                     Sigmas_est_grid[jj,ii,kk][idx][:, idx], color="k",\
-                    lw=2, linestyle = '-', alpha = 0.7, label = fits_label)      
-                
-                axes[0].plot(recover_fitEllipse_scaled[ii,jj,kk][idx[0]],\
-                             recover_fitEllipse_scaled[ii,jj,kk][idx[1]],\
-                                 color = np.array(cm), alpha = 0.4, label = pred3D_label)
+                    lw=1.5, linestyle = '-', alpha = 0.5, label = fits_label)      
+                    
+                #model-predicted ellipses (projections)
+                recover_fitEllipse_scaled_ijk = recover_fitEllipsoid_scaled[ii,jj,kk][idx]
+                polygon = Polygon(recover_fitEllipse_scaled_ijk.T, closed=True,fill=True, \
+                                  color = np.array(cm), alpha = 0.3, label = pred3D_label)
+                axes[0].add_patch(polygon)
                     
                 #2d ground truth
                 viz.plot_ellipse(axes[1], xgrid[jj,ii,kk,idx],\
-                                 (scaler_x1*2)**2*gt_sigma_2d_ellipse,\
+                                 (scaler_x1*2)**2*gt_slice_2d_ellipse[ii,jj,kk,_idx],\
                                  color = 'r', linestyle = '--',lw=2, alpha = 0.5,\
                                      label = contour_2D_label)    
                 
                 viz.plot_ellipse(axes[1], xgrid[jj,ii,kk,idx],\
-                                 (scaler_x1)**2*sigma_2d_ellipse, \
+                                 (scaler_x1)**2*pred_slice_2d_ellipse[ii,jj,kk,_idx], \
                                 lw=3, color ='g', alpha = 0.5, label = pred2D_label)
                     
         axes[0].grid(True, alpha=0.3); axes[1].grid(True, alpha=0.3)
@@ -333,8 +324,8 @@ for k, fixedRGB_val_scaled_k in zip(list(range(NUM_GRID_PTS)), fixedRGB_val_scal
         axes[1].set_xticks(ticks); axes[1].set_yticks(ticks); 
         axes[0].set_title(varyingPlanes + ' plane (Projections)')
         axes[1].set_title(varyingPlanes + ' plane (Slices)')
-        axes[0].legend(loc='lower center',bbox_to_anchor=(0.5, -0.45),fontsize = 10)
-        axes[1].legend(loc='lower center',bbox_to_anchor=(0.5, -0.45),fontsize = 10)
+        axes[0].legend(loc='lower center',bbox_to_anchor=(0.5, -0.4),fontsize = 8.5)
+        axes[1].legend(loc='lower center',bbox_to_anchor=(0.5, -0.4),fontsize = 8.5)
         fig.tight_layout()
         plt.show()
         fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
