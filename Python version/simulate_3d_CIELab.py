@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import warnings
 from matplotlib.patches import Polygon
 from mpl_toolkits.mplot3d import Axes3D
+import imageio.v2 as imageio
 
 import sys
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
@@ -30,7 +31,7 @@ import os
 import pickle
 import numpy as np
 
-file_name = 'Sims_isothreshold_ellipsoids_sim240perCond_samplingNearContour_jitter0.1.pkl'
+file_name = 'Sims_isothreshold_ellipsoids_sim240perCond_samplingNearContour_jitter0.5.pkl'
 path_str  = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
             'ELPS_analysis/Simulation_DataFiles/'
 full_path = f"{path_str}{file_name}"
@@ -117,7 +118,7 @@ OPT_KEY      = jax.random.PRNGKey(444)  # Key passed to optimizer.
 # Fit W by maximum a posteriori
 # -----------------------------
 # Fit model, initialized at random W
-W_init = 1e-1*model.sample_W_prior(W_INIT_KEY) #1e-1*
+W_init = 1e-1*model.sample_W_prior(W_INIT_KEY) 
 
 opt_params = {
     "learning_rate": 5e-2,
@@ -128,7 +129,7 @@ opt_params = {
 W_est, iters, objhist = optim.optimize_posterior(
     W_init, data, model, OPT_KEY,
     opt_params,
-    total_steps=1000,
+    total_steps=2000,
     save_every=1,
     show_progress=True
 )
@@ -334,3 +335,20 @@ for k, fixedRGB_val_scaled_k in zip(list(range(NUM_GRID_PTS)), fixedRGB_val_scal
             'plane_fixedVal'+ str(fixedRGB_val_scaled_k)+'.png'
         full_path = os.path.join(fig_outputDir,fig_name)
         fig.savefig(full_path)    
+
+#%% make a gif
+outputDir_fig = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
+                        'ELPS_analysis/ModelFitting_FigFiles/Python_version/'
+images = [img for img in os.listdir(outputDir_fig) if img.startswith(fig_name[:-30])]
+images.sort()  # Sort the images by name (optional)
+
+# Load images using imageio.v2 explicitly to avoid deprecation warnings
+image_list = [imageio.imread(f"{outputDir_fig}/{img}") for img in images]
+
+# Create a GIF
+gif_name = fig_name[:-30] + '.gif'
+output_path = f"{outputDir_fig}{gif_name}" 
+imageio.mimsave(output_path, image_list, fps=2)  
+
+
+
