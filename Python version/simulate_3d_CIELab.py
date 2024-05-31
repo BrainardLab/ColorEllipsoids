@@ -31,7 +31,10 @@ import os
 import pickle
 import numpy as np
 
-file_name = 'Sims_isothreshold_ellipsoids_sim240perCond_samplingNearContour_jitter0.5.pkl'
+nSims = 80
+jitter = 0.1
+file_name = 'Sims_isothreshold_ellipsoids_sim'+str(nSims)+\
+            'perCond_samplingNearContour_jitter'+str(jitter)+'.pkl'
 path_str  = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
             'ELPS_analysis/Simulation_DataFiles/'
 full_path = f"{path_str}{file_name}"
@@ -89,7 +92,7 @@ for fixedPlane, varyingPlanes in zip(['R','G','B'], ['GB','RB','RG']):
             samples_alpha = 0.1,scaled_neg12pos1 = True,\
             x_bds_symmetrical = 0.05,y_bds_symmetrical = 0.05,\
             z_bds_symmetrical = 0.05,title = varyingPlanes+' plane',\
-            saveFig = True, figDir = path_str[0:-10] + 'FigFiles/',\
+            saveFig = False, figDir = path_str[0:-10] + 'FigFiles/',\
             figName = file_name + '_' + varyingPlanes + 'plane' +'_fixedVal'+str(val))
 
 #%%
@@ -129,7 +132,7 @@ opt_params = {
 W_est, iters, objhist = optim.optimize_posterior(
     W_init, data, model, OPT_KEY,
     opt_params,
-    total_steps=2000,
+    total_steps=200,
     save_every=1,
     show_progress=True
 )
@@ -175,7 +178,7 @@ n_theta_finergrid     = plt_specifics['nThetaEllipsoid']
 grid_phi              = stim3D['grid_phi'] #from 0 to pi
 n_phi                 = len(grid_phi)
 n_phi_finergrid       = plt_specifics['nPhiEllipsoid']
-nSteps_bruteforce     = 200 #number of grids
+nSteps_bruteforce     = 100 #number of grids
 bds_scaler_gridsearch = [0.5, 3]
 pC_threshold          = 0.78            
 

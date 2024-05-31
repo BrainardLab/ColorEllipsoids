@@ -8,19 +8,10 @@ Created on Wed May 29 00:39:55 2024
 
 import jax
 jax.config.update("jax_enable_x64", True)
-
-import jax.numpy as jnp
 import matplotlib.pyplot as plt
-from matplotlib.ticker import MaxNLocator
-from scipy.spatial.transform import Rotation as R
-
 import sys
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
-from core import viz, utils, oddity_task, model_predictions, optim
-from core.wishart_process import WishartProcessModel
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version')
-from Simulate_probCorrectResp_3D import plot_3D_sampledComp
-from Isothreshold_ellipsoids_CIELab import fit_3d_isothreshold_ellipsoid
 
 #%% ------------------------------------------
 # Load data simulated using CIELab
@@ -30,7 +21,7 @@ import pickle
 import numpy as np
 
 nSims = 240
-jitter = 0.5
+jitter = 0.1
 file_name1 = 'Fitted_isothreshold_ellipsoids_sim'+str(nSims) +\
             'perCond_samplingNearContour_jitter'+str(jitter)+'_bandwidth0.005.pkl'
 path_str1  = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
@@ -108,49 +99,51 @@ fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
                         'ELPS_analysis/ModelPerformance_FigFiles/'
 fig_name = 'ModelPerformance_radii' + file_name1[6:-4] + '.png'
 full_path = os.path.join(fig_outputDir,fig_name)
-fig.savefig(full_path)    
+#fig.savefig(full_path)    
             
 #%%
-fig, axes = plt.subplots(1, 3, figsize=(14,5))
-plt.rcParams['figure.dpi'] = 250
-rotAngle_est = np.full((3, ref_size_dim1, ref_size_dim2, ref_size_dim3),np.nan)
-rotAngle_gt = np.full(radii_est.shape, np.nan)
-for i in range(ref_size_dim1):
-    for j in range(ref_size_dim2):
-        for k in range(ref_size_dim3):
-            evecs_est_ijk = ellipsoidParams_est[i][j][k]['evecs']
-            evecs_est_ijk = evecs_est_ijk[:,radii_est_sort_idx[:,i,j,k]]
-            # est_rotation = R.from_matrix(evecs_est_ijk)
-            # est_angles = est_rotation.as_euler('XYZ', degrees = True)
-            # for m in range(3):
-            #     if est_angles[m] > 90:
-            #         est_angles[m] = est_angles[m] - 180
-            #     elif est_angles[m] < -90:
-            #         est_angles[m] = est_angles[m] + 180
-            
-            
-            evecs_gt_ijk = ellipsoidParams_gt[i,j,k]['evecs']
-            evecs_gt_ijk = evecs_gt_ijk[:,radii_gt_sort_idx[:,i,j,k]]
-            gt_rotation = R.from_matrix(evecs_gt_ijk)
-            gt_angles = gt_rotation.as_euler('XYZ', degrees = True)
-            for m in range(3):
-                if gt_angles[m] > 90:
-                    gt_angles[m] = gt_angles[m] - 180
-                elif gt_angles[m] < -90:
-                    gt_angles[m] = gt_angles[m] + 180
-            
-            cmap_ijk = [stim3D['x_grid_ref'][i,j,k],stim3D['y_grid_ref'][i,j,k],stim3D['z_grid_ref'][i,j,k]]
-            for l in range(3):
-                rotAngle_est[l,i,j,k] = est_angles[l]
-                rotAngle_gt[l,i,j,k] = gt_angles[l]
-                axes[l].scatter(rotAngle_gt[l,i,j,k],rotAngle_est[l,i,j,k],\
-                                color = cmap_ijk)
-            
-for l in range(3):
-    x_lb_l = np.min(rotAngle_est[l])*0.85
-    x_ub_l = np.max(rotAngle_est[l])*1.15
-    axes[l].plot([x_lb_l, x_ub_l], [x_lb_l, x_ub_l], color = 'k', linestyle = '--')
-    axes[l].grid(True, alpha=0.3);
-    axes[l].set_aspect('equal', adjustable='box')     
+vec_gt_ellipsoids = results3D['fitEllipsoid_unscaled'] -\
+                                      stim3D['ref_points'][:,:,:,:,None]
+vecLen_gt_ellipsoids = np.linalg.norm(vec_gt_ellipsoids, axis = 3)
+avg_vecLen_gt_ellipsoids = 2*np.sum(vecLen_gt_ellipsoids, axis = -1)/vecLen_gt_ellipsoids.shape[-1]
 
+vec_modelPred_ellipsoids = (data_load1['recover_fitEllipsoid_unscaled']+1)/2 -\
+                                             stim3D['ref_points'][:,:,:,:,None]
+vecLen_modelPred_ellipsoids = np.linalg.norm(vec_modelPred_ellipsoids, axis = 3)
+avg_vecLen_modelPred_ellipsoids = 2* np.sum(vecLen_modelPred_ellipsoids,\
+                                         axis = -1)/vecLen_modelPred_ellipsoids.shape[-1]
+                                             
+#%%
+fig, ax = plt.subplots(1, 1, figsize=(5,5))
+plt.rcParams['figure.dpi'] = 250
+ax.plot([0, 1], [0,1], color = np.ones((1,3))*0.35, linestyle = '--')
+ax.scatter(avg_vecLen_gt_ellipsoids.flatten(),\
+           avg_vecLen_modelPred_ellipsoids.flatten(), s = 150,\
+           facecolor = np.reshape(stim3D['ref_points'],(-1,3)),\
+           alpha = 0.7, linewidth = 1, edgecolor = [1,1,1])
+            
+x_lb_l = 0.01#np.min(avg_vecLen_modelPred_ellipsoids)*0.75
+x_ub_l = 0.05#np.max(avg_vecLen_modelPred_ellipsoids)*1.15
+ax.set_xlim([x_lb_l, x_ub_l])
+ax.set_ylim([x_lb_l, x_ub_l])
+ax.set_xlabel('Ground truths', fontsize = 12)
+ax.set_ylabel('Model predictions', fontsize = 12)
+ax.set_title('Average L2-norm from the\ncenter to the surface of ellipsoids')
+ax.grid(True, alpha=0.3)
+ax.set_xticks(np.round(np.linspace(x_lb_l, x_ub_l,5),3))
+ax.set_yticks(np.round(np.linspace(x_lb_l, x_ub_l,5),3))
+ax.set_aspect('equal', adjustable='box')         
+
+fig.tight_layout()
+plt.show()
+fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
+                        'ELPS_analysis/ModelPerformance_FigFiles/'
+fig_name = 'ModelPerformance_avgVecLength' + file_name1[6:-4] + '.png'
+full_path = os.path.join(fig_outputDir,fig_name)
+fig.savefig(full_path)    
+    
+    
+    
+    
+    
 
