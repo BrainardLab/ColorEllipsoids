@@ -175,7 +175,7 @@ n_theta_finergrid     = plt_specifics['nThetaEllipsoid']
 grid_phi              = stim3D['grid_phi'] #from 0 to pi
 n_phi                 = len(grid_phi)
 n_phi_finergrid       = plt_specifics['nPhiEllipsoid']
-nSteps_bruteforce     = 200 #ngrid_search 
+nSteps_bruteforce     = 200 #number of grids
 bds_scaler_gridsearch = [0.5, 3]
 pC_threshold          = 0.78            
 
@@ -189,38 +189,28 @@ recover_fitEllipsoid_scaled, recover_fitEllipsoid_unscaled,\
         bandwidth = opt_params['bandwidth'], opt_key = OPT_KEY)
         
 #%%derive 2D slices
-#initialization
-gt_covMat             = np.full((ref_size_dim1, ref_size_dim2, ref_size_dim3, 3, 3), np.nan)
-pred_covMat           = np.full(gt_covMat.shape, np.nan)
-gt_slice_2d_ellipse   = np.full((ref_size_dim1, ref_size_dim2, ref_size_dim3, 3, 2,2), np.nan)
-pred_slice_2d_ellipse = np.full(gt_slice_2d_ellipse.shape, np.nan)
+# Initialize 3D covariance matrices for ground truth and predictions
+gt_covMat   = np.full((ref_size_dim1, ref_size_dim2, ref_size_dim3, 3, 3), np.nan)
+pred_covMat = np.full(gt_covMat.shape, np.nan)
 
+# Loop through each reference color in the 3D space
 for g1 in range(ref_size_dim1):
     for g2 in range(ref_size_dim2):
         for g3 in range(ref_size_dim3):
-            #3D ellipsoid covariance matrix
+            #Convert the ellipsoid parameters to covariance matrices for the 
+            #ground truth
             gt_covMat[g1,g2,g3] = model_predictions.ellParams_to_covMat(\
                             results3D['ellipsoidParams'][g1,g2,g3]['radii'],\
                             results3D['ellipsoidParams'][g1,g2,g3]['evecs'])
-            #model predictions
+            ## Convert the ellipsoid parameters to covariance matrices for
+            #the model predictions
             pred_covMat[g1,g2,g3] = model_predictions.ellParams_to_covMat(\
                             params_ellipsoids[g1][g2][g3]['radii'],\
                             params_ellipsoids[g1][g2][g3]['evecs'])
-            for _idx, _idx_varying in zip([0,1,2], [[1, 2],[0, 2],[0, 1]]):
-                idx = jnp.array(_idx_varying)
-                #projection onto 2d plane
-
-                # Invert the 3D covariance matrix to get the precision matrix
-                gt_precision_matrix = np.linalg.inv(gt_covMat[g1,g2,g3])
-                # Extract the 2x2 matrix corresponding to the x and y dimensions
-                gt_precision_2d = gt_precision_matrix[idx][:,idx]
-                # Invert the 2x2 precision matrix to get the covariance matrix of the 2D ellipse
-                gt_slice_2d_ellipse[g1,g2,g3,_idx] = np.linalg.inv(gt_precision_2d)
-                    
-                #slices
-                pred_precision_matrix = np.linalg.inv(pred_covMat[g1,g2,g3])
-                pred_precision_2d = pred_precision_matrix[idx][:,idx]
-                pred_slice_2d_ellipse[g1,g2,g3,_idx] = np.linalg.inv(pred_precision_2d)
+# Compute the 2D ellipse slices from the 3D covariance matrices for both ground 
+#truth and predictions
+gt_slice_2d_ellipse = model_predictions.covMat3D_to_2DsurfaceSlice(gt_covMat)
+pred_slice_2d_ellipse = model_predictions.covMat3D_to_2DsurfaceSlice(pred_covMat)
 
 #%% append data
 #append data to existing file
@@ -241,113 +231,26 @@ data_existing.update(new_data)
 # Save the updated dictionary back to the pickle file
 with open(full_path4, 'wb') as f:
     pickle.dump(data_existing, f)
-
-#%% plotting 
-for k, fixedRGB_val_scaled_k in zip(list(range(NUM_GRID_PTS)), fixedRGB_val_scaled):
-    for _idx, fixedPlane, _idx_varying, varyingPlanes in zip([0,1,2],\
-                                                             ['R','G','B'],\
-                                                             [[1, 2],[0, 2],[0, 1]],\
-                                                             ['GB','RB','RG']):
-        fig, axes = plt.subplots(1, 2, figsize=(8,5))
-        plt.rcParams['figure.dpi'] = 250
-        idx = jnp.array(_idx_varying)
-        
-        #plot xref
-        slc_idx_samples = np.where(np.abs(xref_jnp[:,_idx]-(fixedRGB_val_scaled_k)) < 1e-4)
-        xref_jnp_slc_temp = xref_jnp[slc_idx_samples]
-        xref_jnp_slc = xref_jnp_slc_temp[:,idx]
-        
-        x1_jnp_slc_temp = x1_jnp[slc_idx_samples]
-        x1_jnp_slc = x1_jnp_slc_temp[:,idx]
-        axes[0].scatter(x1_jnp_slc[:,0], x1_jnp_slc[:,1],\
-                        s=1,c = (xref_jnp_slc_temp+1)/2, alpha=0.5)
-                    
-        for i in range(NUM_GRID_PTS):
-            for j in range(NUM_GRID_PTS):
-                if _idx == 0:   ii,jj,kk = k,i,j; 
-                elif _idx == 1: ii,jj,kk = i,k,j; 
-                elif _idx == 2: ii,jj,kk = i,j,k; 
-                
-                #lables
-                if i == 0 and j == 0:
-                    scatter_label = 'Simulated CIELab data (scaled up by ' +str(scaler_x1) +')' 
-                    contour_3D_label = '3D ground truths\n(ellipsoids projecting on 2D)' 
-                    contour_2D_label = '2D ground truths\nformed at the intersection\n'+\
-                        'of 3D ellipsoids with '+fixedPlane +'='+str(fixedRGB_val_scaled_k) 
-                    fits_label = 'model-estimated cov matrix'
-                    gt_label = '3D ground truths\n(ellipsoids projecting on 2D)' 
-                    pred3D_label = 'model-predicted elliposids'
-                    pred2D_label = 'model-predicted ellipses'
-                else:
-                    scatter_label,contour_3D_label,contour_2D_label,fits_label,gt_label,\
-                        pred3D_label, pred2D_label = None, None, None, None, None, None, None
-                cm = (xref_raw[ii,jj,kk]+1)/2
-                
-                #scale up x1_raw
-                x1_ij        = x1_raw[ii,jj,kk,idx]
-                xref_ij      = xref_raw[ii,jj,kk,idx].reshape((2,1))
-                
-                #visualize                      
-                viz.plot_ellipse(axes[0], xgrid[jj,ii,kk, idx],
-                    (scaler_x1*2)**2*gt_covMat[ii,jj,kk][idx][:, idx],
-                    color=np.array(cm), lw=2, label=contour_3D_label)
-                    
-                #visualize the fits
-                viz.plot_ellipse(axes[0],  xgrid[jj,ii,kk, idx],
-                    Sigmas_est_grid[jj,ii,kk][idx][:, idx], color="k",\
-                    lw=1.5, linestyle = '-', alpha = 0.5, label = fits_label)      
-                    
-                #model-predicted ellipses (projections)
-                recover_fitEllipse_scaled_ijk = recover_fitEllipsoid_scaled[ii,jj,kk][idx]
-                polygon = Polygon(recover_fitEllipse_scaled_ijk.T, closed=True,fill=True, \
-                                  color = np.array(cm), alpha = 0.3, label = pred3D_label)
-                axes[0].add_patch(polygon)
-                    
-                #2d ground truth
-                viz.plot_ellipse(axes[1], xgrid[jj,ii,kk,idx],\
-                                 (scaler_x1*2)**2*gt_slice_2d_ellipse[ii,jj,kk,_idx],\
-                                 color = 'r', linestyle = '--',lw=2, alpha = 0.5,\
-                                     label = contour_2D_label)    
-                
-                viz.plot_ellipse(axes[1], xgrid[jj,ii,kk,idx],\
-                                 (scaler_x1)**2*pred_slice_2d_ellipse[ii,jj,kk,_idx], \
-                                lw=3, color ='g', alpha = 0.5, label = pred2D_label)
-                    
-        axes[0].grid(True, alpha=0.3); axes[1].grid(True, alpha=0.3)
-        axes[0].set_xlim([-1,1]); axes[0].set_ylim([-1,1])
-        axes[1].set_xlim([-1,1]); axes[1].set_ylim([-1,1]); 
-        axes[0].set_xlabel(varyingPlanes[0]);
-        axes[1].set_xlabel(varyingPlanes[0])
-        axes[0].set_ylabel(varyingPlanes[1])
-        axes[1].set_ylabel(varyingPlanes[1])
-        ticks = np.unique(xgrid)
-        axes[0].set_xticks(ticks); axes[0].set_yticks(ticks); 
-        axes[1].set_xticks(ticks); axes[1].set_yticks(ticks); 
-        axes[0].set_title(varyingPlanes + ' plane (Projections)')
-        axes[1].set_title(varyingPlanes + ' plane (Slices)')
-        axes[0].legend(loc='lower center',bbox_to_anchor=(0.5, -0.4),fontsize = 8.5)
-        axes[1].legend(loc='lower center',bbox_to_anchor=(0.5, -0.4),fontsize = 8.5)
-        fig.tight_layout()
-        plt.show()
-        fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                                'ELPS_analysis/ModelFitting_FigFiles/Python_version/'
-        fig_name = 'Fitted' + file_name[4:-4] + '_slice_' +varyingPlanes+\
-            'plane_fixedVal'+ str(fixedRGB_val_scaled_k)+'.png'
-        full_path = os.path.join(fig_outputDir,fig_name)
-        fig.savefig(full_path)    
-
-#%% make a gif
-outputDir_fig = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
+    
+#%% plot figures and save them as png and gif
+fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
                         'ELPS_analysis/ModelFitting_FigFiles/Python_version/'
-images = [img for img in os.listdir(outputDir_fig) if img.startswith(fig_name[:-30])]
+fig_name = 'Fitted' + file_name[4:-4]
+model_predictions.plot_3D_modelPredictions_byWishart(xref_raw, x1_raw,\
+        xref_jnp, x1_jnp, xgrid, gt_covMat, Sigmas_est_grid,\
+        recover_fitEllipsoid_scaled, gt_slice_2d_ellipse, pred_slice_2d_ellipse,\
+        saveFig = False, figDir = fig_outputDir, figName = fig_name)   
+
+# make a gif
+images = [img for img in os.listdir(fig_outputDir) if img.startswith(fig_name[:-30])]
 images.sort()  # Sort the images by name (optional)
 
 # Load images using imageio.v2 explicitly to avoid deprecation warnings
-image_list = [imageio.imread(f"{outputDir_fig}/{img}") for img in images]
+image_list = [imageio.imread(f"{fig_outputDir}/{img}") for img in images]
 
 # Create a GIF
 gif_name = fig_name[:-30] + '.gif'
-output_path = f"{outputDir_fig}{gif_name}" 
+output_path = f"{fig_outputDir}{gif_name}" 
 imageio.mimsave(output_path, image_list, fps=2)  
 
 

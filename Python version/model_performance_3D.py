@@ -30,7 +30,7 @@ import pickle
 import numpy as np
 
 nSims = 240
-jitter = 0.3
+jitter = 0.5
 file_name1 = 'Fitted_isothreshold_ellipsoids_sim'+str(nSims) +\
             'perCond_samplingNearContour_jitter'+str(jitter)+'_bandwidth0.005.pkl'
 path_str1  = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
