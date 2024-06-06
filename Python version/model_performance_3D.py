@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 import sys
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version')
+fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
+                        'ELPS_analysis/ModelPerformance_FigFiles/'
 
 #%% ------------------------------------------
 # Load data simulated using CIELab
@@ -19,20 +21,25 @@ sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Pytho
 import os
 import pickle
 import numpy as np
+from scipy.linalg import sqrtm
 
-nSims = 240
-jitter = 0.5
-file_name1 = 'Fitted_isothreshold_ellipsoids_sim'+str(nSims) +\
-            'perCond_samplingNearContour_jitter'+str(jitter)+'_bandwidth0.005.pkl'
-path_str1  = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
+nSims     = 240
+bandwidth = 0.005
+jitter    = [0.1, 0.3, 0.5]
+path_str1 = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
             'ELPS_analysis/ModelFitting_DataFiles/'
-full_path1 = f"{path_str1}{file_name1}"
-os.chdir(path_str1)
-
-#load data    
-with open(full_path1, 'rb') as f:
-    # Load the object from the file
-    data_load1 = pickle.load(f)
+data_load = []
+for j in jitter:
+    file_name_j = 'Fitted_isothreshold_ellipsoids_sim'+str(nSims) +\
+                'perCond_samplingNearContour_jitter'+str(j)+'_bandwidth' +\
+                str(bandwidth) + '.pkl'
+    full_path_j = f"{path_str1}{file_name_j}"
+    os.chdir(path_str1)
+    #load data 
+    with open(full_path_j, 'rb') as f:
+        # Load the object from the file
+        data_load_j = pickle.load(f)
+        data_load.append(data_load_j)
 
 #%% load ground truths
 path_str2 = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
@@ -46,6 +53,44 @@ with open(full_path2, 'rb') as f:
     # Load the object from the file
     data_load2 = pickle.load(f)
 _, stim3D, results3D = data_load2[0], data_load2[1], data_load2[2]
+
+#%%
+def plot_L2norm_groundtruth_vs_modelpred(gt_L2norm, modelPred_L2norm, ref_points, **kwargs):
+    # Default parameters for ellipsoid fitting. Can be overridden by kwargs.
+    pltP = {
+        'markersize':150,
+        'alpha':0.7,
+        'edgecolor':[1,1,1],
+        'linewidth': 1,
+        'bds':[0.01, 0.05],
+        'fontsize':8,
+        'saveFig':False,
+        'figDir':'',
+        'figName':'ModelPredictions'} 
+    pltP.update(kwargs)
+    
+    fig, ax = plt.subplots(1, 1, figsize=(5,5))
+    plt.rcParams['figure.dpi'] = 250
+    ax.plot([0, 1], [0,1], color = np.ones((1,3))*0.35, linestyle = '--')
+    ax.scatter(gt_L2norm.flatten(),modelPred_L2norm.flatten(), s = pltP['markersize'],\
+               facecolor = np.reshape(ref_points,(-1,3)),\
+               alpha = pltP['alpha'], edgecolor = pltP['edgecolor'],\
+               linewidth = pltP['linewidth'])
+    ax.set_xlim(pltP['bds'])
+    ax.set_ylim(pltP['bds'])
+    ax.set_xlabel('Ground truths', fontsize = 12)
+    ax.set_ylabel('Model predictions', fontsize = 12)
+    ax.set_title('Average L2-norm from the\ncenter to the surface of ellipsoids')
+    ax.grid(True, alpha=0.3)
+    ax.set_xticks(np.round(np.linspace(pltP['bds'][0], pltP['bds'][1],5),3))
+    ax.set_yticks(np.round(np.linspace(pltP['bds'][0], pltP['bds'][1],5),3))
+    ax.set_aspect('equal', adjustable='box')         
+
+    fig.tight_layout()
+    plt.show()
+    if pltP['saveFig'] and pltP['figDir'] != '':
+        full_path = os.path.join(fig_outputDir, pltP['figName'])
+        #fig.savefig(full_path)    
             
 #%% evalutate model performance
 """
@@ -70,54 +115,60 @@ avg_vecLen_gt_ellipsoids = 2*np.sum(vecLen_gt_ellipsoids, axis = -1)\
 #data_load1['recover_fitEllipsoid_unscaled'] is already in the transformed space
 #within [-1,1], so we first need to transform it back to be in the same RGB space
 #as the reference points
-vec_modelPred_ellipsoids        = (data_load1['recover_fitEllipsoid_unscaled']+1)/2 -\
-                                             stim3D['ref_points'][:,:,:,:,None]
-vecLen_modelPred_ellipsoids     = np.linalg.norm(vec_modelPred_ellipsoids, axis = 3)
-avg_vecLen_modelPred_ellipsoids = 2* np.sum(vecLen_modelPred_ellipsoids,axis = -1)\
-                                    /vecLen_modelPred_ellipsoids.shape[-1]
-
-#diff_vecLen     = np.abs(vecLen_gt_ellipsoids - vecLen_modelPred_ellipsoids)
-#avg_all_diff_vecLen = np.mean(diff_vecLen)
-#std_all_diff_vecLen = np.std(diff_vecLen.flatten())
-                                             
+vec_modelPred_ellipsoids        = np.full((len(jitter),)+ vec_gt_ellipsoids.shape, np.nan)
+vecLen_modelPred_ellipsoids     = np.full((len(jitter),)+ vecLen_gt_ellipsoids.shape, np.nan)
+avg_vecLen_modelPred_ellipsoids = np.full((len(jitter),)+ avg_vecLen_gt_ellipsoids.shape, np.nan)
+covMat_gt                       = np.full((len(jitter),)+ \
+                                          stim3D['ref_points'].shape[0:3]+(3,3,), np.nan)
+covMat_modelPred                = np.full(covMat_gt.shape, np.nan)
+BW_distance                     = np.full((len(jitter),)+\
+                                          stim3D['ref_points'].shape[0:3], np.nan)
+             
+for j in range(len(jitter)):
+    vec_modelPred_ellipsoids[j]     = (data_load[j]['recover_fitEllipsoid_unscaled']+1)/2 -\
+                                                 stim3D['ref_points'][:,:,:,:,None]
+    vecLen_modelPred_ellipsoids[j]     = np.linalg.norm(vec_modelPred_ellipsoids[j], axis = 3)
+    avg_vecLen_modelPred_ellipsoids[j] = 2* np.sum(vecLen_modelPred_ellipsoids[j],axis = -1)\
+                                        /vecLen_modelPred_ellipsoids[j].shape[-1]
+                                        
+    #stim3D['ref_points']
+    plot_L2norm_groundtruth_vs_modelpred(avg_vecLen_gt_ellipsoids,\
+        avg_vecLen_modelPred_ellipsoids[j], stim3D['ref_points'],\
+        figName = 'ModelPerformance_avgVecLength' + file_name_j[j][6:-4] + '.png')
+        
+    #% the Bures-Wasserstein distance
+    for ii in range(stim3D['ref_points'].shape[0]):
+        for jj in range(stim3D['ref_points'].shape[1]):
+            for kk in range(stim3D['ref_points'].shape[2]):
+                covMat_gt[j,ii,jj,kk] = results3D['ellipsoidParams'][ii,jj,kk]['evecs'] @\
+                    np.diag(results3D['ellipsoidParams'][ii,jj,kk]['radii']*2) @\
+                    results3D['ellipsoidParams'][ii,jj,kk]['evecs'].T
+                    
+                covMat_modelPred[j,ii,jj,kk] = data_load[j]['params_ellipsoids'][ii][jj][kk]['evecs'] @\
+                    np.diag(data_load[j]['params_ellipsoids'][ii][jj][kk]['radii']) @\
+                    data_load[j]['params_ellipsoids'][ii][jj][kk]['evecs'].T
+                BW_distance[j,ii,jj,kk] = np.sqrt(np.trace(covMat_gt[j,ii,jj,kk]) +\
+                    np.trace(covMat_modelPred[j,ii,jj,kk])-2 * \
+                    np.trace(sqrtm(sqrtm(covMat_gt[j,ii,jj,kk]) @\
+                    covMat_modelPred[j,ii,jj,kk] @ sqrtm(covMat_gt[j,ii,jj,kk]))))
+                    
 #%%
-fig, ax = plt.subplots(1, 1, figsize=(5,5))
+y_ub = 25
+lgd_list = ['small', 'medium', 'large']
+cmap = np.array([[247,152,29],[75,40,73],[107,142,35]])/255
+fig, ax = plt.subplots(1, 1, figsize=(7,4.5))
 plt.rcParams['figure.dpi'] = 250
-ax.plot([0, 1], [0,1], color = np.ones((1,3))*0.35, linestyle = '--')
-ax.scatter(avg_vecLen_gt_ellipsoids.flatten(),\
-           avg_vecLen_modelPred_ellipsoids.flatten(), s = 150,\
-           facecolor = np.reshape(stim3D['ref_points'],(-1,3)),\
-           alpha = 0.7, edgecolor = [1,1,1], linewidth = 1)
-#for i in range(5):
-#    for j in range(5):
-#        for k in range(5):
-#            ax.scatter(2*vecLen_gt_ellipsoids[i,j,k][0::1000],\
-#                       2*vecLen_modelPred_ellipsoids[i,j,k][0::1000], s = 50,\
-#                       facecolor = stim3D['ref_points'][i,j,k],\
-#                       alpha = 0.7) #edgecolor = [1,1,1] linewidth = 1
-            
-x_lb_l = 0.01#np.min(avg_vecLen_modelPred_ellipsoids)*0.75
-x_ub_l = 0.05#np.max(avg_vecLen_modelPred_ellipsoids)*1.15
-ax.set_xlim([x_lb_l, x_ub_l])
-ax.set_ylim([x_lb_l, x_ub_l])
-ax.set_xlabel('Ground truths', fontsize = 12)
-ax.set_ylabel('Model predictions', fontsize = 12)
-ax.set_title('Average L2-norm from the\ncenter to the surface of ellipsoids')
+for j in range(len(jitter)):
+    ax.hist(BW_distance[j].flatten(), bins = 50, range = [0,0.05], color = cmap[j],\
+            alpha = 0.6, edgecolor = [1,1,1], label = str(jitter[j]) + ' ('+\
+            lgd_list[j]+' noise)')
+    ax.plot([np.median(BW_distance[j].flatten()),np.median(BW_distance[j].flatten())],\
+             [0,y_ub],color = cmap[j], linestyle = '--')
 ax.grid(True, alpha=0.3)
-ax.set_xticks(np.round(np.linspace(x_lb_l, x_ub_l,5),3))
-ax.set_yticks(np.round(np.linspace(x_lb_l, x_ub_l,5),3))
-ax.set_aspect('equal', adjustable='box')         
-
-fig.tight_layout()
-plt.show()
-fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                        'ELPS_analysis/ModelPerformance_FigFiles/'
-fig_name = 'ModelPerformance_avgVecLength' + file_name1[6:-4] + '.png'
-full_path = os.path.join(fig_outputDir,fig_name)
-#fig.savefig(full_path)    
-    
-    
-    
-    
-    
+ax.legend(title = 'Amount of jitter added to\nsampled comparison stimuli')
+ax.set_ylim([0,y_ub])
+ax.set_xlabel('The Bures-Wasserstein distance')
+ax.set_ylabel('Frquency')
+full_path = os.path.join(fig_outputDir, 'ModelPerformance_BuresWassersteinDistance_3Dellipsoids_jitters.png')
+fig.savefig(full_path)          
 

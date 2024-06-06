@@ -8,12 +8,8 @@ Created on Sun Mar 17 17:01:45 2024
 
 import jax
 jax.config.update("jax_enable_x64", True)
-
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-import warnings
-from matplotlib.patches import Polygon
-from mpl_toolkits.mplot3d import Axes3D
 import imageio.v2 as imageio
 
 import sys
@@ -22,7 +18,6 @@ from core import viz, utils, oddity_task, model_predictions, optim
 from core.wishart_process import WishartProcessModel
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version')
 from Simulate_probCorrectResp_3D import plot_3D_sampledComp
-from Isothreshold_ellipsoids_CIELab import fit_3d_isothreshold_ellipsoid
 
 #%% ------------------------------------------
 # Load data simulated using CIELab
@@ -31,7 +26,7 @@ import os
 import pickle
 import numpy as np
 
-nSims = 80
+nSims = 160
 jitter = 0.1
 file_name = 'Sims_isothreshold_ellipsoids_sim'+str(nSims)+\
             'perCond_samplingNearContour_jitter'+str(jitter)+'.pkl'
@@ -81,11 +76,13 @@ os.chdir(path_str)
 with open(full_path3, 'rb') as f:
     # Load the object from the file
     data_load = pickle.load(f)
-param3D, stim3D, results3D, plt_specifics = data_load[0], data_load[1], data_load[2], data_load[3]
+param3D, stim3D, results3D, plt_specifics = data_load[0], data_load[1],\
+    data_load[2], data_load[3]
 
 for fixedPlane, varyingPlanes in zip(['R','G','B'], ['GB','RB','RG']):
     for val in fixedRGB_val:
-        plot_3D_sampledComp(stim3D['grid_ref']*2-1, results3D['fitEllipsoid_unscaled']*2-1,\
+        plot_3D_sampledComp(stim3D['grid_ref']*2-1, \
+            results3D['fitEllipsoid_unscaled']*2-1,\
             x1_raw, fixedPlane, val*2-1, plt_specifics['nPhiEllipsoid'],\
             plt_specifics['nThetaEllipsoid'], slc_grid_ref_dim1 = [0,2,4],\
             slc_grid_ref_dim2 = [0,2,4], surf_alpha =  0.1,\
@@ -100,11 +97,11 @@ for fixedPlane, varyingPlanes in zip(['R','G','B'], ['GB','RB','RG']):
 # Constants describing simulation
 # -------------------------------
 model = WishartProcessModel(
-    5,     # Degree of the polynomial basis functions
+    5,     # Degree of the polynomial basis functions #5
     3,     # Number of stimulus dimensions
     1,     # Number of extra inner dimensions in `U`.
     3e-4,  # Scale parameter for prior on `W`.
-    0.4,   # Geometric decay rate on `W`. 
+    0.4,   # Geometric decay rate on `W`.  #0.4
     0,     # Diagonal term setting minimum variance for the ellipsoids.
 )
 
@@ -121,7 +118,7 @@ OPT_KEY      = jax.random.PRNGKey(444)  # Key passed to optimizer.
 # Fit W by maximum a posteriori
 # -----------------------------
 # Fit model, initialized at random W
-W_init = 1e-1*model.sample_W_prior(W_INIT_KEY) 
+W_init = 1e-1*model.sample_W_prior(W_INIT_KEY) #1e-1
 
 opt_params = {
     "learning_rate": 5e-2,
@@ -178,7 +175,7 @@ n_theta_finergrid     = plt_specifics['nThetaEllipsoid']
 grid_phi              = stim3D['grid_phi'] #from 0 to pi
 n_phi                 = len(grid_phi)
 n_phi_finergrid       = plt_specifics['nPhiEllipsoid']
-nSteps_bruteforce     = 100 #number of grids
+nSteps_bruteforce     = 200 #number of grids
 bds_scaler_gridsearch = [0.5, 3]
 pC_threshold          = 0.78            
 
@@ -189,7 +186,7 @@ recover_fitEllipsoid_scaled, recover_fitEllipsoid_unscaled,\
         results3D['opt_vecLen'], scaler_x1 = scaler_x1,\
         ngrid_bruteforce=nSteps_bruteforce,\
         scaler_bds_bruteforce = bds_scaler_gridsearch,\
-        bandwidth = opt_params['bandwidth'], opt_key = OPT_KEY)
+        bandwidth = opt_params['bandwidth'], opt_key = OPT_KEY,search_method='brute force')
         
 #%%derive 2D slices
 # Initialize 3D covariance matrices for ground truth and predictions
@@ -252,7 +249,7 @@ images.sort()  # Sort the images by name (optional)
 image_list = [imageio.imread(f"{fig_outputDir}/{img}") for img in images]
 
 # Create a GIF
-gif_name = fig_name[:-30] + '.gif'
+gif_name = fig_name + '.gif'
 output_path = f"{fig_outputDir}{gif_name}" 
 imageio.mimsave(output_path, image_list, fps=2)  
 
