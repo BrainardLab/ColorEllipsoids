@@ -27,7 +27,7 @@ import pickle
 import numpy as np
 
 nSims = 160
-jitter = 0.1
+jitter = 0.3
 file_name = 'Sims_isothreshold_ellipsoids_sim'+str(nSims)+\
             'perCond_samplingNearContour_jitter'+str(jitter)+'.pkl'
 path_str  = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
@@ -79,18 +79,18 @@ with open(full_path3, 'rb') as f:
 param3D, stim3D, results3D, plt_specifics = data_load[0], data_load[1],\
     data_load[2], data_load[3]
 
-for fixedPlane, varyingPlanes in zip(['R','G','B'], ['GB','RB','RG']):
-    for val in fixedRGB_val:
-        plot_3D_sampledComp(stim3D['grid_ref']*2-1, \
-            results3D['fitEllipsoid_unscaled']*2-1,\
-            x1_raw, fixedPlane, val*2-1, plt_specifics['nPhiEllipsoid'],\
-            plt_specifics['nThetaEllipsoid'], slc_grid_ref_dim1 = [0,2,4],\
-            slc_grid_ref_dim2 = [0,2,4], surf_alpha =  0.1,\
-            samples_alpha = 0.1,scaled_neg12pos1 = True,\
-            x_bds_symmetrical = 0.05,y_bds_symmetrical = 0.05,\
-            z_bds_symmetrical = 0.05,title = varyingPlanes+' plane',\
-            saveFig = False, figDir = path_str[0:-10] + 'FigFiles/',\
-            figName = file_name + '_' + varyingPlanes + 'plane' +'_fixedVal'+str(val))
+#for fixedPlane, varyingPlanes in zip(['R','G','B'], ['GB','RB','RG']):
+#    for val in fixedRGB_val:
+#        plot_3D_sampledComp(stim3D['grid_ref']*2-1, \
+#            results3D['fitEllipsoid_unscaled']*2-1,\
+#            x1_raw, fixedPlane, val*2-1, plt_specifics['nPhiEllipsoid'],\
+#            plt_specifics['nThetaEllipsoid'], slc_grid_ref_dim1 = [0,2,4],\
+#            slc_grid_ref_dim2 = [0,2,4], surf_alpha =  0.1,\
+#            samples_alpha = 0.1,scaled_neg12pos1 = True,\
+#            x_bds_symmetrical = 0.05,y_bds_symmetrical = 0.05,\
+#            z_bds_symmetrical = 0.05,title = varyingPlanes+' plane',\
+#            saveFig = False, figDir = path_str[0:-10] + 'FigFiles/',\
+#            figName = file_name + '_' + varyingPlanes + 'plane' +'_fixedVal'+str(val))
 
 #%%
 # -------------------------------
@@ -110,7 +110,7 @@ MC_SAMPLES   = 2000        # Number of simulated trials to compute likelihood.
 BANDWIDTH    = 5e-3        # Bandwidth for logistic density function. #5e-3
 
 # Random number generator seeds
-W_INIT_KEY   = jax.random.PRNGKey(222)  # Key to initialize `W_est`. 
+W_INIT_KEY   = jax.random.PRNGKey(223)  # Key to initialize `W_est`. 
 DATA_KEY     = jax.random.PRNGKey(333)  # Key to generate datatset.
 OPT_KEY      = jax.random.PRNGKey(444)  # Key passed to optimizer.
 
@@ -118,7 +118,7 @@ OPT_KEY      = jax.random.PRNGKey(444)  # Key passed to optimizer.
 # Fit W by maximum a posteriori
 # -----------------------------
 # Fit model, initialized at random W
-W_init = 1e-1*model.sample_W_prior(W_INIT_KEY) #1e-1
+W_init = 1e-1*model.sample_W_prior(W_INIT_KEY) 
 
 opt_params = {
     "learning_rate": 5e-2,
@@ -129,7 +129,7 @@ opt_params = {
 W_est, iters, objhist = optim.optimize_posterior(
     W_init, data, model, OPT_KEY,
     opt_params,
-    total_steps=200,
+    total_steps=2000,
     save_every=1,
     show_progress=True
 )
@@ -175,7 +175,7 @@ n_theta_finergrid     = plt_specifics['nThetaEllipsoid']
 grid_phi              = stim3D['grid_phi'] #from 0 to pi
 n_phi                 = len(grid_phi)
 n_phi_finergrid       = plt_specifics['nPhiEllipsoid']
-nSteps_bruteforce     = 200 #number of grids
+nSteps_bruteforce     = 50 #number of grids
 bds_scaler_gridsearch = [0.5, 3]
 pC_threshold          = 0.78            
 
@@ -211,6 +211,21 @@ for g1 in range(ref_size_dim1):
 #truth and predictions
 gt_slice_2d_ellipse = model_predictions.covMat3D_to_2DsurfaceSlice(gt_covMat)
 pred_slice_2d_ellipse = model_predictions.covMat3D_to_2DsurfaceSlice(pred_covMat)
+
+#%
+# gt_ell_radii, gt_ell_evecs, pred_ell_radii, pred_ell_evecs = [],[],[],[]
+# for g1 in range(ref_size_dim1):
+#     for g2 in range(ref_size_dim2):
+#         for g3 in range(ref_size_dim3):
+#             gt_ell_radii.append(results3D['ellipsoidParams'][g1, g2, g3]['radii'])
+#             gt_ell_evecs.append(results3D['ellipsoidParams'][g1,g2,g3]['evecs'])
+#             pred_ell_radii.append(params_ellipsoids[g1][g2][g3]['radii'])
+#             pred_ell_evecs.append(params_ellipsoids[g1][g2][g3]['evecs'])
+# # Stack all collected radii arrays vertically
+# gt_ell_radii = np.vstack(gt_ell_radii)
+# gt_ell_evecs = np.vstack(gt_ell_evecs)
+# gt_covMat = model_predictions.ellParams_to_covMat_vmap(gt_ell_radii, gt_ell_evecs)
+
 
 #%% append data
 #append data to existing file

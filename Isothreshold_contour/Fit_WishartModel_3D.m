@@ -2,7 +2,7 @@ clear all; close all; clc;
 
 %% load isothreshold contours simulated based on CIELAB
 analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
-myDataDir   = 'Simulation_DataFiles';
+myDataDir   = 'Simulation_DataFiles/Matlab_version';
 intendedDir = fullfile(analysisDir, myDataDir);
 addpath(intendedDir);
 load('Sims_Isothreshold_ellipsoids_GB plane_sim240perCond_samplingNearContour_jitter0.1.mat', 'sim')

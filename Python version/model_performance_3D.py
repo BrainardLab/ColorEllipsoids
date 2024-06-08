@@ -133,7 +133,7 @@ for j in range(len(jitter)):
                                         
     #stim3D['ref_points']
     plot_L2norm_groundtruth_vs_modelpred(avg_vecLen_gt_ellipsoids,\
-        avg_vecLen_modelPred_ellipsoids[j], stim3D['ref_points'],\
+        avg_vecLen_modelPred_ellipsoids[j], stim3D['ref_points'], saveFig = False,\
         figName = 'ModelPerformance_avgVecLength' + file_name_j[j][6:-4] + '.png')
         
     #% the Bures-Wasserstein distance
@@ -170,5 +170,11 @@ ax.set_ylim([0,y_ub])
 ax.set_xlabel('The Bures-Wasserstein distance')
 ax.set_ylabel('Frquency')
 full_path = os.path.join(fig_outputDir, 'ModelPerformance_BuresWassersteinDistance_3Dellipsoids_jitters.png')
-fig.savefig(full_path)          
+#fig.savefig(full_path)          
+
+
+
+
+
+
 

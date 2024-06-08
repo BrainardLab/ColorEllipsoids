@@ -27,7 +27,7 @@ sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Pytho
 from Simulate_probCorrectResp_3D import plot_3D_sampledComp
 from Isothreshold_ellipsoids_CIELab import fit_3d_isothreshold_ellipsoid
 
-nSims = 240
+nSims = 160
 jitter = 0.1
 file_name = 'Sims_isothreshold_ellipsoids_sim'+str(nSims)+\
             'perCond_samplingNearContour_jitter'+str(jitter)+'.pkl'
