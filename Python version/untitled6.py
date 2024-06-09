@@ -18,6 +18,7 @@ from mpl_toolkits.mplot3d import Axes3D
 import imageio.v2 as imageio
 import os
 import pickle
+import numpy as np
 
 import sys
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
@@ -27,28 +28,23 @@ sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Pytho
 from Simulate_probCorrectResp_3D import plot_3D_sampledComp
 from Isothreshold_ellipsoids_CIELab import fit_3d_isothreshold_ellipsoid
 
-nSims = 160
+nSims = 240
 jitter = 0.1
 file_name = 'Sims_isothreshold_ellipsoids_sim'+str(nSims)+\
             'perCond_samplingNearContour_jitter'+str(jitter)+'.pkl'
 outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
                         'ELPS_analysis/ModelFitting_DataFiles/'
-output_file = 'Fitted'+file_name[4:-4]+'_bandwidth' + str(5e-3) + '.pkl'
+output_file = 'Fitted'+file_name[4:-4]+'_bandwidth' + str(5e-3) + '_maxDeg4.pkl'
 full_path4 = f"{outputDir}{output_file}"
 
 # Write the list of dictionaries to a file using pickle
 with open(full_path4, 'rb') as f:
     # Load the object from the file
     data_load = pickle.load(f)
-W_est = data_load['W_est']
-model = data_load['model']
-xref_raw = data_load['xref_raw']
-scaler_x1 = 5
-opt_params = data_load['opt_params']
-OPT_KEY = data_load['OPT_KEY']   
-x1_raw = data_load['x1_raw'] 
-y_jnp, xref_jnp, x0_jnp, x1_jnp = data_load['data']
-xgrid = data_load['xgrid']
+for key, value in data_load.items():
+    locals()[key] = value
+ref_size_dim1, ref_size_dim2, ref_size_dim3 = x1_raw.shape[0:3]
+y_jnp, xref_jnp, x0_jnp, x1_jnp = data 
 
 #%%
 #file 2

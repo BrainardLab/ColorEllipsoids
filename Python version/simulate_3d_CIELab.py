@@ -26,8 +26,8 @@ import os
 import pickle
 import numpy as np
 
-nSims = 160
-jitter = 0.3
+nSims = 240
+jitter = 0.1
 file_name = 'Sims_isothreshold_ellipsoids_sim'+str(nSims)+\
             'perCond_samplingNearContour_jitter'+str(jitter)+'.pkl'
 path_str  = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
@@ -97,7 +97,7 @@ param3D, stim3D, results3D, plt_specifics = data_load[0], data_load[1],\
 # Constants describing simulation
 # -------------------------------
 model = WishartProcessModel(
-    5,     # Degree of the polynomial basis functions #5
+    4,     # Degree of the polynomial basis functions #5
     3,     # Number of stimulus dimensions
     1,     # Number of extra inner dimensions in `U`.
     3e-4,  # Scale parameter for prior on `W`.
@@ -118,7 +118,7 @@ OPT_KEY      = jax.random.PRNGKey(444)  # Key passed to optimizer.
 # Fit W by maximum a posteriori
 # -----------------------------
 # Fit model, initialized at random W
-W_init = 1e-1*model.sample_W_prior(W_INIT_KEY) 
+W_init = model.sample_W_prior(W_INIT_KEY)  #1e-1*
 
 opt_params = {
     "learning_rate": 5e-2,
@@ -129,7 +129,7 @@ opt_params = {
 W_est, iters, objhist = optim.optimize_posterior(
     W_init, data, model, OPT_KEY,
     opt_params,
-    total_steps=2000,
+    total_steps=200,
     save_every=1,
     show_progress=True
 )
@@ -153,7 +153,8 @@ Sigmas_est_grid = model.compute_Sigmas(model.compute_U(W_est, xgrid))
 #%% save data
 outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
                         'ELPS_analysis/ModelFitting_DataFiles/'
-output_file = 'Fitted'+file_name[4:-4]+'_bandwidth' + str(BANDWIDTH) + '.pkl'
+output_file = 'Fitted'+file_name[4:-4]+'_bandwidth' + str(BANDWIDTH) +\
+    '_maxDeg' + str(model.degree)+'.pkl'
 full_path4 = f"{outputDir}{output_file}"
 
 variable_names = ['data', 'x1_raw', 'xref_raw', 'gt_ellipses','model',\
@@ -175,7 +176,7 @@ n_theta_finergrid     = plt_specifics['nThetaEllipsoid']
 grid_phi              = stim3D['grid_phi'] #from 0 to pi
 n_phi                 = len(grid_phi)
 n_phi_finergrid       = plt_specifics['nPhiEllipsoid']
-nSteps_bruteforce     = 50 #number of grids
+nSteps_bruteforce     = 200 #number of grids
 bds_scaler_gridsearch = [0.5, 3]
 pC_threshold          = 0.78            
 
@@ -250,7 +251,7 @@ with open(full_path4, 'wb') as f:
 #%% plot figures and save them as png and gif
 fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
                         'ELPS_analysis/ModelFitting_FigFiles/Python_version/'
-fig_name = 'Fitted' + file_name[4:-4]
+fig_name = 'Fitted' + file_name[4:-4] +'_maxDeg' + str(model.degree)
 model_predictions.plot_3D_modelPredictions_byWishart(xref_raw, x1_raw,\
         xref_jnp, x1_jnp, xgrid, gt_covMat, Sigmas_est_grid,\
         recover_fitEllipsoid_scaled, gt_slice_2d_ellipse, pred_slice_2d_ellipse,\

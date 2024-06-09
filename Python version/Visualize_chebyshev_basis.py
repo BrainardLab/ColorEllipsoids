@@ -18,28 +18,49 @@ from core import chebyshev
 import jax.numpy as jnp
 import os
 import imageio.v2 as imageio
+
+# Set the output directory for figures
 fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
                         'ELPS_analysis/WishartPractice_FigFiles/'
                         
-#%% 1D
+#%% 1D Chebyshev Visualization
+# Degree of the Chebyshev polynomial
 degree = 5 
+# Define the bounds and number of bins for the grid
 lb, ub, nbins = -1, 1, 30
+# Generate a linear grid
 grid = np.linspace(lb, ub, nbins)
+# Get basis coefficients for Chebyshev polynomials
 basis_coeffs = chebyshev.chebyshev_basis(degree)
+ # Evaluate Chebyshev polynomials at the grid points
 lg = chebyshev.evaluate(basis_coeffs, grid)
 
+# Create a subplot for each degree of polynomial and plot them
+fig, axes = plt.subplots(degree,1, figsize=(2,8), sharex=True, sharey=True)
+for i in range(degree):
+    axes[i].plot(grid,lg[:,i],color = 'k', linewidth = 2)
+    axes[i].set_aspect('equal')
+plt.show()
+full_path = os.path.join(fig_outputDir,'Chebyshev_basis_functions_1D.png') 
+fig.savefig(full_path)   
 
-#%% 2D
+#%% 2D Chebyshev Visualization
+# Create a 2D grid for x and y
 xg, yg = np.meshgrid(grid,grid)
-
+# Initialize the coefficient grid for 2D
 cg = np.zeros((degree, degree))
 fig, axes = plt.subplots(degree, degree, figsize=(8,8), sharex=True, sharey=True)
 cmap = plt.get_cmap('PRGn')
 for i in range(degree):
     for j in range(degree):
+        # Set current coefficient to 1 to visualize its effect
         cg[i, j] = 1.0
+        # Evaluate the 2D polynomial at the grid
         zg_2d = chebval2d(xg, yg, cg)
+        
+        # Show the 2D polynomial data
         axes[i, j].imshow(zg_2d, cmap = cmap, vmin = lb, vmax = ub)
+        # Reset the coefficient
         cg[i, j] = 0.0
 
         axes[i, j].set_xticks([])
@@ -54,23 +75,28 @@ fig.tight_layout()
 full_path = os.path.join(fig_outputDir,'Chebyshev_basis_functions_2D.png') 
 fig.savefig(full_path) 
 
-#%% 3D
-fixed_l = 0
+#%% 3D Chebyshev Visualization
+# Set a fixed layer for visualization
+# This value is between 0 and 4
+fixed_l = 0 
 # Color map
 for l in range(nbins):
     # Create a 3D plot
+    #since we can only visualize 2D basis function, the 3rd dimension is 
+    #illustrated as time dimension
     fig, ax = plt.subplots(degree,degree, figsize=(8,9),subplot_kw={'projection': '3d'})
     for i in range(cg.shape[0]):
         for j in range(cg.shape[1]):        
             cg[i, j] = 1.0
             # Evaluate the 2D Chebyshev polynomial
             zg = chebval2d(xg, yg, cg)
+            # MULTIPLY BY lg!! 
             zg = lg[l,fixed_l]*zg
-            # Plot each as a surface in the 3D space, with an offset in z to separate them visually
+            # Plot each as a surface in the 3D space
             ax[i, j].plot_surface(xg, grid[l]*np.ones(xg.shape), yg,\
-                facecolors=cmap(((zg +1)/ (2+1e-10))),#cmap((zg - zg.min()) / (zg.max() - zg.min() + 1e-10)),\
+                facecolors=cmap(((zg +1)/ (2+1e-10))),
                 rstride=1, cstride=1)
-            
+            # Reset the coefficient
             cg[i, j] = 0.0
             
             ax[i, j].set_xticks([])
