@@ -83,16 +83,7 @@ recover_fitEllipsoid_scaled, recover_fitEllipsoid_unscaled,\
         bandwidth = opt_params['bandwidth'], opt_key = OPT_KEY,search_method='minimize')
         
         
-#%%
-basis_degrees = (
-    jnp.arange(model.degree)[:, None, None] +
-    jnp.arange(model.degree)[None, :, None] + 
-    jnp.arange(model.degree)[None, None, :]
-)
 
-import numpy as np
-plt.scatter(np.tile(basis_degrees,(1,1,1,3,4)), W_est, edgecolor = [1,1,1], alpha = 0.5)
-plt.plot([0,12],[0,0],'k--')
 
 
 

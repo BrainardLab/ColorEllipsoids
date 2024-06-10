@@ -99,7 +99,7 @@ param3D, stim3D, results3D, plt_specifics = data_load[0], data_load[1],\
 model = WishartProcessModel(
     4,     # Degree of the polynomial basis functions #5
     3,     # Number of stimulus dimensions
-    1,     # Number of extra inner dimensions in `U`.
+    0,     # Number of extra inner dimensions in `U`. #1
     3e-4,  # Scale parameter for prior on `W`.
     0.4,   # Geometric decay rate on `W`.  #0.4
     0,     # Diagonal term setting minimum variance for the ellipsoids.

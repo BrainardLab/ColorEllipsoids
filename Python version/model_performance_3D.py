@@ -8,6 +8,7 @@ Created on Wed May 29 00:39:55 2024
 
 import jax
 jax.config.update("jax_enable_x64", True)
+import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import sys
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
@@ -54,6 +55,54 @@ with open(full_path2, 'rb') as f:
     data_load2 = pickle.load(f)
 _, stim3D, results3D = data_load2[0], data_load2[1], data_load2[2]
 
+#%% 
+def plot_estimatedW_3D(poly_order, W, idx_slc, **kwargs):
+    # Default parameters for ellipsoid fitting. Can be overridden by kwargs.
+    pltP = {
+        'marker_alpha':0.5,
+        'marker_size':80,
+        'marker_color_set1': "blue",
+        'marker_color_set2':[0.5,0.5,0.5],
+        'marker_edgecolor_set1':[1,1,1],
+        'marker_edgecolor_set2':[1,1,1],
+        'xbds':[-0.04, 0.04],
+        'saveFig':False,
+        'figDir':'',
+        'figName':'ModelEstimatedW'} 
+    pltP.update(kwargs)
+    if idx_slc != W.shape[0]: jitter = 0.2; 
+    else: jitter = 0
+    
+    fig, ax = plt.subplots(1, 1, figsize=(6,4))
+    ax.scatter(poly_order[:idx_slc,:idx_slc,:idx_slc,:,:] - jitter,\
+                W[:idx_slc,:idx_slc,:idx_slc,:,:], s = pltP['marker_size'],\
+                edgecolor = pltP['marker_edgecolor_set1'], alpha = pltP['marker_alpha'])
+    if idx_slc != W.shape[0]:
+        ax.scatter(poly_order[idx_slc,:,:,:,:] + jitter,\
+                    W[idx_slc,:,:,:,:], s = pltP['marker_size'],\
+                    color = pltP['marker_color_set2'],\
+                    edgecolor = pltP['marker_edgecolor_set2'],\
+                    alpha = pltP['marker_alpha'])
+        ax.scatter(poly_order[:idx_slc,idx_slc,:,:,:] + jitter,\
+                    W[:idx_slc,idx_slc,:,:,:], color = pltP['marker_color_set2'],\
+                    s = pltP['marker_size'],edgecolor = pltP['marker_edgecolor_set2'],\
+                    alpha = pltP['marker_alpha'])
+        ax.scatter(poly_order[:idx_slc,:idx_slc,idx_slc,:,:] + jitter,\
+                    W[:idx_slc,:idx_slc,idx_slc,:,:], color = pltP['marker_color_set2'],\
+                    s = pltP['marker_size'],edgecolor = pltP['marker_edgecolor_set2'],\
+                    alpha = pltP['marker_alpha'])
+    ax.plot([0,np.max(poly_order)],[0,0],color = [0.5,0.5,0.5],\
+            linestyle = '--', linewidth = 1)
+    ax.set_yticks(np.linspace(pltP['xbds'][0], pltP['xbds'][-1],5))
+    ax.set_ylim(pltP['xbds'])
+    ax.grid(True, alpha=0.3)
+    ax.set_xlabel('The order of 3D Chebyshev polynomial basis function')
+    ax.set_ylabel('Model estimated weight')
+    if pltP['saveFig'] and pltP['figDir'] != '':
+        full_path = os.path.join(fig_outputDir, pltP['figName'])
+        fig.savefig(full_path)    
+        
+
 #%%
 def plot_L2norm_groundtruth_vs_modelpred(gt_L2norm, modelPred_L2norm, ref_points, **kwargs):
     # Default parameters for ellipsoid fitting. Can be overridden by kwargs.
@@ -85,12 +134,30 @@ def plot_L2norm_groundtruth_vs_modelpred(gt_L2norm, modelPred_L2norm, ref_points
     ax.set_xticks(np.round(np.linspace(pltP['bds'][0], pltP['bds'][1],5),3))
     ax.set_yticks(np.round(np.linspace(pltP['bds'][0], pltP['bds'][1],5),3))
     ax.set_aspect('equal', adjustable='box')         
-
     fig.tight_layout()
     plt.show()
     if pltP['saveFig'] and pltP['figDir'] != '':
         full_path = os.path.join(fig_outputDir, pltP['figName'])
-        #fig.savefig(full_path)    
+        fig.savefig(full_path)    
+        
+#%%
+model = data_load[0]['model']
+W_est = data_load[0]['W_est']
+basis_degrees = (
+    jnp.arange(model.degree)[:, None, None] +
+    jnp.arange(model.degree)[None, :, None] + 
+    jnp.arange(model.degree)[None, None, :]
+)
+basis_degrees_rep = np.tile(basis_degrees,(3,4,1,1,1))
+basis_degrees_rep = np.transpose(basis_degrees_rep, (2,3,4,0,1))
+
+idx_slc = 4
+
+plot_estimatedW_3D(basis_degrees_rep, W_est, 4, saveFig = True, figDir = fig_outputDir,\
+                   figName = 'ModelEstimatedW_maxDeg'+ str(idx_slc)+\
+                   '_fitted_isothreshold_ellipsoids_sim'+str(nSims) +\
+                   'perCond_samplingNearContour_jitter'+str(jitter[0])+\
+                    '_bandwidth' + str(bandwidth) +'.png')
             
 #%% evalutate model performance
 """
