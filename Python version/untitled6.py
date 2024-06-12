@@ -34,7 +34,7 @@ file_name = 'Sims_isothreshold_ellipsoids_sim'+str(nSims)+\
             'perCond_samplingNearContour_jitter'+str(jitter)+'.pkl'
 outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
                         'ELPS_analysis/ModelFitting_DataFiles/'
-output_file = 'Fitted'+file_name[4:-4]+'_bandwidth' + str(5e-3) + '_maxDeg4.pkl'
+output_file = 'Fitted'+file_name[4:-4]+'_bandwidth' + str(5e-3) + '.pkl'
 full_path4 = f"{outputDir}{output_file}"
 
 # Write the list of dictionaries to a file using pickle

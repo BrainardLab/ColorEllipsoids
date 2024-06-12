@@ -28,7 +28,7 @@ from scipy.linalg import sqrtm
 
 nSims     = 240
 bandwidth = 0.005
-jitter    = 0.3
+jitter    = 0.1
 path_str1 = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
             'ELPS_analysis/ModelFitting_DataFiles/'
 
@@ -61,16 +61,74 @@ _, stim3D, results3D = data_load2[0], data_load2[1], data_load2[2]
 
 #%% 
 def trim_W_est(W, basis_deg, method = 'cutoff_polyorder', cutoff_polyorder = 8,\
-               cutoff_deg = 4):
-    W_trim = W.copy()
+               cutoff_deg = 4, cutoff_extra_dim = 1):
     if method == 'cutoff_polyorder':
+        W_trim = W.copy()
         W_trim = W_trim.at[basis_deg > cutoff_polyorder].set(0)
     elif method == 'cutoff_deg':
+        W_trim = W.copy()
         max_deg = W.shape[0]
         W_trim = W_trim.at[list(range(cutoff_deg, max_deg)), :, :].set(0)
         W_trim = W_trim.at[:, list(range(cutoff_deg, max_deg)), :].set(0)
         W_trim = W_trim.at[:, :, list(range(cutoff_deg, max_deg))].set(0)
+    elif method == 'cutoff_extra_dim':
+        dim = W.shape[3]
+        W_trim = W[:,:,:,:,:dim+cutoff_extra_dim]
     return W_trim
+
+def plot_estimatedW_3D(poly_order, W, idx_slc = [], **kwargs):
+    # Default parameters for ellipsoid fitting. Can be overridden by kwargs.
+    pltP = {
+        'marker_alpha':0.5,
+        'marker_size':40,
+        'marker_color': [[0.5,0.5,0.5],[0.27, 0.51, 0.70],[0,0.5,0]],
+        'marker_edgecolor':[[1,1,1],[1,1,1],[1,1,1]],
+        'xbds':[-0.04, 0.04],
+        'saveFig':False,
+        'figDir':'',
+        'figName':'ModelEstimatedW'} 
+    pltP.update(kwargs)
+    if len(idx_slc) != 0: jitter = np.linspace(-0.2,0.2,len(idx_slc)+1); 
+    else: jitter = [0]; idx_slc = [5];
+    
+    fig, ax = plt.subplots(1, 1, figsize=(6,4))
+    ax.scatter(poly_order[:idx_slc[0],:idx_slc[0],:idx_slc[0],:,:] + jitter[0],\
+                W[:idx_slc[0],:idx_slc[0],:idx_slc[0],:,:],\
+                s = pltP['marker_size'], color = pltP['marker_color'][0],\
+                edgecolor = pltP['marker_edgecolor'][0], \
+                alpha = pltP['marker_alpha'], label = '<= '+str(idx_slc[0]-1))
+    if len(idx_slc) != 0:
+        for j in range(len(idx_slc)):
+            idx_slc_j = idx_slc[j]
+            ax.scatter(poly_order[idx_slc_j,:,:,:,:] + jitter[j+1],\
+                        W[idx_slc_j,:,:,:,:], s = pltP['marker_size'],\
+                        color = pltP['marker_color'][j+1],\
+                        edgecolor = pltP['marker_edgecolor'][j+1],\
+                        alpha = pltP['marker_alpha'],label = '='+str(idx_slc_j))
+            ax.scatter(poly_order[:idx_slc_j,idx_slc_j,:,:,:] + jitter[j+1],\
+                        W[:idx_slc_j,idx_slc_j,:,:,:],\
+                        color = pltP['marker_color'][j+1],\
+                        s = pltP['marker_size'],\
+                        edgecolor = pltP['marker_edgecolor'][j+1],\
+                        alpha = pltP['marker_alpha'])
+            ax.scatter(poly_order[:idx_slc_j,:idx_slc_j,idx_slc_j,:,:] + jitter[j+1],\
+                        W[:idx_slc_j,:idx_slc_j,idx_slc_j,:,:], \
+                        color = pltP['marker_color'][j+1],\
+                        s = pltP['marker_size'],\
+                        edgecolor = pltP['marker_edgecolor'][j+1],\
+                        alpha = pltP['marker_alpha'])
+    ax.plot([0,np.max(poly_order)],[0,0],color = [0.5,0.5,0.5],\
+            linestyle = '--', linewidth = 1)
+    ax.set_yticks(np.linspace(pltP['xbds'][0], pltP['xbds'][-1],5))
+    ax.set_ylim(pltP['xbds'])
+    ax.grid(True, alpha=0.3)
+    ax.legend(title = 'Polynomial degree')
+    ax.set_xlabel('The order of 3D Chebyshev polynomial basis function')
+    ax.set_ylabel('Model estimated weight')
+    if pltP['saveFig'] and pltP['figDir'] != '':
+        full_path = os.path.join(fig_outputDir, pltP['figName'])
+        fig.savefig(full_path)    
+        
 
 #%%
 basis_degrees = (
@@ -85,7 +143,21 @@ basis_degrees_rep = np.transpose(basis_degrees_rep,(2,3,4,0,1))
 
 #W_est_trim = trim_W_est(W_est, basis_degrees_rep)
 W_est_trim = trim_W_est(W_est, basis_degrees_rep, method = 'cutoff_deg', cutoff_deg = 3)
+#W_est_trim = trim_W_est(W_est, basis_degrees_rep, method = 'cutoff_extra_dim', \
+#                        cutoff_extra_dim = 0)
 Sigmas_est_grid = model.compute_Sigmas(model.compute_U(W_est_trim, xgrid))
+
+#%%
+#[]: keep all entries in W_est
+#[4]: keep polynomial degree up to 4, but exclude 5
+#[3,4]: keey polynomial degree up to 3/4, but exclude 4/5 respectively
+idx_slc = [3,4] 
+plot_estimatedW_3D(basis_degrees_rep, W_est, idx_slc , saveFig = False,\
+                   figDir = fig_outputDir,\
+                   figName = 'ModelEstimatedW_maxDeg'+ str(idx_slc)+\
+                   '_fitted_isothreshold_ellipsoids_sim'+str(nSims) +\
+                   'perCond_samplingNearContour_jitter'+str(jitter)+\
+                    '_bandwidth' + str(bandwidth) +'.png')
 
 #%% Model predictions
 grid_theta            = stim3D['grid_theta'] #from 0 to 2*pi

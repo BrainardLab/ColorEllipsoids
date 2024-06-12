@@ -118,7 +118,7 @@ OPT_KEY      = jax.random.PRNGKey(444)  # Key passed to optimizer.
 # Fit W by maximum a posteriori
 # -----------------------------
 # Fit model, initialized at random W
-W_init = model.sample_W_prior(W_INIT_KEY)  #1e-1*
+W_init = 1e-1*model.sample_W_prior(W_INIT_KEY)  
 
 opt_params = {
     "learning_rate": 5e-2,
@@ -255,10 +255,10 @@ fig_name = 'Fitted' + file_name[4:-4] +'_maxDeg' + str(model.degree)
 model_predictions.plot_3D_modelPredictions_byWishart(xref_raw, x1_raw,\
         xref_jnp, x1_jnp, xgrid, gt_covMat, Sigmas_est_grid,\
         recover_fitEllipsoid_scaled, gt_slice_2d_ellipse, pred_slice_2d_ellipse,\
-        saveFig = False, figDir = fig_outputDir, figName = fig_name)   
+        saveFig = True, figDir = fig_outputDir, figName = fig_name)   
 
 # make a gif
-images = [img for img in os.listdir(fig_outputDir) if img.startswith(fig_name[:-30])]
+images = [img for img in os.listdir(fig_outputDir) if img.startswith(fig_name)]
 images.sort()  # Sort the images by name (optional)
 
 # Load images using imageio.v2 explicitly to avoid deprecation warnings
