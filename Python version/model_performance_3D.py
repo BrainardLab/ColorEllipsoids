@@ -25,7 +25,7 @@ import pickle
 import numpy as np
 from scipy.linalg import sqrtm
 
-nSims     = 240
+nSims     = 120
 bandwidth = 0.005
 jitter    = [0.1, 0.3, 0.5]
 path_str1 = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
@@ -55,6 +55,7 @@ with open(full_path2, 'rb') as f:
     # Load the object from the file
     data_load2 = pickle.load(f)
 _, stim3D, results3D = data_load2[0], data_load2[1], data_load2[2]
+ref_size = stim3D['nGridPts_ref']
 
 #%% 
 def compute_normalized_Bures_similarity(M1, M2):
@@ -77,11 +78,18 @@ covMat_gt        = np.full(stim3D['ref_points'].shape[0:3]+(3,3,), np.nan)
 covMat_modelPred = np.full((len(jitter),)+stim3D['ref_points'].shape[0:3]+(3,3,), np.nan)
 NBW_distance     = np.full((len(jitter),)+ stim3D['ref_points'].shape[0:3], np.nan)
 NBW_distance_maxEigval = np.full(stim3D['ref_points'].shape[0:3], np.nan)
+
+#compute mean radii
+idx_corner = [[0,0,0],[4,0,0],[0,4,0],[0,0,4],[4,4,0],[0,4,4],[4,0,4],[4,4,4]]
+covMat_corner = [results3D['ellipsoidParams'][i][j][k]['evecs'] @ \
+    np.diag(results3D['ellipsoidParams'][i][j][k]['radii']) * 2 @ \
+    results3D['ellipsoidParams'][i][j][k]['evecs'].T for i, j, k in idx_corner]
+NBW_distance_corner = np.full((8,)+NBW_distance_maxEigval.shape, np.nan)
              
 #% the Bures-Wasserstein distance
-for ii in range(stim3D['ref_points'].shape[0]):
-    for jj in range(stim3D['ref_points'].shape[1]):
-        for kk in range(stim3D['ref_points'].shape[2]):
+for ii in range(ref_size):
+    for jj in range(ref_size):
+        for kk in range(ref_size):
             #ground truth
             eigVec_gt_jiijjkk = results3D['ellipsoidParams'][ii,jj,kk]['evecs']
             eigVal_gt_jiijjkk = results3D['ellipsoidParams'][ii,jj,kk]['radii']
@@ -92,7 +100,11 @@ for ii in range(stim3D['ref_points'].shape[0]):
             
             covMat_max = np.eye(3) @ np.diag(eigVal_gt_max_jiijjkk) @ np.eye(3).T
             NBW_distance_maxEigval[ii,jj,kk] = compute_normalized_Bures_similarity(\
-                covMat_gt[ii,jj,kk],covMat_max)
+                covMat_gt[ii,jj,kk],covMat_max)      
+            
+            for m in range(len(idx_corner)):
+                NBW_distance_corner[m,ii,jj,kk] = compute_normalized_Bures_similarity(\
+                    covMat_corner[m],covMat_gt[ii,jj,kk])
                 
             #model predictions
             for l in range(len(jitter)):   
@@ -105,36 +117,46 @@ for ii in range(stim3D['ref_points'].shape[0]):
                     
                     
 #%%
-y_ub = 35
+y_ub = 25
 lgd_list = ['small', 'medium', 'large']
 cmap = np.array([[247,152,29],[75,40,73],[107,142,35]])/255
-fig, ax = plt.subplots(1, 1, figsize=(7,4.5))
+fig, ax = plt.subplots(1, 1, figsize=(5,4.5))
 plt.rcParams['figure.dpi'] = 250
+bin_edges = np.arange(0.9802,1.0003,0.0004) #0.9899, 0.9919, 0.9939, np.arange(0.9899,1.0002,0.0002)
 for j in range(len(jitter)):
-    ax.hist(NBW_distance[j].flatten(), bins = 50, range = [0.99,1], color = cmap[j],\
-            alpha = 0.6, edgecolor = [1,1,1], label = str(jitter[j]) + ' ('+\
-            lgd_list[j]+' noise)')
+    ax.hist(NBW_distance[j].flatten(), bins = bin_edges, color = cmap[j],\
+            alpha = 0.6, edgecolor = [1,1,1], label = ' ('+ lgd_list[j]+' noise)')#str(nSims[j]) +' trials'
     ax.plot([np.median(NBW_distance[j].flatten()),np.median(NBW_distance[j].flatten())],\
              [0,y_ub],color = cmap[j], linestyle = '--')
 ax.grid(True, alpha=0.3)
 ax.legend(title = 'Amount of jitter added to\nsampled comparison stimuli')
+ax.set_xticks(np.arange(0.98,1,0.005))
+ax.set_xticklabels(np.arange(0.98,1,0.005))
 ax.set_ylim([0,y_ub])
 ax.set_xlabel('The normalized Bures similarity')
 ax.set_ylabel('Frquency')
-full_path = os.path.join(fig_outputDir, 'ModelPerformance_BuresWassersteinDistance_3Dellipsoids_jitters.png')
-#fig.savefig(full_path)          
+full_path = os.path.join(fig_outputDir, 'ModelPerformance_BuresWassersteinDistance'+\
+                         '_3Dellipsoids_jitter_trial'+str(nSims)+'.png')
+fig.savefig(full_path)          
 
 #%%
-fig, ax = plt.subplots(1, 1, figsize=(7,4.5))
+y_ub = 80
+fig, ax = plt.subplots(1, 1, figsize=(5,4.5))
 plt.rcParams['figure.dpi'] = 250
-ax.hist(NBW_distance_maxEigval.flatten(), bins = 50, range = [0.93,0.97], \
-        color = "grey", alpha = 0.6, edgecolor = [1,1,1], label = 'Sphere with maximum eigenvalues')
+bin_edges = np.arange(0.895,1.01,0.01)
+counts, bin_edges = np.histogram(NBW_distance_maxEigval.flatten(), bins=bin_edges)
+bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+ax.plot(bin_centers, counts,  color=[0,0,0])
+for m in range(len(idx_corner)):
+    counts_m,_ = np.histogram(NBW_distance_corner[m].flatten(), bins=bin_edges)
+    ax.plot(bin_centers, counts_m,  color=[stim3D['grid_ref'][n] for n in idx_corner[m]])
 ax.grid(True, alpha=0.3)
-ax.legend()
+ax.set_yticks(np.linspace(0,80,5))
 ax.set_ylim([0,y_ub])
 ax.set_xlabel('The normalized Bures similarity')
 ax.set_ylabel('Frquency')
-
+full_path = os.path.join(fig_outputDir, 'ModelPerformance_BuresWassersteinDistance_3Dellipsoids_benchmark.png')
+#fig.savefig(full_path)    
 
 
 

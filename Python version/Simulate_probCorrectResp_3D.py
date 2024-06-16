@@ -147,7 +147,8 @@ def plot_3D_sampledComp(ref_points, fitEllipsoid_unscaled, sampledComp,
                 
             if pltP['visualize_samples']:
                 ax.scatter(slc_rgb_comp[0,:], slc_rgb_comp[1,:], slc_rgb_comp[2,:],\
-                           s=pltP['markerSize_samples'], c= [0,0,0], alpha=pltP['samples_alpha'])
+                           s=pltP['markerSize_samples'], c= [0,0,0],
+                           alpha=pltP['samples_alpha'])
                     
             ax.set_xlim(slc_ref[0]+np.array(pltP['x_bds_symmetrical']*np.array([-1,1]))); 
             ax.set_ylim(slc_ref[1]+np.array(pltP['y_bds_symmetrical']*np.array([-1,1])));  
@@ -157,35 +158,36 @@ def plot_3D_sampledComp(ref_points, fitEllipsoid_unscaled, sampledComp,
             if fixedPlane == 'R':
                 ax.set_xticks([]); 
             else:
-                ax.set_xticks(np.round(slc_ref[0]+np.array(np.ceil(pltP['x_bds_symmetrical']*100)/100*\
-                                                           np.array([-1,0,1])),2))
+                ax.set_xticks(np.round(slc_ref[0]+\
+                    np.array(np.ceil(pltP['x_bds_symmetrical']*100)/100*\
+                    np.array([-1,0,1])),2))
                 
             if fixedPlane == 'G':
                 ax.set_yticks([]); 
             else:
-                ax.set_yticks(np.round(slc_ref[1]+np.array(np.ceil(pltP['y_bds_symmetrical']*100)/100*\
-                                                           np.array([-1,0,1])),2))
+                ax.set_yticks(np.round(slc_ref[1]+\
+                    np.array(np.ceil(pltP['y_bds_symmetrical']*100)/100*\
+                    np.array([-1,0,1])),2))
                 
             if fixedPlane == 'B':
                 ax.set_zticks([]);
             else:
-                ax.set_zticks(np.round(slc_ref[2]+np.array(np.ceil(pltP['z_bds_symmetrical']*100)/100*\
-                                                           np.array([-1,0,1])),2))
+                ax.set_zticks(np.round(slc_ref[2]+\
+                    np.array(np.ceil(pltP['z_bds_symmetrical']*100)/100*\
+                    np.array([-1,0,1])),2))
             # Adjust viewing angle for better visualization
             if not pltP['default_viewing_angle']:
-                if fixedPlane == 'R':
-                    ax.view_init(0,0)
-                elif fixedPlane == 'G':
-                    ax.view_init(0,-90)
-                elif fixedPlane == 'B':
-                    ax.view_init(90,-90)
+                if fixedPlane == 'R': ax.view_init(0,0)
+                elif fixedPlane == 'G': ax.view_init(0,-90)
+                elif fixedPlane == 'B': ax.view_init(90,-90)
             else:
                 ax.view_init(30,-37.5)
             ax.grid(True)
             ax.set_aspect('equal')
     fig.suptitle(pltP['title'])
     plt.tight_layout()
-    plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05, wspace=-0.05, hspace=-0.05)
+    plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05,\
+                        wspace=-0.05, hspace=-0.05)
     plt.show()
     if pltP['saveFig'] and pltP['figDir'] != '':
         full_path2 = os.path.join(pltP['figDir'],pltP['figName']+'.png')

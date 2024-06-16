@@ -28,7 +28,7 @@ sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Pytho
 from Simulate_probCorrectResp_3D import plot_3D_sampledComp
 from Isothreshold_ellipsoids_CIELab import fit_3d_isothreshold_ellipsoid
 
-nSims = 240
+nSims = 640
 jitter = 0.1
 file_name = 'Sims_isothreshold_ellipsoids_sim'+str(nSims)+\
             'perCond_samplingNearContour_jitter'+str(jitter)+'.pkl'
@@ -60,29 +60,11 @@ with open(full_path3, 'rb') as f:
     data_load1 = pickle.load(f)
 param3D, stim3D, results3D, plt_specifics = data_load1[0], data_load1[1], data_load1[2], data_load1[3]
 
-    
-    #%%
-
-grid_theta            = stim3D['grid_theta'] #from 0 to 2*pi
-n_theta               = len(grid_theta)
-n_theta_finergrid     = plt_specifics['nThetaEllipsoid']
-grid_phi              = stim3D['grid_phi'] #from 0 to pi
-n_phi                 = len(grid_phi)
-n_phi_finergrid       = plt_specifics['nPhiEllipsoid']
-nSteps_bruteforce     = 100 #number of grids
-bds_scaler_gridsearch = [0.5, 3]
-pC_threshold          = 0.78            
-
-recover_fitEllipsoid_scaled, recover_fitEllipsoid_unscaled,\
-    recover_rgb_comp_scaled, recover_rgb_contour_cov,\
-    params_ellipsoids = model_predictions.convert_Sig_3DisothresholdContour_oddity_batch(\
-        xref_raw, stim3D['grid_xyz'], pC_threshold, W_est, model,\
-        results3D['opt_vecLen'], scaler_x1 = scaler_x1,\
-        ngrid_bruteforce=nSteps_bruteforce,\
-        scaler_bds_bruteforce = bds_scaler_gridsearch,\
-        bandwidth = opt_params['bandwidth'], opt_key = OPT_KEY,search_method='minimize')
-        
-        
+#%%
+model_predictions.plot_3D_modelPredictions_byWishart(xref_raw, x1_raw,\
+        xref_jnp, x1_jnp, np.transpose(xgrid,(1,0,2,3)), gt_covMat, Sigmas_est_grid,\
+        recover_fitEllipsoid_scaled, gt_slice_2d_ellipse, pred_slice_2d_ellipse,\
+        samples_alpha = 0.3)
 
 
 

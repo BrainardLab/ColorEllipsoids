@@ -14,6 +14,7 @@ import imageio.v2 as imageio
 import sys
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
 from core import viz, utils, oddity_task, model_predictions, optim
+from core.wishart_process import WishartProcessModel
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version')
 fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
                         'ELPS_analysis/ModelPerformance_FigFiles/'
@@ -84,6 +85,7 @@ def plot_estimatedW_3D(poly_order, W, idx_slc = [], **kwargs):
         'marker_color': [[0.5,0.5,0.5],[0.27, 0.51, 0.70],[0,0.5,0]],
         'marker_edgecolor':[[1,1,1],[1,1,1],[1,1,1]],
         'xbds':[-0.04, 0.04],
+        'ylabel':'Model estimated weight',
         'saveFig':False,
         'figDir':'',
         'figName':'ModelEstimatedW'} 
@@ -97,7 +99,7 @@ def plot_estimatedW_3D(poly_order, W, idx_slc = [], **kwargs):
                 s = pltP['marker_size'], color = pltP['marker_color'][0],\
                 edgecolor = pltP['marker_edgecolor'][0], \
                 alpha = pltP['marker_alpha'], label = '<= '+str(idx_slc[0]-1))
-    if len(idx_slc) != 0:
+    if len(idx_slc) != 0 and idx_slc[0] != 5:
         for j in range(len(idx_slc)):
             idx_slc_j = idx_slc[j]
             ax.scatter(poly_order[idx_slc_j,:,:,:,:] + jitter[j+1],\
@@ -124,7 +126,7 @@ def plot_estimatedW_3D(poly_order, W, idx_slc = [], **kwargs):
     ax.grid(True, alpha=0.3)
     ax.legend(title = 'Polynomial degree')
     ax.set_xlabel('The order of 3D Chebyshev polynomial basis function')
-    ax.set_ylabel('Model estimated weight')
+    ax.set_ylabel(pltP['ylabel'])
     if pltP['saveFig'] and pltP['figDir'] != '':
         full_path = os.path.join(fig_outputDir, pltP['figName'])
         fig.savefig(full_path)    
@@ -151,13 +153,19 @@ Sigmas_est_grid = model.compute_Sigmas(model.compute_U(W_est_trim, xgrid))
 #[]: keep all entries in W_est
 #[4]: keep polynomial degree up to 4, but exclude 5
 #[3,4]: keey polynomial degree up to 3/4, but exclude 4/5 respectively
-idx_slc = [3,4] 
+idx_slc = [] 
 plot_estimatedW_3D(basis_degrees_rep, W_est, idx_slc , saveFig = False,\
                    figDir = fig_outputDir,\
                    figName = 'ModelEstimatedW_maxDeg'+ str(idx_slc)+\
                    '_fitted_isothreshold_ellipsoids_sim'+str(nSims) +\
                    'perCond_samplingNearContour_jitter'+str(jitter)+\
                     '_bandwidth' + str(bandwidth) +'.png')
+    
+# make draws from the prior
+W_prior = model.sample_W_prior(W_INIT_KEY) 
+plot_estimatedW_3D(basis_degrees_rep, W_prior,saveFig = False,\
+                   figDir = fig_outputDir,ylabel='Weight sampled from a prior',\
+                   figName = 'SampledW_fromPrior_decayRate'+str(model.decay_rate)+'.png')
 
 #%% Model predictions
 grid_theta            = stim3D['grid_theta'] #from 0 to 2*pi
