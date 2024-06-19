@@ -273,6 +273,7 @@ def main():
                     sim['probC'][i,j,k,n] = WeibullFunc(sim['deltaE'][i,j,k,n])
                 sim['resp_binary'][i,j,k,:] = np.random.binomial(1, \
                     sim['probC'][i,j,k,:], (sim['nSims'],))
+        
     
     #%% plotting and saving data
     for test in 'RGB':

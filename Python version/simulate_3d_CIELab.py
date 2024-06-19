@@ -92,19 +92,19 @@ with open(full_path3, 'rb') as f:
 param3D, stim3D, results3D, plt_specifics = data_load[0], data_load[1],\
     data_load[2], data_load[3]
 
-for fixedPlane, varyingPlanes in zip(['R','G','B'], ['GB','RB','RG']):
-    for val in fixedRGB_val:
-        plot_3D_sampledComp(stim3D['grid_ref'][idx_trim]*2-1, \
-            results3D['fitEllipsoid_unscaled'][idx_trim,:,:][:,idx_trim,:][:,:,idx_trim]*2-1,\
-            x1_raw, fixedPlane, val*2-1, plt_specifics['nPhiEllipsoid'],\
-            plt_specifics['nThetaEllipsoid'],\
-            slc_grid_ref_dim1 = [0,1,2], slc_grid_ref_dim2 = [0,1,2],\
-            surf_alpha =  0.1,\
-            samples_alpha = 0.1,scaled_neg12pos1 = True,\
-            x_bds_symmetrical = 0.05,y_bds_symmetrical = 0.05,\
-            z_bds_symmetrical = 0.05,title = varyingPlanes+' plane',\
-            saveFig = False, figDir = path_str[0:-10] + 'FigFiles/',\
-            figName = file_name + '_' + varyingPlanes + 'plane' +'_fixedVal'+str(val))
+#for fixedPlane, varyingPlanes in zip(['R','G','B'], ['GB','RB','RG']):
+#    for val in fixedRGB_val:
+#        plot_3D_sampledComp(stim3D['grid_ref'][idx_trim]*2-1, \
+#            results3D['fitEllipsoid_unscaled'][idx_trim,:,:][:,idx_trim,:][:,:,idx_trim]*2-1,\
+#            x1_raw, fixedPlane, val*2-1, plt_specifics['nPhiEllipsoid'],\
+#            plt_specifics['nThetaEllipsoid'],\
+#            slc_grid_ref_dim1 = [0,1,2], slc_grid_ref_dim2 = [0,1,2],\
+#            surf_alpha =  0.1,\
+#            samples_alpha = 0.1,scaled_neg12pos1 = True,\
+#            x_bds_symmetrical = 0.05,y_bds_symmetrical = 0.05,\
+#            z_bds_symmetrical = 0.05,title = varyingPlanes+' plane',\
+#            saveFig = False, figDir = path_str[0:-10] + 'FigFiles/',\
+#            figName = file_name + '_' + varyingPlanes + 'plane' +'_fixedVal'+str(val))
 
 #%%
 # -------------------------------
@@ -124,7 +124,7 @@ MC_SAMPLES   = 2000        # Number of simulated trials to compute likelihood.
 BANDWIDTH    = 5e-3        # Bandwidth for logistic density function. #5e-3
 
 # Random number generator seeds
-W_INIT_KEY   = jax.random.PRNGKey(222)  # Key to initialize `W_est`. 
+W_INIT_KEY   = jax.random.PRNGKey(322)  # Key to initialize `W_est`. 
 DATA_KEY     = jax.random.PRNGKey(333)  # Key to generate datatset.
 OPT_KEY      = jax.random.PRNGKey(444)  # Key passed to optimizer.
 
