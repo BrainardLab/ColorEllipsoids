@@ -154,7 +154,7 @@ def fit_3d_isothreshold_ellipsoid(rgb_ref, rgb_comp, grid_xyz, **kwargs):
                                        ellP['nPhiEllipsoid'])
     # If comparison stimuli are not provided, compute them based on the reference
     # stimulus, vector length, and the grid of XYZ coordinates.
-    if len(rgb_comp) == []:
+    if len(rgb_comp) == 0:
         #compute the comparison stimuli if not provided
         rgb_comp_unscaled = np.reshape(rgb_ref,(1,1,3)) +\
             np.tile(ellP['vecLen'][:,:,np.newaxis],(1,1,3)) *grid_xyz
@@ -244,10 +244,10 @@ def plot_3D_isothreshold_ellipsoid(x_grid_ref, y_grid_ref, z_grid_ref,
                         cmap_ijk = [x_grid_ref[ii], y_grid_ref[jj], z_grid_ref[kk]]
                     else:
                         cmap_ijk = pltP['color_surf']
-                    ell_ijk = fitEllipsoid[ii, jj, kk, :, :]
-                    ell_ijk_x = ell_ijk[0,:].reshape(nPhi, nTheta)
-                    ell_ijk_y = ell_ijk[1,:].reshape(nPhi, nTheta)
-                    ell_ijk_z = ell_ijk[2,:].reshape(nPhi, nTheta)
+                    ell_ijk = fitEllipsoid[ii, jj, kk]
+                    ell_ijk_x = ell_ijk[0].reshape(nPhi, nTheta)
+                    ell_ijk_y = ell_ijk[1].reshape(nPhi, nTheta)
+                    ell_ijk_z = ell_ijk[2].reshape(nPhi, nTheta)
                     ax.plot_surface(ell_ijk_x, ell_ijk_y, ell_ijk_z, \
                                     color=cmap_ijk, edgecolor='none', alpha=0.5)
     
@@ -277,8 +277,14 @@ def plot_3D_isothreshold_ellipsoid(x_grid_ref, y_grid_ref, z_grid_ref,
 
 #%%
 def main():
+    numRef = input('How many reference stimuli per color dimension (default: 5): ') 
     # first see if the script has been run before and we already have the data saved
-    file_name = 'Isothreshold_ellipsoid_CIELABderived.pkl'
+    if numRef == '5' or '':
+        file_name = 'Isothreshold_ellipsoid_CIELABderived.pkl'
+    else:
+        str_ext = '_numRef'+numRef
+        file_name = 'Isothreshold_ellipsoid_CIELABderived'+str_ext+'.pkl'
+    numRef_int = int(numRef)
     path_str = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
             'ELPS_analysis/Simulation_DataFiles/'
     full_path = f"{path_str}{file_name}"
@@ -310,7 +316,7 @@ def main():
         #%% DEINE STIMULUS PROPERTIES AND PLOTTING SPECIFICS
         stim, results, plt_specifics = {},{},{}
         #define a 5 x 5 x 5 grid of RGB values as reference stimuli
-        stim['nGridPts_ref'] = 5
+        stim['nGridPts_ref'] = numRef_int
         #define grid points from 0.2 to 0.8 in each dimension
         stim['grid_ref'] = np.linspace(0.2,0.8,stim['nGridPts_ref']);
         
@@ -379,13 +385,13 @@ def main():
             for j in range(stim['nGridPts_ref']):
                 for k in range(stim['nGridPts_ref']):
                     #grab the reference stimulus' RGB
-                    rgb_ref_ijk = stim['ref_points'][i,j,k,:]
+                    rgb_ref_ijk = stim['ref_points'][i,j,k]
                     
                     # Convert the reference RGB values to Lab color space.
                     ref_Lab_ijk, _, _ = convert_rgb_lab(param['B_monitor'],\
                                                     stim['background_RGB'],\
                                                     rgb_ref_ijk)
-                    results['ref_Lab'][i,j,k,:] = ref_Lab_ijk
+                    results['ref_Lab'][i,j,k] = ref_Lab_ijk
                     
                     #for each chromatic direction
                     for l in range(stim['numDirPts_z']):
@@ -402,18 +408,17 @@ def main():
                                             ref_Lab_ijk, vecDir,stim['deltaE_1JND'])
                             
                     #fit an ellipsoid 
-                    results['fitEllipsoid_scaled'][i,j,k,:,:],\
-                        results['fitEllipsoid_unscaled'][i,j,k,:,:],\
-                        results['rgb_surface_scaled'][i,j,k,:,:,:],\
-                        results['rgb_surface_cov'][i,j,k,:,:],\
+                    results['fitEllipsoid_scaled'][i,j,k],\
+                        results['fitEllipsoid_unscaled'][i,j,k],\
+                        results['rgb_surface_scaled'][i,j,k],\
+                        results['rgb_surface_cov'][i,j,k],\
                         results['ellipsoidParams'][i,j,k] = \
                         fit_3d_isothreshold_ellipsoid(rgb_ref_ijk, [], stim['grid_xyz'],\
-                            vecLen = results['opt_vecLen'][i,j,k,:,:],\
+                            vecLen = results['opt_vecLen'][i,j,k],\
                             nThetaEllipsoid=plt_specifics['nThetaEllipsoid'],\
                             nPhiEllipsoid = plt_specifics['nPhiEllipsoid'],\
                             ellipsoid_scaler = results['ellipsoid_scaler'])
         #save the data
-        file_name = 'Isothreshold_ellipsoid_CIELABderived.pkl'
         path_output = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
             'ELPS_analysis/Simulation_DataFiles/'
         full_path = f"{path_output}{file_name}"
