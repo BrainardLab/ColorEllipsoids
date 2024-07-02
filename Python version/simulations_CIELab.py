@@ -14,6 +14,7 @@ import numpy as np
 from scipy.optimize import minimize
 from skimage.measure import EllipseModel
 import matplotlib.pyplot as plt
+from matplotlib.patches import Rectangle
 
 path_str = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox"
 os.chdir(path_str)
@@ -361,6 +362,64 @@ def fit_2d_isothreshold_contour(ref_RGB, comp_RGB, grid_theta_xy, **kwargs):
         rgb_contour_cov, [xCenter, yCenter, majorAxis, minorAxis, theta]
         
 #%% FUNCTIONS
+def plot_2D_randRef_nearContourComp(xref, xcomp, idx_fixedPlane, fixedVal, bounds, **kwargs):
+    # Default parameters for ellipsoid fitting. Can be overridden by kwargs.
+    pltP = {
+        'visualize_bounds': True,
+        'visualize_lines': False,
+        'linealpha':0.5,
+        'ref_marker': '+',
+        'ref_markersize': 20,
+        'ref_markeralpha': 0.8,
+        'comp_marker': 'o',
+        'comp_markersize': 4,
+        'comp_markeralpha': 0.8,        
+        'plane_2D':'',
+        'fontsize':8,
+        'saveFig':False,
+        'figDir':'',
+        'figName':'RandomSamples'} 
+    pltP.update(kwargs)
+    
+    fig, ax = plt.subplots(1, 1, figsize = (3,3.5))
+    plt.rcParams['figure.dpi'] = 250 
+    cmap = (xref+1)/2
+    cmap = np.insert(cmap, idx_fixedPlane, np.ones((xref.shape[0],))*fixedVal, axis=1)
+    # Add grey patch
+    if pltP['visualize_bounds']:
+        rectangle = Rectangle((bounds[0], bounds[0]), bounds[1] - bounds[0],\
+                              bounds[1] - bounds[0], facecolor='grey', alpha=0.1)  # Adjust alpha for transparency
+        rectangle.set_label('Bounds for the reference')  # Set the label here
+        ax.add_patch(rectangle)
+    
+    ax.scatter(xref[:,0],xref[:,1], c = cmap, marker = pltP['ref_marker'],\
+               s = pltP['ref_markersize'], alpha = pltP['ref_markeralpha'],\
+               label = 'Reference stimulus')
+    ax.scatter(xcomp[:,0], xcomp[:,1], c = cmap, marker = pltP['comp_marker'],\
+               s = pltP['comp_markersize'], alpha = pltP['comp_markeralpha'],\
+               label = 'Comparison stimulus') 
+    if pltP['visualize_lines']:
+        for l in range(xref.shape[0]):
+            ax.plot([xref[l,0],xcomp[l,0]], [xref[l,1],xcomp[l,1]], c = cmap[l],\
+                    alpha = pltP['linealpha'],lw = 0.5)
+    
+    plt.grid(alpha = 0.2)
+    ax.set_aspect('equal', adjustable='box')
+    ax.set_xlim([-1, 1]); ax.set_ylim([-1, 1])
+    ticks = np.sort(np.concatenate((np.linspace(-0.5, 0.5, 3), np.array([-0.85, 0.85]))))
+    ax.set_xticks(ticks)
+    ax.set_yticks(ticks)
+    ax.tick_params(axis='both', which='major', labelsize=pltP['fontsize'])
+    if pltP['plane_2D'] != '':
+        ax.set_xlabel(pltP['plane_2D'][0], fontsize=pltP['fontsize']);
+        ax.set_ylabel(pltP['plane_2D'][1], fontsize=pltP['fontsize'])
+        ax.set_title(pltP['plane_2D'], fontsize=pltP['fontsize'])
+    plt.legend(loc='lower center', bbox_to_anchor=(0.5, -0.47),fontsize = pltP['fontsize'])
+    fig.tight_layout(); plt.show()
+    if pltP['saveFig'] and pltP['figDir'] != '':
+        full_path = os.path.join(pltP['figDir'],pltP['figName']+'.png') 
+        fig.savefig(full_path)   
+        
 def plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,
                                  fixed_RGBvec,**kwargs):
     #default values for optional parameters

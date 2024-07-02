@@ -291,7 +291,7 @@ def plot_2D_sampledComp(grid_ref_x, grid_ref_y, rgb_comp, varying_RGBplane,\
     
 #%%
 def main():
-    file_name = 'Isothreshold_contour_CIELABderived.pkl'
+    file_name = 'Isothreshold_contour_CIELABderived_fixedVal0.5.pkl'
     path_str = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
             'ELPS_analysis/Simulation_DataFiles/'
     full_path = f"{path_str}{file_name}"

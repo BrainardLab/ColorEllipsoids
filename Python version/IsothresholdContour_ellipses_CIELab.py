@@ -41,7 +41,7 @@ nPlanes        = 3
 
 #%% DEINE STIMULUS PROPERTIES AND PLOTTING SPECIFICS
 #for RG / RB / GB plane, we fix the B / G / R value to be one of the following
-fixed_RGBvec = 0.8
+fixed_RGBvec = 0.5
 
 #get the grid points for those three planes with one dimension having a specific fixed value
 plane_points = simulations_CIELab.get_gridPts(x_grid,y_grid,np.full(3, fixed_RGBvec))
@@ -76,13 +76,14 @@ colorMatrix    = ref_points
 circleIn2D     = simulations_CIELab.UnitCircleGenerate(nThetaEllipse)
 subTitles      = ['GB plane', 'RB plane', 'RG plane']    
 
-ref_Lab                 = np.full((nPlanes, nGridPts_ref, nGridPts_ref, 3), np.nan)
-opt_vecLen              = np.full((nPlanes, nGridPts_ref, nGridPts_ref, numDirPts), np.nan)
-fitEllipse_scaled       = np.full((nPlanes, nGridPts_ref, nGridPts_ref, 2,  nThetaEllipse),np.nan)
+ssize = (nPlanes, nGridPts_ref, nGridPts_ref)
+ref_Lab                 = np.full(ssize + (3,), np.nan)
+opt_vecLen              = np.full(ssize + (numDirPts,), np.nan)
+fitEllipse_scaled       = np.full(ssize + (2,nThetaEllipse,),np.nan)
 fitEllipse_unscaled     = np.full(fitEllipse_scaled.shape, np.nan)
-rgb_comp_contour_scaled = np.full((nPlanes, nGridPts_ref, nGridPts_ref, 2, numDirPts),  np.nan)
-rgb_comp_contour_cov    = np.full((nPlanes, nGridPts_ref, nGridPts_ref, 2, 2),np.nan)
-ellParams               = np.full((nPlanes, nGridPts_ref, nGridPts_ref, 5),  np.nan) #5 free parameters for the ellipse
+rgb_comp_contour_scaled = np.full(ssize + (2, numDirPts, ),  np.nan)
+rgb_comp_contour_cov    = np.full(ssize + (2, 2,),np.nan)
+ellParams               = np.full(ssize + (5,),  np.nan) #5 free parameters for the ellipse
 
 #%% for each fixed R / G / B value in the BG / RB / RG plane
 for p in range(nPlanes):
@@ -101,7 +102,7 @@ for p in range(nPlanes):
             #convert it to Lab
             Lab_ref_pij,_,_ = simulations_CIELab.convert_rgb_lab(B_monitor,\
                               background_RGB, rgb_ref_pij)
-            ref_Lab[p,i,j,:] = Lab_ref_pij
+            ref_Lab[p,i,j] = Lab_ref_pij
             
             #for each chromatic direction
             for k in range(numDirPts):
@@ -115,10 +116,10 @@ for p in range(nPlanes):
                                                             vecDir,deltaE_1JND)
             
             #fit an ellipse
-            fitEllipse_scaled[p,i,j,:,:],fitEllipse_unscaled[p,i,j,:,:],\
-                rgb_comp_contour_scaled[p,i,j,:,:],rgb_comp_contour_cov[p,i,j,:,:],\
-                ellParams[p,i,j,:] = simulations_CIELab.fit_2d_isothreshold_contour(rgb_ref_pij, [], \
-                grid_theta_xy,vecLength = opt_vecLen[p,i,j,:],varyingRGBplan = \
+            fitEllipse_scaled[p,i,j],fitEllipse_unscaled[p,i,j],\
+                rgb_comp_contour_scaled[p,i,j],rgb_comp_contour_cov[p,i,j],\
+                ellParams[p,i,j] = simulations_CIELab.fit_2d_isothreshold_contour(rgb_ref_pij, [], \
+                grid_theta_xy,vecLength = opt_vecLen[p,i,j],varyingRGBplan = \
                     idx_varyingDim,nThetaEllipse = nThetaEllipse,\
                     ellipse_scaler = contour_scaler)
                                                     
