@@ -40,7 +40,7 @@ results          = data_load[2]
 
 #set stimulus info
 plane_2D_dict    = {'GB plane': 0, 'RB plane': 1, 'RG plane': 2}
-plane_2D         = 'RB plane' 
+plane_2D         = 'RG plane' 
 plane_2D_idx     = plane_2D_dict[plane_2D]
 varying_RGBplane = [0, 1] #two indices that correspond to the varying planes
 fixedPlane_val   = 0.5 #fixed value for the fixed plane
@@ -63,9 +63,9 @@ opt_params = data_load2['opt_params']
 # Define the boundaries for the reference stimuli
 xref_bds         = [-0.85, 0.85] # Square boundary limits for the stimuli
 # Amount of jitter added to comparison stimulus sampling
-jitter           = 0.1
+jitter           = 0.5
 # Total number of simulations to perform
-nSims_total      = 1000 
+nSims_total      = 6000 
 # Draw random reference stimuli within the specified boundary
 xrand            = np.array(np.random.rand(nSims_total,2)*(xref_bds[-1]-xref_bds[0]) + xref_bds[0])
 # Compute the covariance matrices for each reference stimulus based on a model
@@ -102,7 +102,7 @@ Uref   = model.compute_U(W_est, xrand)
 U1     = model.compute_U(W_est, x1rand)
 # Predict the probability of choosing the comparison stimulus over the reference
 pX1    = oddity_task.oddity_prediction((xrand, x1rand, Uref, U1),\
-                  jax.random.split(data_load['OPT_KEY'], num = nSims_total),\
+                  jax.random.split(data_load2['OPT_KEY'], num = nSims_total),\
                   opt_params['mc_samples'], opt_params['bandwidth'],\
                   model.diag_term, oddity_task.simulate_oddity)
 # Simulate a response based on the predicted probability
@@ -115,7 +115,7 @@ data_rand = (resp, xrand, x1rand)
 #%% visualize randomly sampled data
 #specify where the figures need to be saved
 output_figDir1 = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                         'ELPS_analysis/Simulation_FigFiles/'
+                         'ELPS_analysis/Simulation_FigFiles/Python_version/2d_oddity_task/'
 saveFig = False
 #visualize the figure with different number of trials
 slc_datapoints_to_show = [2**i for i in range(11)]
@@ -201,7 +201,7 @@ gt_sigma_scaled = (gt_sigma * 2 - 1)
 model_predictions.plot_2D_modelPredictions_byWishart(
     xgrid, xgrid, [], gt_sigma_scaled, Sigmas_recover_grid, 
     recover_fitEllipse_unscaled, plane_2D_idx,\
-    visualize_samples= False, visualize_sigma = True,\
+    visualize_samples= False, visualize_sigma = False,\
     visualize_groundTruth = True, visualize_modelPred = True,\
     gt_mc = 'r', gt_ls = '--', gt_lw = 1, gt_alpha = 0.5, modelpred_mc = 'g',\
     modelpred_ls = '-', modelpred_lw = 2, modelpred_alpha = 0.5,\
