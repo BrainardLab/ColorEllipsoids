@@ -8,9 +8,7 @@ Created on Wed May 29 00:39:55 2024
 
 import jax
 jax.config.update("jax_enable_x64", True)
-import jax.numpy as jnp
 import matplotlib.pyplot as plt
-from scipy.linalg import sqrtm
 import sys
 import os
 import pickle
@@ -28,186 +26,241 @@ fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
 # Load data simulated using CIELab
 # ------------------------------------------
 
-nSims     = [240, 160, 120] #[240]
-jitter    = 0.1#[0.1, 0.3, 0.5]
-bandwidth = 0.005
-path_str1 = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-            'ELPS_analysis/ModelFitting_DataFiles/'
-data_load = []
-for j in nSims:
-    file_name_j = 'Fitted_isothreshold_ellipsoids_sim'+str(j) +\
-                'perCond_samplingNearContour_jitter'+str(jitter)+'_bandwidth' +\
-                str(bandwidth) + '.pkl'
-    # file_name_j = 'Fitted_isothreshold_ellipsoids_sim'+str(nSims) +\
-    #             'perCond_samplingNearContour_jitter'+str(j)+'_bandwidth' +\
-    #             str(bandwidth) + '.pkl'
-    full_path_j = f"{path_str1}{file_name_j}"
-    os.chdir(path_str1)
-    #load data 
-    with open(full_path_j, 'rb') as f:
-        # Load the object from the file
-        data_load_j = pickle.load(f)
-        data_load.append(data_load_j)
-
-#%% load ground truths
-path_str2 = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-        'ELPS_analysis/Simulation_DataFiles/'
-file_name2 = 'Isothreshold_ellipsoid_CIELABderived.pkl'
-full_path2 = f"{path_str2}{file_name2}"
-os.chdir(path_str2)
-
-#Here is what we do if we want to load the data
-with open(full_path2, 'rb') as f:
-    # Load the object from the file
-    data_load2 = pickle.load(f)
-_, stim3D, results3D = data_load2[0], data_load2[1], data_load2[2]
-ref_size = stim3D['nGridPts_ref'] 
+def evaluate_modelPerformance_3D(varyingFactor, varyingLevels, fixedFactor,\
+                                 fixedLevel, bandwidth= 0.005, saveFig = False):
+    nLevels = len(varyingLevels)
+    path_str1 = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
+                'ELPS_analysis/ModelFitting_DataFiles/3D_oddity_task_reference/'
+    data_load = []
         
-#%% evalutate model performance
-"""
-Initialize arrays to store covariance matrices and distance metrics for ground 
-truth and predictions
-covMat_gt: Ground truth covariance matrices
-covMat_modelPred: model-predicted covariance matrices
-NB_similarity:  Normalized Bures similarity for each simulation
-BW_distance: Bures-Wasserstein distance for each simulation
-NB_similarity_maxEigval: Max-eigenvalue-based normalized Bures similarity
-NB_similarity_minEigval: Min eigenvalue-based normalized Bures similarity
-BW_distance_maxEigval: Max eigenvalue-based Bures-Wasserstein distance
-BW_distance_minEigval: Min eigenvalue-based Bures-Wasserstein distance
+    if varyingFactor == 'nSims' and fixedFactor == 'jitter':
+        nSims     = varyingLevels #[240, 160, 120] #[240]
+        jitter    = fixedLevel #0.1#[0.1, 0.3, 0.5]
 
-"""
-covMat_gt        = np.full(stim3D['ref_points'].shape[0:3]+(3,3,), np.nan)
-covMat_modelPred = np.full((len(nSims),)+stim3D['ref_points'].shape[0:3]+(3,3,), np.nan)
-NB_similarity    = np.full((len(nSims),)+ stim3D['ref_points'].shape[0:3], np.nan)
-BW_distance      = np.full(NB_similarity.shape, np.nan)
-NB_similarity_maxEigval = np.full(stim3D['ref_points'].shape[0:3], np.nan)
-NB_similarity_minEigval = np.full(NB_similarity_maxEigval.shape, np.nan)
-BW_distance_maxEigval   = np.full(NB_similarity_maxEigval.shape, np.nan)
-BW_distance_minEigval   = np.full(NB_similarity_maxEigval.shape, np.nan)
+        for j in varyingLevels:
+            file_name_j = f'Fitted_isothreshold_ellipsoids_sim{j}' +\
+                        f'perCond_samplingNearContour_jitter{jitter}_bandwidth{bandwidth}.pkl'
+            full_path_j = f"{path_str1}{file_name_j}"
+            os.chdir(path_str1)
+            #load data 
+            with open(full_path_j, 'rb') as f:
+                # Load the object from the file
+                data_load_j = pickle.load(f)
+                data_load.append(data_load_j)
+    elif varyingFactor == 'jitter' and fixedFactor == 'nSims':
+        nSims     = fixedLevel #[240, 160, 120] #[240]
+        jitter    = varyingLevels #0.1#[0.1, 0.3, 0.5]
+        for j in varyingLevels:
+            file_name_j = f'Fitted_isothreshold_ellipsoids_sim{nSims}' +\
+                        f'perCond_samplingNearContour_jitter{j:01}_bandwidth{bandwidth}.pkl'
+            full_path_j = f"{path_str1}{file_name_j}"
+            os.chdir(path_str1)
+            #load data 
+            with open(full_path_j, 'rb') as f:
+                # Load the object from the file
+                data_load_j = pickle.load(f)
+                data_load.append(data_load_j)
 
-# Select specific points (corners) of the 3D space to focus on
-idx_corner = [[0,0,0],[4,0,0],[0,4,0],[0,0,4],[4,4,0],[0,4,4],[4,0,4],[4,4,4]]
-# Retrieve the covariance matrices at these corner points
-covMat_corner = [results3D['ellipsoidParams'][i][j][k]['evecs'] @ \
-    np.diag(results3D['ellipsoidParams'][i][j][k]['radii']) * 2 @ \
-    results3D['ellipsoidParams'][i][j][k]['evecs'].T for i, j, k in idx_corner]
-# Initialize arrays for corner-based metrics
-NB_similarity_corner = np.full((len(idx_corner),)+NB_similarity_maxEigval.shape, np.nan)
-BW_distance_corner  = np.full(NB_similarity_corner.shape, np.nan)
-             
-# Loop through each reference point in the 3D space
-for ii in range(ref_size):
-    for jj in range(ref_size):
-        for kk in range(ref_size):
-            # Retrieve eigenvalues and eigenvectors for the ground truth ellipsoids
-            eigVec_gt_jiijjkk = results3D['ellipsoidParams'][ii,jj,kk]['evecs']
-            eigVal_gt_jiijjkk = results3D['ellipsoidParams'][ii,jj,kk]['radii']  
-            # Use the eigenvalues and eigenvectors to derive the cov matrix
-            covMat_gt[ii,jj,kk] = eigVec_gt_jiijjkk @ np.diag(eigVal_gt_jiijjkk)*2 @\
-                eigVec_gt_jiijjkk.T
-                
-            #--------- Benchmark for evaluating model performance ------------
-            # Evaluate using maximum eigenvalue (creates a bounding sphere)
-            eigVal_gt_max_jiijjkk = np.ones((3))*np.max(eigVal_gt_jiijjkk)
-            covMat_max = np.eye(3) @ np.diag(eigVal_gt_max_jiijjkk) @ np.eye(3).T
-            
-            #compute normalized bures similarity between the ground truth cov matrix
-            #and the smallest sphere that can just contain the ellipsoid
-            NB_similarity_maxEigval[ii,jj,kk] = compute_normalized_Bures_similarity(\
-                covMat_gt[ii,jj,kk],covMat_max)   
-            #compute Bures-Wasserstein distance
-            BW_distance_maxEigval[ii,jj,kk] = compute_Bures_Wasserstein_distance(\
-                covMat_gt[ii,jj,kk],covMat_max)
-                
-            # Evaluate using minimum eigenvalue (creates an inscribed sphere)
-            eigVal_gt_min_jiijjkk = np.ones((3))*np.min(eigVal_gt_jiijjkk)
-            covMat_min = np.eye(3) @ np.diag(eigVal_gt_min_jiijjkk) @ np.eye(3).T
-            
-            #compute normalized bures similarity between the ground truth cov matrix
-            #and the largest sphere that can just be put inside the ellipsoid
-            NB_similarity_minEigval[ii,jj,kk] = compute_normalized_Bures_similarity(\
-                covMat_gt[ii,jj,kk],covMat_min)   
-            #compute Bures-Wasserstein distance
-            BW_distance_minEigval[ii,jj,kk] = compute_Bures_Wasserstein_distance(\
-                covMat_gt[ii,jj,kk],covMat_min)
-            
-            #Compute normalized bures similarity and Bures-Wasserstein distance
-            #between ground truth and ellipsoids at selected corner locations
-            for m in range(len(idx_corner)):
-                NB_similarity_corner[m,ii,jj,kk] = compute_normalized_Bures_similarity(\
-                    covMat_corner[m],covMat_gt[ii,jj,kk])
-                BW_distance_corner[m,ii,jj,kk] = compute_Bures_Wasserstein_distance(\
-                    covMat_corner[m],covMat_gt[ii,jj,kk])
-            
-            #------------ Evaluaing performance -------------
-            #The score is based on the comparison between model-predicted ellipsoids
-            #and ground truth ellipsoid
-            for l in range(len(nSims)): #jitter   
-                eigVec_jiijjkk = data_load[l]['params_ellipsoids'][ii][jj][kk]['evecs']
-                eigVal_jiijjkk = data_load[l]['params_ellipsoids'][ii][jj][kk]['radii']
-                
-                covMat_modelPred[l,ii,jj,kk] = eigVec_jiijjkk @ np.diag(eigVal_jiijjkk) @ eigVec_jiijjkk.T
-                NB_similarity[l,ii,jj,kk] = compute_normalized_Bures_similarity(\
-                    covMat_gt[ii,jj,kk],covMat_modelPred[l,ii,jj,kk])
-                BW_distance[l,ii,jj,kk] = compute_Bures_Wasserstein_distance(\
-                    covMat_gt[ii,jj,kk],covMat_modelPred[l,ii,jj,kk])
-                    
-
-#%%
-NBW_benchmark = np.concatenate((NB_similarity_minEigval[np.newaxis,:,:,:],\
-                                NB_similarity_maxEigval[np.newaxis,:,:,:],\
-                                NB_similarity_corner), axis = 0)
-BW_benchmark = np.concatenate((BW_distance_minEigval[np.newaxis,:,:,:],\
-                               BW_distance_maxEigval[np.newaxis,:,:,:],\
-                               BW_distance_corner), axis = 0)
-
-cmap_NBW = np.full((len(idx_corner)+2,3),np.nan)
-cmap_NBW[0] = np.zeros((3))
-cmap_NBW[1] = np.zeros((3))
-for c in range(len(idx_corner)):
-    cmap_NBW[c+2] = [stim3D['grid_ref'][m] for m in idx_corner[c]]
-
-NBW_bins = np.arange(0.88,1.015, 0.01)
-NBW_bin_edges = NBW_bins - (NBW_bins[1] - NBW_bins[0])/2
-plot_benchmark_similarity(NBW_benchmark, NBW_bin_edges,\
-                          xticks = np.around(NBW_bins[::2],3), \
-                          linestyle = [':','--']+['-']*len(idx_corner),\
-                          xlabel = 'The normalized Bures similarity',\
-                          cmap = cmap_NBW, saveFig = False, figDir = fig_outputDir,\
-                          figName_ext = '_NBW_nSims'+str(nSims) +'_jitter' + str(jitter))
-
-BW_bins = np.linspace(0,0.24,12)
-BW_bin_edges = BW_bins - (BW_bins[1] - BW_bins[0])/2
-plot_benchmark_similarity(BW_benchmark, BW_bin_edges,\
-                          linestyle = [':','--']+['-']*len(idx_corner),\
-                          xlabel = 'The Bures-Wasserstein distance',y_ub = 100,\
-                          cmap = cmap_NBW, xticks = np.around(BW_bins[::2],3),\
-                          saveFig = False, figDir = fig_outputDir,\
-                          figName_ext = '_BW_nSims'+str(nSims) +'_jitter' + str(jitter))
-
-#legend_str = [' (small)', ' (medium)', ' (large)']
-legend_str = ['','','']
-NBW_scores_edges = np.arange(0.9902,1.0003,0.0004)
-NBW_score_cmap = np.array([[247,152,29],[75,40,73],[107,142,35]])/255
-plot_similarity_metric_scores(NB_similarity, NBW_scores_edges, \
-                              xticks = np.linspace(0.99, 1,5), y_ub = 50,\
-                              cmap = NBW_score_cmap,\
-                              legend_labels = [str(nSims[i])+legend_str[i] for i in range(len(nSims))],\
-                              legend_title = 'Number of trial\nper reference stimulus',\
-                              xlabel = 'The normalized Bures similarity',\
-                              saveFig = True, figDir = fig_outputDir,\
-                              figName_ext = '_NBWscores_nSims'+str(nSims) +'_jitter' + str(jitter))
-
-plot_similarity_metric_scores(BW_distance, np.linspace(0,0.08,25),\
-    xticks = np.linspace(0,0.07,5),y_ub = 50,\
-    cmap = np.array([[247,152,29],[75,40,73],[107,142,35]])/255,\
-    legend_labels = [str(nSims[i])+legend_str[i] for i in range(len(nSims))],\
-    legend_title = 'Number of trial\nper reference stimulus',\
-    xlabel = 'The Bures-Wasserstein distance',\
-    saveFig = True, figDir = fig_outputDir,\
-    figName_ext = '_BWscores_nSims'+str(nSims) +'_jitter' + str(jitter))
+    #%% load ground truths
+    path_str2 = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
+            'ELPS_analysis/Simulation_DataFiles/'
+    file_name2 = 'Isothreshold_ellipsoid_CIELABderived.pkl'
+    full_path2 = f"{path_str2}{file_name2}"
+    os.chdir(path_str2)
     
+    #Here is what we do if we want to load the data
+    with open(full_path2, 'rb') as f:
+        # Load the object from the file
+        data_load2 = pickle.load(f)
+    _, stim3D, results3D = data_load2[0], data_load2[1], data_load2[2]
+    ref_size = stim3D['nGridPts_ref'] 
+            
+    #%% evalutate model performance
+    """
+    Initialize arrays to store covariance matrices and distance metrics for ground 
+    truth and predictions
+    covMat_gt: Ground truth covariance matrices
+    covMat_modelPred: model-predicted covariance matrices
+    NB_similarity:  Normalized Bures similarity for each simulation
+    BW_distance: Bures-Wasserstein distance for each simulation
+    NB_similarity_maxEigval: Max-eigenvalue-based normalized Bures similarity
+    NB_similarity_minEigval: Min eigenvalue-based normalized Bures similarity
+    BW_distance_maxEigval: Max eigenvalue-based Bures-Wasserstein distance
+    BW_distance_minEigval: Min eigenvalue-based Bures-Wasserstein distance
+    
+    """
+    covMat_gt        = np.full(stim3D['ref_points'].shape[0:3]+(3,3,), np.nan)
+    covMat_modelPred = np.full((nLevels,)+stim3D['ref_points'].shape[0:3]+(3,3,), np.nan)
+    NB_similarity    = np.full((nLevels,)+ stim3D['ref_points'].shape[0:3], np.nan)
+    BW_distance      = np.full(NB_similarity.shape, np.nan)
+    NB_similarity_maxEigval = np.full(stim3D['ref_points'].shape[0:3], np.nan)
+    NB_similarity_minEigval = np.full(NB_similarity_maxEigval.shape, np.nan)
+    BW_distance_maxEigval   = np.full(NB_similarity_maxEigval.shape, np.nan)
+    BW_distance_minEigval   = np.full(NB_similarity_maxEigval.shape, np.nan)
+    
+    # Select specific points (corners) of the 3D space to focus on
+    idx_corner = [[0,0,0],[4,0,0],[0,4,0],[0,0,4],[4,4,0],[0,4,4],[4,0,4],[4,4,4]]
+    # Retrieve the covariance matrices at these corner points
+    covMat_corner = [results3D['ellipsoidParams'][i][j][k]['evecs'] @ \
+        np.diag(results3D['ellipsoidParams'][i][j][k]['radii']) * 2 @ \
+        results3D['ellipsoidParams'][i][j][k]['evecs'].T for i, j, k in idx_corner]
+    # Initialize arrays for corner-based metrics
+    NB_similarity_corner = np.full((len(idx_corner),)+NB_similarity_maxEigval.shape, np.nan)
+    BW_distance_corner  = np.full(NB_similarity_corner.shape, np.nan)
+                 
+    # Loop through each reference point in the 3D space
+    for ii in range(ref_size):
+        for jj in range(ref_size):
+            for kk in range(ref_size):
+                # Retrieve eigenvalues and eigenvectors for the ground truth ellipsoids
+                eigVec_gt_jiijjkk = results3D['ellipsoidParams'][ii,jj,kk]['evecs']
+                eigVal_gt_jiijjkk = results3D['ellipsoidParams'][ii,jj,kk]['radii']  
+                # Use the eigenvalues and eigenvectors to derive the cov matrix
+                covMat_gt[ii,jj,kk] = eigVec_gt_jiijjkk @ np.diag(eigVal_gt_jiijjkk)*2 @\
+                    eigVec_gt_jiijjkk.T
+                    
+                #--------- Benchmark for evaluating model performance ------------
+                # Evaluate using maximum eigenvalue (creates a bounding sphere)
+                eigVal_gt_max_jiijjkk = np.ones((3))*np.max(eigVal_gt_jiijjkk)
+                covMat_max = np.eye(3) @ np.diag(eigVal_gt_max_jiijjkk) @ np.eye(3).T
+                
+                #compute normalized bures similarity between the ground truth cov matrix
+                #and the smallest sphere that can just contain the ellipsoid
+                NB_similarity_maxEigval[ii,jj,kk] = compute_normalized_Bures_similarity(\
+                    covMat_gt[ii,jj,kk],covMat_max)   
+                #compute Bures-Wasserstein distance
+                BW_distance_maxEigval[ii,jj,kk] = compute_Bures_Wasserstein_distance(\
+                    covMat_gt[ii,jj,kk],covMat_max)
+                    
+                # Evaluate using minimum eigenvalue (creates an inscribed sphere)
+                eigVal_gt_min_jiijjkk = np.ones((3))*np.min(eigVal_gt_jiijjkk)
+                covMat_min = np.eye(3) @ np.diag(eigVal_gt_min_jiijjkk) @ np.eye(3).T
+                
+                #compute normalized bures similarity between the ground truth cov matrix
+                #and the largest sphere that can just be put inside the ellipsoid
+                NB_similarity_minEigval[ii,jj,kk] = compute_normalized_Bures_similarity(\
+                    covMat_gt[ii,jj,kk],covMat_min)   
+                #compute Bures-Wasserstein distance
+                BW_distance_minEigval[ii,jj,kk] = compute_Bures_Wasserstein_distance(\
+                    covMat_gt[ii,jj,kk],covMat_min)
+                
+                #Compute normalized bures similarity and Bures-Wasserstein distance
+                #between ground truth and ellipsoids at selected corner locations
+                for m in range(len(idx_corner)):
+                    NB_similarity_corner[m,ii,jj,kk] = compute_normalized_Bures_similarity(\
+                        covMat_corner[m],covMat_gt[ii,jj,kk])
+                    BW_distance_corner[m,ii,jj,kk] = compute_Bures_Wasserstein_distance(\
+                        covMat_corner[m],covMat_gt[ii,jj,kk])
+                
+                #------------ Evaluaing performance -------------
+                #The score is based on the comparison between model-predicted ellipsoids
+                #and ground truth ellipsoid
+                for l in range(nLevels): 
+                    eigVec_jiijjkk = data_load[l]['params_ellipsoids'][ii][jj][kk]['evecs']
+                    eigVal_jiijjkk = data_load[l]['params_ellipsoids'][ii][jj][kk]['radii']
+                    
+                    covMat_modelPred[l,ii,jj,kk] = eigVec_jiijjkk @ \
+                        np.diag(eigVal_jiijjkk) @ eigVec_jiijjkk.T
+                    NB_similarity[l,ii,jj,kk] = compute_normalized_Bures_similarity(\
+                        covMat_gt[ii,jj,kk],covMat_modelPred[l,ii,jj,kk])
+                    BW_distance[l,ii,jj,kk] = compute_Bures_Wasserstein_distance(\
+                        covMat_gt[ii,jj,kk],covMat_modelPred[l,ii,jj,kk])
+                        
+    
+    #%% plotting starts from here
+    NBW_benchmark = np.concatenate((NB_similarity_minEigval[np.newaxis,:,:,:],\
+                                    NB_similarity_maxEigval[np.newaxis,:,:,:],\
+                                    NB_similarity_corner), axis = 0)
+    BW_benchmark = np.concatenate((BW_distance_minEigval[np.newaxis,:,:,:],\
+                                   BW_distance_maxEigval[np.newaxis,:,:,:],\
+                                   BW_distance_corner), axis = 0)
+    
+    cmap_NBW = np.full((len(idx_corner)+2,3),np.nan)
+    cmap_NBW[0] = np.zeros((3))
+    cmap_NBW[1] = np.zeros((3))
+    for c in range(len(idx_corner)):
+        cmap_NBW[c+2] = [stim3D['grid_ref'][m] for m in idx_corner[c]]
+    
+    NBW_bins = np.arange(0.88,1.015, 0.01)
+    NBW_bin_edges = NBW_bins - (NBW_bins[1] - NBW_bins[0])/2
+    
+    #figure for benchmark
+    fig1, ax1 = plt.subplots(1, 1, figsize=(5,4.5))
+    plot_benchmark_similarity(ax1, NBW_benchmark, NBW_bin_edges,\
+                              linestyle = [':','--']+['-']*len(idx_corner),\
+                              cmap = cmap_NBW)
+    ax1.set_xticks(np.around(NBW_bins[::2],3))
+    ax1.set_yticks(np.linspace(0,80,5))
+    ax1.set_ylim([0,80])
+    ax1.set_xlabel('The normalized Bures similarity')
+    ax1.set_ylabel('Frequency')
+    figName1 = "ModelPerformance_NormalizedBuresSimilarity_3Dellipsoids_benchmark.png"
+    full_path1 = os.path.join(fig_outputDir, figName1)
+    if saveFig: fig1.savefig(full_path1)    
+       
+    #%%
+    BW_bins = np.linspace(0,0.24,12)
+    BW_bin_edges = BW_bins - (BW_bins[1] - BW_bins[0])/2
+    
+    fig2, ax2 = plt.subplots(1,1, figsize = (5, 4.5))
+    plot_benchmark_similarity(ax2, BW_benchmark, BW_bin_edges,\
+                              linestyle = [':','--']+['-']*len(idx_corner),cmap = cmap_NBW)
+    
+    ax2.set_xlabel('The Bures-Wasserstein distance')
+    ax2.set_ylabel('Frequency')
+    ax2.set_xticks(np.around(BW_bins[::2],3))
+    ax2.set_yticks(np.linspace(0, 100, 5))
+    ax2.set_ylim([0, 100])
+    figName2 = "ModelPerformance_BuresWassersteinDistance_3Dellipsoids_benchmark.png"
+    full_path2 = os.path.join(fig_outputDir, figName2)
+    if saveFig: fig2.savefig(full_path2)   
+    
+    #%%
+    if varyingFactor == 'jitter': legend_str = [' (small)', ' (medium)', ' (large)']
+    elif varyingFactor == 'nSims': legend_str = ['','','']
+    NBW_scores_edges = np.arange(0.9902,1.0003,0.0004)
+    NBW_score_cmap = np.array([[247,152,29],[75,40,73],[107,142,35]])/255
+    
+    fig3, ax3 = plt.subplots(1,1, figsize = (5, 4.5))
+    plot_similarity_metric_scores(ax3, NB_similarity, NBW_scores_edges, y_ub = 50,\
+                                  cmap = NBW_score_cmap, \
+                                  legend_labels = [str(varyingLevels[i])+legend_str[i] \
+                                                   for i in range(nLevels)])
+    ax3.set_xticks(np.linspace(0.99, 1,5))
+    ax3.set_ylim([0, 50])
+    ax3.set_xlabel('The normalized Bures similarity')
+    ax3.set_ylabel('Frequency')
+    if varyingFactor == 'nSims': ax3.legend(title = 'Number of trial\nper reference stimulus')
+    elif varyingFactor == 'jitter': ax3.legend(title = 'Amount of jitter')
+    figName3 = figName1[:-14] +f"_nSims{nSims}_jitter{jitter}.png"
+    full_path3 = os.path.join(fig_outputDir, figName3)
+    if saveFig: fig3.savefig(full_path3)
+    
+    #%%
+    fig4, ax4 = plt.subplots(1,1, figsize = (5, 4.5))
+    plot_similarity_metric_scores(ax4, BW_distance, np.linspace(0,0.08,25),\
+                                  y_ub = 50, cmap = NBW_score_cmap,\
+                                  legend_labels = [str(varyingLevels[i])+legend_str[i] \
+                                                   for i in range(nLevels)])
+    ax4.set_xticks(np.linspace(0,0.07,5))
+    ax4.set_ylim([0, 50])
+    ax4.set_xlabel('The Bures-Wasserstein distance')
+    ax4.set_ylabel('Frequency')
+    if varyingFactor == 'nSims': ax4.legend(title = 'Number of trial\nper reference stimulus')
+    elif varyingFactor == 'jitter':ax4.legend(title = 'Amount of jitter')
+    figName4 = figName2[:-14] +f"_nSims{nSims}_jitter{jitter}.png"
+    full_path4 = os.path.join(fig_outputDir, figName4)
+    if saveFig: fig4.savefig(full_path4)
+    
+
+#%% Main code
+evaluate_modelPerformance_3D('nSims', [240, 160, 120],\
+                             'jitter', 0.1, saveFig = True)
+
+evaluate_modelPerformance_3D('jitter', [0.1, 0.3, 0.5],\
+                             'nSims', 240, saveFig = True)    
+
+
 
 
 
