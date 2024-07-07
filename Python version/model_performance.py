@@ -51,8 +51,9 @@ def plot_similarity_metric_scores(ax, similarity_score, bin_edges, **kwargs):
     for j in range(nSets):
         if len(pltP['cmap']) == 0: cmap_l = np.random.rand(1,3)
         else: cmap_l = pltP['cmap'][j];
-        ax.hist(similarity_score[j].flatten(), bins = bin_edges, color = cmap_l,\
-                alpha = 0.6, edgecolor = [1,1,1], label = pltP['legend_labels'][j])
+        ax.hist(similarity_score[j].flatten(), bins = bin_edges,\
+                color = cmap_l, alpha = 0.6, edgecolor = [1,1,1],\
+                label = pltP['legend_labels'][j])
         #plot the median
         median_j = np.median(similarity_score[j].flatten())
         ax.plot([median_j,median_j], [0,pltP['y_ub']],color = cmap_l, linestyle = '--')
@@ -66,6 +67,7 @@ def plot_benchmark_similarity(ax, similarity_score, bin_edges, **kwargs):
     pltP = {
         'cmap':[],
         'linestyle':[],
+        'jitter':np.zeros((1,nSets)),
         } 
     pltP.update(kwargs)
     
@@ -78,5 +80,5 @@ def plot_benchmark_similarity(ax, similarity_score, bin_edges, **kwargs):
         if len(pltP['linestyle']) == 0: ls_m = '-';
         else: ls_m = pltP['linestyle'][m]
         counts_m,_ = np.histogram(similarity_score[m].flatten(), bins=bin_edges)
-        ax.plot(bin_centers, counts_m,  color = cmap_m, ls = ls_m)
+        ax.plot(bin_centers+pltP['jitter'][m], counts_m,  color = cmap_m, ls = ls_m)
     ax.grid(True, alpha=0.3)
