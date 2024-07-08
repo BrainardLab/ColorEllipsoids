@@ -15,6 +15,7 @@ from scipy.optimize import minimize
 from skimage.measure import EllipseModel
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
+from itertools import combinations, product
 
 path_str = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox"
 os.chdir(path_str)
@@ -366,7 +367,7 @@ def plot_2D_randRef_nearContourComp(xref, xcomp, idx_fixedPlane, fixedVal, bound
     # Default parameters for ellipsoid fitting. Can be overridden by kwargs.
     pltP = {
         'visualize_bounds': True,
-        'visualize_lines': False,
+        'visualize_lines': True,
         'linealpha':0.5,
         'ref_marker': '+',
         'ref_markersize': 20,
@@ -495,3 +496,59 @@ def plot_2D_isothreshold_contour(x_grid_ref, y_grid_ref, fitEllipse,
         ax[p].set_xlabel(xlbl)
         ax[p].set_ylabel(ylbl)
         ax[p].tick_params(axis='both', which='major', labelsize=pltParams['fontsize'])
+        
+#%% 3D
+def plot_3D_randRef_nearContourComp(ax, fig, xref, xcomp, **kwargs):
+    # Default parameters for ellipsoid fitting. Can be overridden by kwargs.
+    pltP = {
+        'visualize_lines': True,
+        'linealpha':0.5,
+        'ref_marker': '+',
+        'ref_markersize': 20,
+        'ref_markeralpha': 0.8,
+        'comp_marker': 'o',
+        'comp_markersize': 4,
+        'comp_markeralpha': 0.8,        
+        'fontsize':8,
+        'saveFig':False,
+        'figDir':'',
+        'figName':'3D_randRef_nearContourComp'} 
+    pltP.update(kwargs)
+    
+    # Mapping data to RGB color space for visualization
+    color_map_ref = (xref + 1) / 2  # Ensure the colors are within [0,1]
+    color_map_comp = (xcomp + 1) / 2
+    ticks = np.unique(xref)
+    
+    ax.scatter(xref[:, 0], xref[:, 1], xref[:, 2], c=color_map_ref,\
+               marker= pltP['ref_marker'], s= pltP['ref_markersize'], \
+                   alpha= pltP['ref_markeralpha'], label = 'Reference stimulus')
+    ax.scatter(xcomp[:, 0], xcomp[:, 1], xcomp[:, 2], c=color_map_comp,\
+               marker=pltP['comp_marker'], s= pltP['comp_markersize'],\
+                   alpha= pltP['comp_markeralpha'], label = 'Comparison stimulus')
+    
+    for l in range(xref.shape[0]):
+        ax.plot([xref[l, 0], xcomp[l, 0]],[xref[l, 1], xcomp[l, 1]],\
+                [xref[l, 2], xcomp[l, 2]],
+                color= np.array(color_map_ref[l]), alpha= pltP['linealpha'], lw= 0.5)
+    ax.set_xlim([-1,1])
+    ax.set_ylim([-1,1])
+    ax.set_zlim([-1,1])
+    ax.set_xticks(ticks)
+    ax.set_yticks(ticks)
+    ax.set_zticks(ticks)
+    ax.set_xlabel('R')
+    ax.set_ylabel('G')
+    ax.set_zlabel('B')
+    ax.grid(True)
+    ax.set_aspect('equal')
+    ax.tick_params(axis='both', which='major', labelsize= pltP['fontsize'])
+    plt.legend(loc='lower center', bbox_to_anchor=(0.5, -0.24),fontsize = pltP['fontsize'])
+
+    if pltP['saveFig'] and pltP['figDir'] != '':
+        full_path = os.path.join(pltP['figDir'],pltP['figName']+'.png') 
+        fig.savefig(full_path, bbox_inches='tight', pad_inches=0.3)   
+
+
+
+

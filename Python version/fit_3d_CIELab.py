@@ -26,7 +26,7 @@ import os
 import pickle
 import numpy as np
 
-nSims = 560
+nSims = 240
 samplingMethod = 'NearContour' #'Random'
 match samplingMethod:
     case 'NearContour':
@@ -53,14 +53,18 @@ scaler_x1  = 5
 #but sometimes we don't want to sample that finely. Instead, we might just pick
 #2 or 3 samples from each color dimension, and see how well the model can 
 #interpolate between samples
-idx_trim  = [0,2,4] #list(range(5))
+#idx_trim  = [0,2,4] #list(range(5))
+idx_trim = list(range(5))
+
 #x1_raw is unscaled
 data, x1_raw, xref_raw = model_predictions.organize_data(sim,\
         scaler_x1, slc_idx = idx_trim, visualize_samples = False)
 # unpackage data
 ref_size_dim1, ref_size_dim2, ref_size_dim3 = x1_raw.shape[0:3]
+# if we run oddity task with the reference stimulus fixed at the top
 y_jnp, xref_jnp, x0_jnp, x1_jnp = data 
-
+# if we run oddity task with all three stimuli shuffled
+data_new = (y_jnp, xref_jnp, x1_jnp)
 
 #%% load ground truths
 fixedRGB_val_full = np.array([0.2,0.35,0.5,0.65,0.8])
@@ -92,19 +96,19 @@ with open(full_path3, 'rb') as f:
 param3D, stim3D, results3D, plt_specifics = data_load[0], data_load[1],\
     data_load[2], data_load[3]
 
-#for fixedPlane, varyingPlanes in zip(['R','G','B'], ['GB','RB','RG']):
-#    for val in fixedRGB_val:
-#        plot_3D_sampledComp(stim3D['grid_ref'][idx_trim]*2-1, \
-#            results3D['fitEllipsoid_unscaled'][idx_trim,:,:][:,idx_trim,:][:,:,idx_trim]*2-1,\
-#            x1_raw, fixedPlane, val*2-1, plt_specifics['nPhiEllipsoid'],\
-#            plt_specifics['nThetaEllipsoid'],\
-#            slc_grid_ref_dim1 = [0,1,2], slc_grid_ref_dim2 = [0,1,2],\
-#            surf_alpha =  0.1,\
-#            samples_alpha = 0.1,scaled_neg12pos1 = True,\
-#            x_bds_symmetrical = 0.05,y_bds_symmetrical = 0.05,\
-#            z_bds_symmetrical = 0.05,title = varyingPlanes+' plane',\
-#            saveFig = False, figDir = path_str[0:-10] + 'FigFiles/',\
-#            figName = file_name + '_' + varyingPlanes + 'plane' +'_fixedVal'+str(val))
+for fixedPlane, varyingPlanes in zip(['R','G','B'], ['GB','RB','RG']):
+    for val in fixedRGB_val:
+        plot_3D_sampledComp(stim3D['grid_ref'][idx_trim]*2-1, \
+            results3D['fitEllipsoid_unscaled'][idx_trim][:,idx_trim][:,:,idx_trim]*2-1,\
+            x1_raw, fixedPlane, val*2-1, plt_specifics['nPhiEllipsoid'],\
+            plt_specifics['nThetaEllipsoid'],\
+            slc_grid_ref_dim1 = [0,1,2], slc_grid_ref_dim2 = [0,1,2],\
+            surf_alpha =  0.1,\
+            samples_alpha = 0.1,scaled_neg12pos1 = True,\
+            x_bds_symmetrical = 0.05,y_bds_symmetrical = 0.05,\
+            z_bds_symmetrical = 0.05,title = varyingPlanes+' plane',\
+            saveFig = False, figDir = path_str[0:-10] + 'FigFiles/',\
+            figName = file_name + '_' + varyingPlanes + 'plane' +'_fixedVal'+str(val))
 
 #%%
 # -------------------------------
@@ -135,14 +139,15 @@ OPT_KEY      = jax.random.PRNGKey(444)  # Key passed to optimizer.
 W_init = 1e-1*model.sample_W_prior(W_INIT_KEY)  
 
 opt_params = {
-    "learning_rate": 5e-2, #1e-3,
+    "learning_rate": 5e-3, #5e-2
     "momentum": 0.2,
     "mc_samples": MC_SAMPLES,
     "bandwidth": BANDWIDTH,
 }
 W_est, iters, objhist = optim.optimize_posterior(
-    W_init, data, model, OPT_KEY,
+    W_init, data_new, model, OPT_KEY,
     opt_params,
+    oddity_task.simulate_oddity,
     total_steps=20,
     save_every=1,
     show_progress=True
@@ -165,7 +170,7 @@ Sigmas_est_grid = model.compute_Sigmas(model.compute_U(W_est, xgrid))
 
 #%% save data
 outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                        'ELPS_analysis/ModelFitting_DataFiles/'
+                        'ELPS_analysis/ModelFitting_DataFiles/3D_oddity_task/'
 name_ext = '_withInterpolations' if np.prod(xref_raw.shape[0:3]) < np.prod(xgrid.shape[0:3]) else ''
 output_file = 'Fitted'+file_name[4:-4]+'_bandwidth' + str(BANDWIDTH) + name_ext+'.pkl'
 #    '_maxDeg' + str(model.degree)+'.pkl'
@@ -198,11 +203,10 @@ recover_fitEllipsoid_scaled, recover_fitEllipsoid_unscaled,\
     recover_rgb_comp_scaled, recover_rgb_contour_cov,\
     params_ellipsoids = model_predictions.convert_Sig_3DisothresholdContour_oddity_batch(\
         np.transpose(xgrid,(1,0,2,3)), stim3D['grid_xyz'], pC_threshold, W_est, model,\
-        results3D['opt_vecLen'], scaler_x1 = scaler_x1,\
+        oddity_task.simulate_oddity, results3D['opt_vecLen'], scaler_x1 = scaler_x1,\
         ngrid_bruteforce=nSteps_bruteforce,\
         scaler_bds_bruteforce = bds_scaler_gridsearch,\
-        bandwidth = opt_params['bandwidth'], opt_key = OPT_KEY,\
-        search_method='brute force')
+        bandwidth = opt_params['bandwidth'], opt_key = OPT_KEY)
         
 #%%derive 2D slices
 # Initialize 3D covariance matrices for ground truth and predictions
@@ -250,7 +254,7 @@ with open(full_path4, 'wb') as f:
     
 #%% plot figures and save them as png and gif
 fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                        'ELPS_analysis/ModelFitting_FigFiles/Python_version/'
+                        'ELPS_analysis/ModelFitting_FigFiles/Python_version/3D_oddity_task/'
 fig_name = 'Fitted' + file_name[4:-4] + name_ext #+'_maxDeg' + str(model.degree)
 model_predictions.plot_3D_modelPredictions_byWishart(xref_raw, x1_raw,\
         xref_jnp, x1_jnp, np.transpose(xgrid,(1,0,2,3)), gt_covMat, Sigmas_est_grid,\
