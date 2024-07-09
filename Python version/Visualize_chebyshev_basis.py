@@ -162,7 +162,7 @@ for i in range(degree):
     # Plot 3D basis functions for each degree using the calculated values in `phi_org`,
     # and save the plots and GIFs to a specified directory.
     plot_basis_functions_3D(X_mesh, Y_mesh, Z_mesh, phi_org[:,:,:,:,:,i],\
-            saveFig = True, saveGif = True, figDir = fig_outputDir + \
+            saveFig = False, saveGif = False, figDir = fig_outputDir + \
                 'Chebyshev_basis_functions/', \
             figName = 'Chebyshev_3D_basis_function_degree'+str(i+1))
 
@@ -170,7 +170,7 @@ for i in range(degree):
 # Define the file name and output directory for model fitting data files
 file_name = 'Sims_isothreshold_ellipsoids_sim240perCond_samplingNearContour_jitter0.1.pkl'
 outputDir_file = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                        'ELPS_analysis/ModelFitting_DataFiles/'
+                        'ELPS_analysis/ModelFitting_DataFiles/3d_oddity_task/'
 output_file = 'Fitted'+file_name[4:-4]+'_bandwidth0.005.pkl'
 full_path4 = f"{outputDir_file}{output_file}"
 
@@ -181,6 +181,7 @@ with open(full_path4, 'rb') as f:
     W_est = data_load['W_est']
     model = data_load['model']
     Sigmas_est_grid = data_load['Sigmas_est_grid']
+    fitEllipsoid = data_load['recover_fitEllipsoid_scaled']
 
 # Compute basis orders for polynomial expansion in 3D
 basis_orders = (
@@ -192,10 +193,11 @@ basis_orders = (
 #%%  Visualize W
 slc_slice = [0,0] #selected indices for the 4th and 5th dimension
 cmap_b = plt.get_cmap('RdBu')
+cmap_bds = np.max([-np.min(W_est), np.max(W_est)])
 for i in range(degree):
     fig, ax = plt.subplots(1, 1, figsize=(5,5), sharex=True, sharey=True)
-    ax.imshow(W_est[:,:,i,*(slc_slice)], cmap = cmap_b, vmin = -0.035,\
-              vmax = 0.035)
+    ax.imshow(W_est[:,:,i,*(slc_slice)], cmap = cmap_b, vmin = -cmap_bds,\
+              vmax = cmap_bds)
     # Loop through each grid point to display the corresponding basis order as text
     for j in range(degree):
         for k in range(degree):
@@ -217,7 +219,7 @@ for i in range(degree):
 #%% Visualize weighted basis functions, a.k.a., U
 U = np.einsum('ijkxyz, xyzpq -> ijkpq', phi_org, W_est)
 plot_basis_functions_3D(X_mesh, Y_mesh, Z_mesh, U, figSize = (8,7),\
-                        saveFig = True, saveGif = True, figDir = fig_outputDir + \
+                        saveFig = False, saveGif = False, figDir = fig_outputDir + \
                             'U_given_estimatedWeightMatrix/', \
                         figName = 'U_given_estimatedWeightMatrix')
 
@@ -230,10 +232,55 @@ Sigmas_subset = Sigmas[slc_idx][:,slc_idx][:,:,slc_idx]
 if np.all(np.abs(Sigmas_est_grid - Sigmas_subset) < 1e-10): print('sanity check passed!')
 #plot
 plot_basis_functions_3D(X_mesh, Y_mesh, Z_mesh, Sigmas, figSize = (6,6.5),\
-                        saveFig = True, saveGif = True, figDir = fig_outputDir + \
+                        saveFig = False, saveGif = False, figDir = fig_outputDir + \
                             'CovarianceMatrix/', \
                         figName = 'CovarianceMatrix')
 
+#%% Visualize ellipsoids defined by 3 x 3 positive semi-definite cov matrices
+from matplotlib.colors import LightSource, LinearSegmentedColormap
+idx_slc = [0, 4]
+fitEllipsoid_slc = fitEllipsoid[idx_slc][:,idx_slc][:,:,idx_slc]
+fitEllipsoid_reshape = np.reshape(fitEllipsoid_slc, (np.prod(fitEllipsoid_slc.shape[0:3]),)+\
+                                  fitEllipsoid_slc.shape[3:])
+
+fig = plt.figure(figsize=(6, 5))
+ax = fig.add_subplot(111, projection='3d')
+ticks = np.array([-0.6, 0, 0.6])
+
+numE = fitEllipsoid_reshape.shape[0]
+for i in range(numE):
+    ell_i = fitEllipsoid_reshape[i]
+    ell_i_x = np.reshape(ell_i[0],(100,200))
+    ell_i_y = np.reshape(ell_i[1],(100,200))
+    ell_i_z = np.reshape(ell_i[2],(100,200))
+    ellipsoid_reshape = np.reshape(ell_i, (3, 100, 200))
+    cmap_i = (np.mean(ell_i, axis = 1) + 1)/2
+    ax.plot_surface(ell_i_x, ell_i_y,\
+                    ell_i_z, color = cmap_i, edgecolor =cmap_i,alpha = 0.5, lw = 0.5)
+        
+        # Create light source object.
+#    ls = LightSource(azdeg=0, altdeg=65)
+#    # Shade data, creating an rgb array.
+#    rgb_temp = (np.mean(ell_i, axis = 1) + 1)/2
+#    # Create a custom colormap with a single color
+#    ls = LightSource(azdeg=0, altdeg=65)
+#    cmap = LinearSegmentedColormap.from_list("single_color", [rgb_temp,rgb_temp], N=256)
+#    rgb = ls.shade(ellipsoid_reshape[2], cmap=cmap)
+#    surf = ax.plot_surface(ellipsoid_reshape[0], ellipsoid_reshape[1],\
+#                ellipsoid_reshape[2], rstride=1, cstride=1, linewidth=0,\
+#                       antialiased=False, facecolors=rgb, alpha = 0.5)
+ax.set_xlim([-1,1])
+ax.set_ylim([-1,1])
+ax.set_zlim([-1,1])
+ax.set_xticks(ticks)
+ax.set_yticks(ticks)
+ax.set_zticks(ticks)
+ax.set_xlabel('R')
+ax.set_ylabel('G')
+ax.set_zlabel('B')
+ax.grid(True)
+ax.set_aspect('equal')
+    
 
 
 
