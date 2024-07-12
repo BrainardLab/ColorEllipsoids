@@ -363,33 +363,36 @@ def fit_2d_isothreshold_contour(ref_RGB, comp_RGB, grid_theta_xy, **kwargs):
         rgb_contour_cov, [xCenter, yCenter, majorAxis, minorAxis, theta]
         
 #%% FUNCTIONS
-def plot_2D_randRef_nearContourComp(xref, xcomp, idx_fixedPlane, fixedVal, bounds, **kwargs):
+def plot_2D_randRef_nearContourComp(ax, fig, xref, xcomp, idx_fixedPlane,\
+                                    fixedVal, bounds, **kwargs):
     # Default parameters for ellipsoid fitting. Can be overridden by kwargs.
     pltP = {
         'visualize_bounds': True,
         'visualize_lines': True,
+        'bounds_alpha':0.1,
         'linealpha':0.5,
         'ref_marker': '+',
         'ref_markersize': 20,
         'ref_markeralpha': 0.8,
         'comp_marker': 'o',
         'comp_markersize': 4,
-        'comp_markeralpha': 0.8,        
+        'comp_markeralpha': 0.8,     
         'plane_2D':'',
+        'flag_rescale_axes_label':True,
+        'flag_add_trialNum_title': False,
         'fontsize':8,
         'saveFig':False,
         'figDir':'',
         'figName':'RandomSamples'} 
     pltP.update(kwargs)
     
-    fig, ax = plt.subplots(1, 1, figsize = (3,3.5))
     plt.rcParams['figure.dpi'] = 250 
     cmap = (xref+1)/2
     cmap = np.insert(cmap, idx_fixedPlane, np.ones((xref.shape[0],))*fixedVal, axis=1)
     # Add grey patch
     if pltP['visualize_bounds']:
         rectangle = Rectangle((bounds[0], bounds[0]), bounds[1] - bounds[0],\
-                              bounds[1] - bounds[0], facecolor='grey', alpha=0.1)  # Adjust alpha for transparency
+                              bounds[1] - bounds[0], facecolor='grey', alpha= pltP['bounds_alpha'])  # Adjust alpha for transparency
         rectangle.set_label('Bounds for the reference')  # Set the label here
         ax.add_patch(rectangle)
     
@@ -410,11 +413,15 @@ def plot_2D_randRef_nearContourComp(xref, xcomp, idx_fixedPlane, fixedVal, bound
     ticks = np.sort(np.concatenate((np.linspace(-0.5, 0.5, 3), np.array([-0.85, 0.85]))))
     ax.set_xticks(ticks)
     ax.set_yticks(ticks)
+    if pltP['flag_rescale_axes_label']:
+        ax.set_xticklabels([str((f+1)/2) for f in ticks])
+        ax.set_yticklabels([str((f+1)/2) for f in ticks])
     ax.tick_params(axis='both', which='major', labelsize=pltP['fontsize'])
     if pltP['plane_2D'] != '':
         ax.set_xlabel(pltP['plane_2D'][0], fontsize=pltP['fontsize']);
         ax.set_ylabel(pltP['plane_2D'][1], fontsize=pltP['fontsize'])
-        ax.set_title(pltP['plane_2D'], fontsize=pltP['fontsize'])
+    ttl = pltP['plane_2D'] + ' (n = ' +str(xref.shape[0])+')' if pltP['flag_add_trialNum_title'] else pltP['plane_2D']
+    ax.set_title(ttl, fontsize=pltP['fontsize'])
     plt.legend(loc='lower center', bbox_to_anchor=(0.5, -0.47),fontsize = pltP['fontsize'])
     fig.tight_layout(); plt.show()
     if pltP['saveFig'] and pltP['figDir'] != '':

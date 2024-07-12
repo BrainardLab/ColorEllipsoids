@@ -236,51 +236,6 @@ plot_basis_functions_3D(X_mesh, Y_mesh, Z_mesh, Sigmas, figSize = (6,6.5),\
                             'CovarianceMatrix/', \
                         figName = 'CovarianceMatrix')
 
-#%% Visualize ellipsoids defined by 3 x 3 positive semi-definite cov matrices
-from matplotlib.colors import LightSource, LinearSegmentedColormap
-idx_slc = [0, 4]
-fitEllipsoid_slc = fitEllipsoid[idx_slc][:,idx_slc][:,:,idx_slc]
-fitEllipsoid_reshape = np.reshape(fitEllipsoid_slc, (np.prod(fitEllipsoid_slc.shape[0:3]),)+\
-                                  fitEllipsoid_slc.shape[3:])
-
-fig = plt.figure(figsize=(6, 5))
-ax = fig.add_subplot(111, projection='3d')
-ticks = np.array([-0.6, 0, 0.6])
-
-numE = fitEllipsoid_reshape.shape[0]
-for i in range(numE):
-    ell_i = fitEllipsoid_reshape[i]
-    ell_i_x = np.reshape(ell_i[0],(100,200))
-    ell_i_y = np.reshape(ell_i[1],(100,200))
-    ell_i_z = np.reshape(ell_i[2],(100,200))
-    ellipsoid_reshape = np.reshape(ell_i, (3, 100, 200))
-    cmap_i = (np.mean(ell_i, axis = 1) + 1)/2
-    ax.plot_surface(ell_i_x, ell_i_y,\
-                    ell_i_z, color = cmap_i, edgecolor =cmap_i,alpha = 0.5, lw = 0.5)
-        
-        # Create light source object.
-#    ls = LightSource(azdeg=0, altdeg=65)
-#    # Shade data, creating an rgb array.
-#    rgb_temp = (np.mean(ell_i, axis = 1) + 1)/2
-#    # Create a custom colormap with a single color
-#    ls = LightSource(azdeg=0, altdeg=65)
-#    cmap = LinearSegmentedColormap.from_list("single_color", [rgb_temp,rgb_temp], N=256)
-#    rgb = ls.shade(ellipsoid_reshape[2], cmap=cmap)
-#    surf = ax.plot_surface(ellipsoid_reshape[0], ellipsoid_reshape[1],\
-#                ellipsoid_reshape[2], rstride=1, cstride=1, linewidth=0,\
-#                       antialiased=False, facecolors=rgb, alpha = 0.5)
-ax.set_xlim([-1,1])
-ax.set_ylim([-1,1])
-ax.set_zlim([-1,1])
-ax.set_xticks(ticks)
-ax.set_yticks(ticks)
-ax.set_zticks(ticks)
-ax.set_xlabel('R')
-ax.set_ylabel('G')
-ax.set_zlabel('B')
-ax.grid(True)
-ax.set_aspect('equal')
     
-
 
 

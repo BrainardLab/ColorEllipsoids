@@ -195,6 +195,7 @@ def evaluate_modelPerformance_3D(varyingFactor, varyingLevels, fixedFactor,\
     ax1.set_xticks(np.around(BW_bins[::2],3))
     ax1.set_yticks(np.linspace(0, 16, 5))
     ax1.set_ylim([0, 16])
+    ax1.set_xlim(right=x_ub)
     ax1.set_title(plane_2D)
     figName1 = f"ModelPerformance_BuresWassersteinDistance_2Dellipses_{plane_2D}_benchmark.png"
     full_path1 = os.path.join(fig_outputDir, figName1)
@@ -207,7 +208,7 @@ def evaluate_modelPerformance_3D(varyingFactor, varyingLevels, fixedFactor,\
     cmap_t = cmap_temp(np.linspace(0, 1, nLevels))[:, :3]
 
     fig2, ax2 = plt.subplots(1,1, figsize = (4.5, 5.5))
-    x_ub = np.max([np.around(np.max(BW_distance), 2), x_ub])
+    #x_ub = np.max([np.around(np.max(BW_distance), 2), x_ub])
     BW_bins2 = np.linspace(0, x_ub,35)
     BW_bin_edges2 = BW_bins2 - (BW_bins2[1] - BW_bins2[0])/2
     plot_similarity_metric_scores(ax2, BW_distance, BW_bin_edges2,\
@@ -215,6 +216,7 @@ def evaluate_modelPerformance_3D(varyingFactor, varyingLevels, fixedFactor,\
                                   legend_labels = [str(varyingLevels[i])+legend_str[i] \
                                                    for i in range(nLevels)])
     ax2.set_xticks(np.linspace(0,x_ub,5))
+    ax2.set_xlim(right=x_ub)
     ax2.set_ylim([0, 16])
     ax2.set_yticks(np.linspace(0,16,5))
     ax2.set_xlabel('The Bures-Wasserstein distance')
@@ -229,12 +231,12 @@ def evaluate_modelPerformance_3D(varyingFactor, varyingLevels, fixedFactor,\
     
 
 #%% Main code
-evaluate_modelPerformance_3D('nSims_total', [6000,5000,4000,3000,2000,1500,1000],\
-                             'jitter', 0.1, plane_2D = 'GB plane', saveFig = True)
+#evaluate_modelPerformance_3D('nSims_total', [6000,5000,4000,3000,2000,1500,1000],\
+#                             'jitter', 0.1, plane_2D = 'GB plane', saveFig = True)
     
 #%%
-#evaluate_modelPerformance_3D('nSims', [240, 200, 160, 120, 80, 60, 40],\
-#                             'jitter', 0.1, plane_2D = 'RG plane', saveFig = True) 
+evaluate_modelPerformance_3D('nSims', [240, 200, 160, 120, 80, 60, 40],\
+                             'jitter', 0.1, plane_2D = 'GB plane', saveFig = True) 
 
 
 

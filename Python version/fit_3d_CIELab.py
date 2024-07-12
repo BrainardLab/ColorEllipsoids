@@ -189,12 +189,6 @@ with open(full_path4, 'wb') as f:
     pickle.dump(vars_dict, f)
 
 #%% Model predictions
-grid_theta            = stim3D['grid_theta'] #from 0 to 2*pi
-n_theta               = len(grid_theta)
-n_theta_finergrid     = plt_specifics['nThetaEllipsoid']
-grid_phi              = stim3D['grid_phi'] #from 0 to pi
-n_phi                 = len(grid_phi)
-n_phi_finergrid       = plt_specifics['nPhiEllipsoid']
 nSteps_bruteforce     = 200 #number of grids
 bds_scaler_gridsearch = [0.5, 3]
 pC_threshold          = 0.78            
@@ -256,7 +250,7 @@ with open(full_path4, 'wb') as f:
 fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
                         'ELPS_analysis/ModelFitting_FigFiles/Python_version/3D_oddity_task/'
 fig_name = 'Fitted' + file_name[4:-4] + name_ext #+'_maxDeg' + str(model.degree)
-model_predictions.plot_3D_modelPredictions_byWishart(xref_raw, x1_raw,\
+model_predictions.plot_3D_modelPredictions_byWishart(xref_raw, \
         xref_jnp, x1_jnp, np.transpose(xgrid,(1,0,2,3)), gt_covMat, Sigmas_est_grid,\
         recover_fitEllipsoid_scaled, gt_slice_2d_ellipse, pred_slice_2d_ellipse,\
         visualize_samples = True, saveFig = True, figDir = fig_outputDir,\
