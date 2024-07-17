@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Jul 15 23:37:26 2024
+Created on Wed Jul 17 14:36:54 2024
 
 @author: fangfang
 """
@@ -9,63 +9,10 @@ Created on Mon Jul 15 23:37:26 2024
 import jax
 jax.config.update("jax_enable_x64", True)
 
-import jax.numpy as jnp
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-import pickle
 import numpy as np
-import os
-import sys
-import imageio.v2 as imageio
-from matplotlib.colors import LinearSegmentedColormap
-#load functions from other modules
-sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
 
-#%%set path and load another file
-# Define a dictionary to map plane names to indices
-plane_2D_dict    = {'GB plane': 0, 'RB plane': 1, 'RG plane': 2}
-# Select the current plane of interest
-plane_2D         = 'RG plane' 
-# Get the index of the current plane from the dictionary
-plane_2D_idx     = plane_2D_dict[plane_2D]
-# Create a list of indices representing RGB planes and remove the index of the current plane
-varying_RGBplane = list(range(3)); varying_RGBplane.remove(plane_2D_idx)
-
-# Set the path to the directory containing model fitting data files
-path_str_WP      = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                   'ELPS_analysis/ModelFitting_DataFiles/2D_oddity_task/'  
-file_fits        = f'Fitted_isothreshold_{plane_2D}_sim240perCond_'+\
-                   'samplingNearContour_jitter0.1_bandwidth0.005.pkl'
-full_path_fits   = f"{path_str_WP}{file_fits}"
-# Open and load the model fitting data from the pickle file
-with open(full_path_fits, 'rb') as f: data_load = pickle.load(f)
-W_est            = data_load['W_est']      #estimated weight matrix
-model            = data_load['model']      #model used for fitting
-opt_params       = data_load['opt_params'] #parameters used for optimization
-modelPred_ell    = data_load['recover_fitEllipse_unscaled']
-
-#%%  Grid settings
-# Number of coarse grid points used for plotting
-NUM_GRID_PTS      = 5  
-# Number of fine grid points used for detailed plotting
-NUM_GRID_PTS_FINE = 100  
-# Lower bound of RGB space in Wishart unit
-lb_W_unit         = -1  
-# Upper bound of RGB space in Wishart unit
-ub_W_unit         = 1  
-# Coarse grid for plotting, in the range -0.6 to 0.6
-xgrid_dim1        = jnp.linspace(-0.6, 0.6, NUM_GRID_PTS)
-# Normalize the grid to range from 0 to 1  
-xgrid_dim1_N_unit = (xgrid_dim1 + 1) / 2  
-# Fine grid for detailed plotting
-xgrid_dim1_fine   = jnp.linspace(lb_W_unit, ub_W_unit, NUM_GRID_PTS_FINE)  
-# Create a meshgrid for the fine grid
-xgrid_fine        = jnp.stack(jnp.meshgrid(*[xgrid_dim1_fine \
-                                             for _ in range(model.num_dims)]), axis=-1) 
-# Compute the estimated covariance matrices for the fine grid
-Sigmas_est_grid   = model.compute_Sigmas(model.compute_U(W_est, xgrid_fine))  
-
-#%% plotting
+#%%
 def plot_2D_covMat(axes, fig, Sigmas_est, ellipses, xgrid_N_unit, **kwargs):
     """
     Sigmas_est (np.array, size: N x N x 2 x 2 where N is the number of grid poitns sampled finely)
@@ -79,14 +26,14 @@ def plot_2D_covMat(axes, fig, Sigmas_est, ellipses, xgrid_N_unit, **kwargs):
         'bds_W_unit': [-1,1],  
         'cmap': 'PRGn',
         'plane_2D': '',
-        'title_list':[[r'$\sigma^2_{(1,1)}$', r'$\sigma_{(1,2)}$'],\
-                      [r'$\sigma_{(2,1)}$', '$\sigma^2_{(2,2)}$']],
+        'title_list':[[r'$\sigma^2_{dim1}$', r'$\sigma_{(dim1,dim2)}$'],\
+                      [r'$\sigma_{(dim2,dim1)}$', r'$\sigma^2_{dim2}$']],
         'cmap_bds': [],
         'fontsize': 12,
         'flag_rescale_axes_label':True,
         'saveFig':False,
         'figDir':'',
-        'figName':'3D_randRef_nearContourComp'} 
+        'figName_ext':''} 
     pltP.update(kwargs)
     
     degree = 2 
@@ -115,7 +62,7 @@ def plot_2D_covMat(axes, fig, Sigmas_est, ellipses, xgrid_N_unit, **kwargs):
             axes[i, j].plot([0, num_grid_fine], [xgrid_scaled_p,xgrid_scaled_p],\
                             c = 'grey',lw = 0.5)
             # Calculate the scaled position for the vertical line
-            xgrid_scaled_q = xgrid_N_unit[q]*num_grid_fine
+            xgrid_scaled_q = xgrid_N_unit[pltP['slc_idx_dim2']]*num_grid_fine
             # Draw vertical line
             axes[i, j].plot([xgrid_scaled_q, xgrid_scaled_q],\
                             [0, num_grid_fine], c = 'grey',lw = 0.5)
@@ -149,7 +96,8 @@ def plot_2D_covMat(axes, fig, Sigmas_est, ellipses, xgrid_N_unit, **kwargs):
     for pp in range(num_grid):
         for qq in range(num_grid):
             # Plot ellipses based on the model predictions
-            if pp < p or (pp == pltP['slc_idx_dim1'] and qq <= pltP['slc_idx_dim2']):
+            if pp < pltP['slc_idx_dim1'] or (pp == pltP['slc_idx_dim1'] \
+                                             and qq <= pltP['slc_idx_dim2']):
                 ax_ell.plot(ellipses[num_grid-1-pp,qq,0],\
                             ellipses[num_grid-1-pp,qq,1],c='k')
     # ticks and title
@@ -176,36 +124,9 @@ def plot_2D_covMat(axes, fig, Sigmas_est, ellipses, xgrid_N_unit, **kwargs):
     # Show the plot
     plt.subplots_adjust(left=0.05, right=0.95, top=0.925, bottom=0.2)
     plt.show()
-    fig_name = f'CovarianceMatrix_{plane_2D}_{(p*num_grid+q):02d}.png' 
+    fig_counter = pltP['slc_idx_dim1']*num_grid+pltP['slc_idx_dim2']
+    fig_name = 'CovarianceMatrix_'+pltP['plane_2D']+pltP['figName_ext']+f'_{fig_counter:02d}.png' 
     if len(pltP['figDir']) !=0 and pltP['saveFig']:
-        full_path = f"{fig_outputDir}{fig_name}"
+        figDir = pltP['figDir']
+        full_path = f"{figDir}{fig_name}"
         fig.savefig(full_path) 
-  
-#%%
-# Define the file name and output directory for model fitting data files
-fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                        'ELPS_analysis/WishartPractice_FigFiles/CovarianceMatrix_2d/'
-# Define titles for subplots using the first two letters of the plane
-ttl_list = [[r'$\sigma^2_{' + plane_2D[0] + '}$', r'$\sigma_{' + plane_2D[0:2] + '}$'],\
-            [r'$\sigma_{' + plane_2D[0:2] + '}$', '$\sigma^2_{' + plane_2D[1] + '}$']]
-    
-flag_saveFig = False
-for p in range(NUM_GRID_PTS):
-    for q in range(NUM_GRID_PTS):
-        plt.rcParams['figure.dpi'] = 250 
-        fig, axes = plt.subplots(2, 4, figsize=(8,4), sharex=True, sharey=True)
-        plot_2D_covMat(axes, fig, Sigmas_est_grid, modelPred_ell, xgrid_dim1_N_unit,\
-                    plane_2D, slc_idx_dim1 = p, slc_idx_dim2 = q, \
-                    title_list = ttl_list)
-        
-#%% make a gif
-if flag_saveFig:
-    images = [img for img in os.listdir(fig_outputDir) \
-              if img.startswith(f'CovarianceMatrix_{plane_2D}') and img.endswith('.png')]
-    images.sort()  # Sort the images by name (optional)
-    image_list = [imageio.imread(f"{fig_outputDir}/{img}") for img in images]
-    # Create a GIF
-    gif_name = f'CovarianceMatrix_{plane_2D}.gif'
-    output_path = f"{fig_outputDir}{gif_name}" 
-    imageio.mimsave(output_path, image_list, fps=2)  
-    
