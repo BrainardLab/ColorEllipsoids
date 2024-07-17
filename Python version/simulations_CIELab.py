@@ -517,6 +517,7 @@ def plot_3D_randRef_nearContourComp(ax, fig, xref, xcomp, **kwargs):
         'comp_markersize': 4,
         'comp_markeralpha': 0.8,        
         'fontsize':8,
+        'flag_rescale_axes_label':True,
         'saveFig':False,
         'figDir':'',
         'figName':'3D_randRef_nearContourComp'} 
@@ -544,9 +545,15 @@ def plot_3D_randRef_nearContourComp(ax, fig, xref, xcomp, **kwargs):
     ax.set_xticks(ticks)
     ax.set_yticks(ticks)
     ax.set_zticks(ticks)
+    if pltP['flag_rescale_axes_label']:
+        ax.set_xticklabels([str((f+1)/2) for f in ticks])
+        ax.set_yticklabels([str((f+1)/2) for f in ticks])
+        ax.set_zticklabels([str((f+1)/2) for f in ticks])
     ax.set_xlabel('R')
     ax.set_ylabel('G')
     ax.set_zlabel('B')
+    ttl = '3D RGB space ' + ' (n = ' +str(xref.shape[0])+')' if pltP['flag_add_trialNum_title'] else pltP['plane_2D']
+    ax.set_title(ttl, fontsize=pltP['fontsize'])
     ax.grid(True)
     ax.set_aspect('equal')
     ax.tick_params(axis='both', which='major', labelsize= pltP['fontsize'])
