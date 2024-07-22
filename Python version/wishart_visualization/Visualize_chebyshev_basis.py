@@ -20,6 +20,7 @@ import jax.numpy as jnp
 import os
 import imageio.v2 as imageio
 import pickle
+from Wishart_plotting import plot_basis_functions_3D
 
 # Set the output directory for figures
 fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
@@ -79,66 +80,6 @@ fig.tight_layout()
 full_path = os.path.join(fig_outputDir,'Chebyshev_basis_functions_2D.png') 
 #fig.savefig(full_path) 
 
-#%% 3D Chebyshev Visualization
-def plot_basis_functions_3D(XG, YG, ZG, M, **kwargs):
-    pltP = {
-        'figSize':(8,9),
-        'xlim':[-1.05, 1.05],
-        'ylim':[-1.05, 1.05],
-        'zlim':[-1.05, 1.05],
-        'saveFig':False,
-        'saveGif':False,
-        'figDir':'',
-        'figName':'Chebyshev_basis_function',
-        } 
-    pltP.update(kwargs)
-    fig_outputDir = pltP['figDir']
-    
-    nbins = M.shape[0]
-    num_dim1, num_dim2 = M.shape[3:5]
-    # Color map
-    for l in range(nbins):
-        plt.rcParams['figure.dpi'] = 250 
-        # Create a 3D plot
-        #since we can only visualize 2D basis function, the 3rd dimension is 
-        #illustrated as time dimension
-        fig, ax = plt.subplots(num_dim1, num_dim2, figsize= pltP['figSize'],\
-                               subplot_kw={'projection': '3d'})
-        for i in range(num_dim1):
-            for j in range(num_dim2): 
-                max_val = np.max([-np.min(M), np.max(M)])
-                ax[i, j].plot_surface(XG[:,:,l], ZG[:,:,l], YG[:,:,l],\
-                    facecolors=cmap(((M[:,:,l,i,j] + max_val)/ (2*max_val+1e-10))),
-                    rstride=1, cstride=1)
-                
-                ax[i, j].set_xticks([])
-                ax[i, j].set_xticklabels([])
-                ax[i, j].set_yticklabels([])
-                ax[i, j].set_zticks([])
-                ax[i, j].set_zticklabels([])
-                ax[i, j].set_xlim(pltP['xlim'])
-                ax[i, j].set_ylim(pltP['ylim'])
-                ax[i, j].set_zlim(pltP['zlim'])
-                ax[i, j].view_init(20,-75)
-                ax[i, j].set_aspect('equal')
-                ax[i, j].set_autoscale_on(False)
-        plt.subplots_adjust(left=None, bottom=None, right=None, top=None,\
-                            wspace=-0.1, hspace=-0.1)
-        plt.show()
-        if pltP['saveFig'] and pltP['figDir'] != '':
-            fig_name = pltP['figName'] + f'_slice{l:02}'
-            full_path = os.path.join(pltP['figDir'],fig_name+'.png') 
-            fig.savefig(full_path)   
-    if pltP['saveFig'] and pltP['figDir'] != '' and pltP['saveGif']:
-        # make a gif
-        images = [img for img in os.listdir(pltP['figDir']) if img.startswith(fig_name[:-2])]
-        images.sort()  # Sort the images by name (optional)
-        image_list = [imageio.imread(f"{fig_outputDir}/{img}") for img in images]
-        # Create a GIF
-        gif_name = fig_name[:-8] + '.gif'
-        output_path = f"{fig_outputDir}{gif_name}" 
-        imageio.mimsave(output_path, image_list, fps=2)  
-        
 #%% Visualize 3D basis functions
 # Create 3D meshgrids from the provided `grid` array for x, y, and z coordinates respectively.
 X_mesh, Y_mesh, Z_mesh = np.meshgrid(grid, grid, grid)
