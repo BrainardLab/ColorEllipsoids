@@ -40,9 +40,12 @@ class wishart_model_basics_visualization:
             fig (Figure): The matplotlib figure object to save.
             fig_name (str): The filename under which to save the figure.
         """
-        full_path = os.path.join(self.fig_dir, fig_name)
-        fig.savefig(full_path, dpi=self.pltP['dpi'])
-        
+        if os.path.exists(self.fig_dir):
+            full_path = os.path.join(self.fig_dir, fig_name)
+            fig.savefig(full_path, dpi=self.pltP['dpi'])
+        else:
+            raise FileNotFoundError(f"The directory {self.fig_dir} does not exist.")
+
     def _save_gif(self, gif_name, fig_name_start, fig_name_end = '.png', fps = 2):
         """
         Compiles a sequence of images into a GIF and saves it to the specified directory.
@@ -360,7 +363,7 @@ class wishart_model_basics_visualization:
             self._save_figure(fig, self.pltP['fig_name'])
 
 #%%
-    def plot_basis_functions_3D(self, degree, XG, YG, ZG, M, **kwargs):
+    def plot_basis_functions_3D(self, XG, YG, ZG, M, **kwargs):
         """
             Visualizes selected slices of 3D Chebyshev basis functions over time.
         
@@ -369,13 +372,12 @@ class wishart_model_basics_visualization:
             Chebyshev basis functions. Each slice is treated as a time step, providing 
             a series of 2D plots that represent how the basis functions evolve over 
             the third dimension, conceptualized as time.
+            
+            This script is also used to visualize selected slices of weigthed sum
+            of basis functions (U), as well as 3D covariance matrices (Sigmas)
         
             Parameters
             ----------
-            degree : int
-                The degree of the Chebyshev polynomial, determining the number of 
-                subplots per slice. Each subplot corresponds to a different polynomial 
-                order combination in the first two dimensions.
             XG, YG, ZG : array-like, shape (N, N, N)
                 3D grids representing the x, y, and z coordinates in the cube, respectively. 
                 These grids define the points at which the basis functions are evaluated.
@@ -398,13 +400,15 @@ class wishart_model_basics_visualization:
         cmap = plt.get_cmap(self.pltP['cmap'])
         
         nbins = M.shape[0]  # Number of bins (slices) in the third dimension.
+        ndim1 = M.shape[-2]
+        ndim2 = M.shape[-1]
         for l in range(nbins):
             # Create a new figure with 3D subplots for each time point.
-            fig, ax = plt.subplots(degree, degree, dpi = self.pltP['dpi'],\
+            fig, ax = plt.subplots(ndim1, ndim2, dpi = self.pltP['dpi'],\
                                    figsize = self.pltP['fig_size'],\
                                    subplot_kw={'projection': '3d'})
-            for i in range(degree):
-                for j in range(degree): 
+            for i in range(ndim1):
+                for j in range(ndim2): 
                     max_val = np.max([-np.min(M), np.max(M)])
                     # Plot the basis functions.
                     ax[i, j].plot_surface(XG[:,:,l], ZG[:,:,l], YG[:,:,l],\
@@ -419,11 +423,11 @@ class wishart_model_basics_visualization:
             plt.subplots_adjust(left=None, bottom=None, right=None, top=None,\
                                 wspace=-0.1, hspace=-0.1)
             plt.show()
-            self.pltP['fig_name'] += f'_slice{l:02}.png'
+            fig_name = self.pltP['fig_name']+ f'_slice{l:02}.png'
             if len(self.fig_dir) !=0 and self.save_fig:
-                self._save_figure(fig, self.pltP['fig_name'])
+                self._save_figure(fig, fig_name)
         if self.save_gif:
-            self._save_gif(self.pltP['fig_name'][:-7], self.pltP['fig_name'][:-7])
+            self._save_gif(self.pltP['fig_name'], self.pltP['fig_name'])
 
 #%% 
     def plot_W_selected_slice(self, degree, W, basis_orders, slc_slice=[0,0], **kwargs):
@@ -449,7 +453,8 @@ class wishart_model_basics_visualization:
 
         """
         
-        # Copy the default settings and update them with any method-specific settings.        
+        # Copy the default settings and update them with any method-specific settings.   
+        self.ndims = 2
         method_specific_settings = {
             'fig_size': (5,5),
             'cmap':'RdBu',
@@ -473,8 +478,8 @@ class wishart_model_basics_visualization:
                             fontsize=20, ha='center', va='center')
             self._update_axes_labels(ax, [],[])
             ax.grid(which='minor', color='black', linestyle='-', linewidth=0.5)
-        if len(self.fig_dir) !=0 and self.save_fig:
-            self._save_figure(fig, self.pltP['fig_name']+f'_degree{i}_{slc_slice}.png')
+            if len(self.fig_dir) !=0 and self.save_fig:
+                self._save_figure(fig, self.pltP['fig_name']+f'_degree{i}_{slc_slice}.png')
 
 
 

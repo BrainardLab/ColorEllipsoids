@@ -67,7 +67,7 @@ def plot_benchmark_similarity(ax, similarity_score, bin_edges, **kwargs):
     pltP = {
         'cmap':[],
         'linestyle':[],
-        'jitter':np.zeros((1,nSets)),
+        'jitter':np.zeros((nSets)),
         } 
     pltP.update(kwargs)
     

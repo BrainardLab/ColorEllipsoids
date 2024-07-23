@@ -527,6 +527,7 @@ def plot_3D_randRef_nearContourComp(ax, fig, xref, xcomp, **kwargs):
     color_map_ref = (xref + 1) / 2  # Ensure the colors are within [0,1]
     color_map_comp = (xcomp + 1) / 2
     ticks = np.unique(xref)
+    if len(ticks) > 5: ticks = np.linspace(-1,1,5)
     
     ax.scatter(xref[:, 0], xref[:, 1], xref[:, 2], c=color_map_ref,\
                marker= pltP['ref_marker'], s= pltP['ref_markersize'], \

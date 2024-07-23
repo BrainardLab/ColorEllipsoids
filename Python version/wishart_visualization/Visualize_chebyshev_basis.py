@@ -9,13 +9,10 @@ Created on Fri Jun  7 16:13:50 2024
 from jax import config
 config.update("jax_enable_x64", True)
 import numpy as np
-import matplotlib.pyplot as plt
-from numpy.polynomial.chebyshev import chebval, chebval2d
 import sys
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
 from core import chebyshev
 import jax.numpy as jnp
-import os
 import pickle
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/"+\
                 "Python version/wishart_visualization")
@@ -23,7 +20,7 @@ from wishart_plotting import wishart_model_basics_visualization
 
 # Set the output directory for figures
 fig_outputDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                        'ELPS_analysis/WishartPractice_FigFiles/'
+                'ELPS_analysis/WishartPractice_FigFiles/'
                         
 #%% Chebyshev Visualization
 # Degree of the Chebyshev polynomial
@@ -37,15 +34,13 @@ basis_coeffs = chebyshev.chebyshev_basis(degree)
  # Evaluate Chebyshev polynomials at the grid points
 lg = chebyshev.evaluate(basis_coeffs, grid)
 
-# 1D
-visualize_basis1D = wishart_model_basics_visualization(fig_dir=fig_outputDir,\
-                                             save_fig=False, save_gif=False)
-visualize_basis1D.plot_basis_function_1d(degree, grid, lg)
+# 1D plot
+visualize_basis_1D_2D = wishart_model_basics_visualization(\
+        fig_dir=fig_outputDir +'Chebyshev_basis_functions/',  save_fig=False)
+visualize_basis_1D_2D.plot_basis_function_1d(degree, grid, lg)
 
 # 2D Chebyshev Visualization
-visualize_basis2D = wishart_model_basics_visualization(fig_dir=fig_outputDir,\
-                                             save_fig=False, save_gif=False)
-visualize_basis2D.plot_basis_function_2D(degree, grid)
+visualize_basis_1D_2D.plot_basis_function_2D(degree, grid)
 
 #%% Visualize 3D basis functions
 # Create 3D meshgrids from the provided `grid` array for x, y, and z coordinates respectively.
@@ -66,13 +61,13 @@ phi = (chebyshev.evaluate(basis_coeffs, XYZ_mesh[:,0])[:,:,None,None] *\
 phi_org = np.reshape(phi, (nbins, nbins, nbins, degree, degree, degree))
 
 # Loop through each degree of the Chebyshev polynomials.
-visualize_basis3D = wishart_model_basics_visualization(fig_dir=fig_outputDir,\
-                                             save_fig=False, save_gif=False)
+visualize_basis3D = wishart_model_basics_visualization(\
+        fig_dir=fig_outputDir +'Chebyshev_basis_functions/', save_fig=True, save_gif=True)
 for i in range(degree):        
     # Plot 3D basis functions for each degree using the calculated values in `phi_org`,
     # and save the plots and GIFs to a specified directory.
-    visualize_basis3D.plot_basis_functions_3D(X_mesh, Y_mesh, Z_mesh,\
-            phi_org[:,:,:,:,:,i], fig_name = 'Chebyshev_3D_basis_function_degree'+str(i+1))
+    visualize_basis3D.plot_basis_functions_3D(degree, X_mesh, Y_mesh, Z_mesh,\
+            phi_org[:,:,:,:,:,i], fig_name = f'Chebyshev_3D_basis_function_degree{i+1}')
 
 #%% load W from a file that contains estimated W matrix
 # Define the file name and output directory for model fitting data files
@@ -97,16 +92,17 @@ basis_orders = (
     jnp.arange(degree)[None, :, None] + 
     jnp.arange(degree)[None, None, :]
 )
-
+# weighted basis functions, a.k.a., U
 U = np.einsum('ijkxyz, xyzpq -> ijkpq', phi_org, W_est)
 
 # Weight matrix
 visualize_basis3D.fig_dir = fig_outputDir + 'Estimated_W_matrix/'
 visualize_basis3D.plot_W_selected_slice(degree, W_est, basis_orders,\
                                         slc_slice = [0,0])
-# Visualize weighted basis functions, a.k.a., U
-visualize_basis3D.fig_dir = fig_outputDir
-visualize_basis3D.plot_basis_functions_3D(X_mesh, Y_mesh, Z_mesh,\
+# Visualize U
+visualize_U = wishart_model_basics_visualization(fig_dir=fig_outputDir +\
+        'U_given_estimatedWeightMatrix/', save_fig=True, save_gif=True)
+visualize_U.plot_basis_functions_3D(X_mesh, Y_mesh, Z_mesh,\
         U, fig_size = (8,7), fig_name = 'U_given_estimatedWeightMatrix')
 
 #%% Visualize positive semi-definite covariance matrices computed using U
@@ -117,7 +113,8 @@ Sigmas_subset = Sigmas[slc_idx][:,slc_idx][:,:,slc_idx]
 #quick sanity check
 if np.all(np.abs(Sigmas_est_grid - Sigmas_subset) < 1e-10): print('sanity check passed!')
 #plot
-visualize_basis3D.plot_basis_functions_3D(X_mesh, Y_mesh, Z_mesh,\
+visualize_U.fig_dir = fig_outputDir + 'CovarianceMatrix/'
+visualize_U.plot_basis_functions_3D(X_mesh, Y_mesh, Z_mesh,\
         Sigmas, fig_size = (6,6.5), fig_name ='CovarianceMatrix')
 
 
