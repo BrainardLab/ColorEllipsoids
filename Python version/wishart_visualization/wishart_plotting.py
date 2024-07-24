@@ -32,7 +32,7 @@ class wishart_model_basics_visualization:
             'dpi':256
                 }
         
-    def _save_figure(self, fig, fig_name):
+    def _save_figure(self, fig, fig_name, bbox_inches=None, pad_inches=0.1):
         """
         Saves the given figure to the specified directory with a provided filename.
     
@@ -40,9 +40,14 @@ class wishart_model_basics_visualization:
             fig (Figure): The matplotlib figure object to save.
             fig_name (str): The filename under which to save the figure.
         """
+        # Append '.png' if the filename does not already end with '.png'
+        if not fig_name.endswith('.png'):
+            fig_name += '.png'
+    
         if os.path.exists(self.fig_dir):
             full_path = os.path.join(self.fig_dir, fig_name)
-            fig.savefig(full_path, dpi=self.pltP['dpi'])
+            fig.savefig(full_path, dpi=self.pltP['dpi'],\
+                        bbox_inches=bbox_inches, pad_inches=pad_inches)
         else:
             raise FileNotFoundError(f"The directory {self.fig_dir} does not exist.")
 
@@ -62,7 +67,10 @@ class wishart_model_basics_visualization:
         images.sort()  # Sort the images by name (optional)
         image_list = [imageio.imread(f"{self.fig_dir}/{img}") for img in images]
         # Create a GIF
-        output_path = f"{self.fig_dir}{gif_name}.gif"
+        # Append '.png' if the filename does not already end with '.png'
+        if not gif_name.endswith('.gif'):
+            gif_name += '.gif'
+        output_path = f"{self.fig_dir}{gif_name}"
         imageio.mimsave(output_path, image_list, fps= fps)  
         
     def _configure_colormap(self, val):
@@ -75,7 +83,7 @@ class wishart_model_basics_visualization:
         max_val = np.max(np.abs(val))
         self.pltP['cmap_bds'] = [-max_val, max_val]
         
-    def _update_axes_limits(self, ax, lim):
+    def _update_axes_limits(self, ax, lim = [-1,1]):
         """
         Sets uniform limits for axes of a plot, extending to 3D if applicable.
         
@@ -99,7 +107,7 @@ class wishart_model_basics_visualization:
             nsteps (int): Interval for selecting ticks and labels.
         """
 
-        if len(unit_true) == 0:
+        if ~np.any(np.array(unit_true)):
             ax.set_xticks([])
             ax.set_yticks([])
             if self.ndims == 3: ax.set_zticks([])
@@ -126,16 +134,28 @@ class wishart_model_basics_visualization:
         Parameters:
             ax (Axes): The matplotlib axes object to modify.
         """
-
-        if self.pltP['plane_2D'] in ['RG plane', 'GB plane', 'RB plane']:
-            ax.set_xlabel(self.pltP['plane_2D'][0], fontsize=self.pltP['fontsize'])
-            ax.set_ylabel(self.pltP['plane_2D'][1], fontsize=self.pltP['fontsize'])
-            ax.set_title(self.pltP['plane_2D'], fontsize=self.pltP['fontsize'])
-        else:
-            # Default labels when plane_2D is not specified
-            ax.set_xlabel('Dim 1', fontsize=self.pltP['fontsize'])
-            ax.set_ylabel('Dim 2', fontsize=self.pltP['fontsize'])
-            ax.set_title('2D plane', fontsize=self.pltP['fontsize'])
+        if self.ndims == 2:
+            if self.pltP['plane_2D'] in ['RG plane', 'GB plane', 'RB plane']:
+                ax.set_xlabel(self.pltP['plane_2D'][0], fontsize=self.pltP['fontsize'])
+                ax.set_ylabel(self.pltP['plane_2D'][1], fontsize=self.pltP['fontsize'])
+                ax.set_title(self.pltP['plane_2D'], fontsize=self.pltP['fontsize'])
+            else:
+                # Default labels when plane_2D is not specified
+                ax.set_xlabel('Dim 1', fontsize=self.pltP['fontsize'])
+                ax.set_ylabel('Dim 2', fontsize=self.pltP['fontsize'])
+                ax.set_title('2D plane', fontsize=self.pltP['fontsize'])
+        elif self.ndims == 3:
+            if len(self.pltP['plane_3D'])>=3:
+                #default
+                ax.set_xlabel(self.pltP['plane_3D'][0], fontsize=self.pltP['fontsize'])
+                ax.set_ylabel(self.pltP['plane_3D'][1], fontsize=self.pltP['fontsize'])
+                ax.set_zlabel(self.pltP['plane_3D'][2], fontsize=self.pltP['fontsize']) 
+                ax.set_title(self.pltP['plane_3D'], fontsize=self.pltP['fontsize'])
+            else:
+                ax.set_xlabel('Dim 1', fontsize=self.pltP['fontsize'])
+                ax.set_ylabel('Dim 2', fontsize=self.pltP['fontsize'])
+                ax.set_ylabel('Dim 3', fontsize=self.pltP['fontsize'])
+                ax.set_title('3D plane', fontsize=self.pltP['fontsize'])
             
 #%% 
     def plot_basis_function_1d(self, degree, grid, cheby_func, **kwargs):
