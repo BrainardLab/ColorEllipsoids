@@ -47,7 +47,8 @@ visualize_basis_1D_2D.plot_basis_function_2D(degree, grid)
 X_mesh, Y_mesh, Z_mesh = np.meshgrid(grid, grid, grid)
 # Stack the flattened x, y, and z arrays into a single matrix and then transpose it,
 # resulting in a matrix where each row represents a point (x, y, z) in the 3D space.
-XYZ_mesh = np.transpose(np.stack((X_mesh.flatten(), Y_mesh.flatten(), Z_mesh.flatten())),(1,0))
+XYZ_mesh = np.transpose(np.stack((X_mesh.flatten(), Y_mesh.flatten(), \
+                                  Z_mesh.flatten())),(1,0))
 
 # Evaluate Chebyshev polynomials for each coordinate (x, y, z) and compute their outer product.
 # This results in a high-dimensional array where each element represents the product of
@@ -62,7 +63,8 @@ phi_org = np.reshape(phi, (nbins, nbins, nbins, degree, degree, degree))
 
 # Loop through each degree of the Chebyshev polynomials.
 visualize_basis3D = wishart_model_basics_visualization(\
-        fig_dir=fig_outputDir +'Chebyshev_basis_functions/', save_fig=True, save_gif=True)
+        fig_dir=fig_outputDir +'Chebyshev_basis_functions/',\
+        save_fig=False, save_gif=False)
 for i in range(degree):        
     # Plot 3D basis functions for each degree using the calculated values in `phi_org`,
     # and save the plots and GIFs to a specified directory.

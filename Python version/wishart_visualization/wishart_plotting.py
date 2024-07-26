@@ -158,7 +158,7 @@ class wishart_model_basics_visualization:
                 ax.set_title('3D plane', fontsize=self.pltP['fontsize'])
             
 #%% 
-    def plot_basis_function_1d(self, degree, grid, cheby_func, **kwargs):
+    def plot_basis_function_1d(self, degree, grid, cheby_func, ax = None, **kwargs):
         """
         Plot a series of 1D Chebyshev polynomial basis functions.
     
@@ -194,18 +194,22 @@ class wishart_model_basics_visualization:
         self.pltP.update(kwargs) 
         
         # Create a figure and a set of subplots with shared x and y axes.
-        fig, axes = plt.subplots(degree, 1, figsize=self.pltP['fig_size'],\
-                                 sharex=True, sharey=True)
+        if ax is None:
+            fig, ax = plt.subplots(degree, 1, figsize=self.pltP['fig_size'],\
+                                             sharex=True, sharey=True)
+        else:
+            fig = ax.figure
         for i in range(degree):
-            axes[i].plot(grid,cheby_func[:,i], color = 'k', \
-                         linewidth = self.pltP['linewidth'])
-            axes[i].set_aspect('equal')
+            ax[i].plot(grid,cheby_func[:,i], color = 'k', linewidth = self.pltP['linewidth'])
+            ax[i].set_aspect('equal')
         plt.show()
         if len(self.fig_dir) !=0 and self.save_fig:
             self._save_figure(fig, self.pltP['fig_name'])
+            
+        return fig, ax
 
 #%%
-    def plot_2D_covMat(self, axes, fig, Sigmas_est, ellipses, xgrid_N_unit, **kwargs):
+    def plot_2D_covMat(self, Sigmas_est, ellipses, xgrid_N_unit, ax = None, **kwargs):
         """
         Visualizes the covariance matrices and corresponding ellipses to represent the shape
         and orientation influenced by the estimated sigma values at specific grid locations.
@@ -255,39 +259,46 @@ class wishart_model_basics_visualization:
         num_grid = ellipses.shape[0]
         # Adjusted grid unit scale for plotting.
         xgrid_W_unit = xgrid_N_unit*2 - 1
+        
+        if ax is None:
+            # Create a figure with subplots arranged in a square grid.
+            fig, ax = plt.subplots(2, 4, figsize=(8,4), dpi = self.pltP['dpi'],\
+                                 sharex=True, sharey=True)
+        else:
+            fig = ax.figure
                 
         for i in range(self.ndims):
             for j in range(self.ndims):      
                 # Plot the covariance matrix using a heatmap
-                im = axes[i, j].imshow(Sigmas_est[:,:,i,j], cmap = self.pltP['cmap'],\
+                im = ax[i, j].imshow(Sigmas_est[:,:,i,j], cmap = self.pltP['cmap'],\
                                   vmin = self.pltP['cmap_bds'][0], vmax = self.pltP['cmap_bds'][1])
                 # Calculate the scaled position for the horizontal line
                 xgrid_scaled_p = xgrid_N_unit[num_grid-self.pltP['slc_idx_dim1']-1]*num_grid_fine
                 # Draw horizontal line
-                axes[i, j].plot([0, num_grid_fine], [xgrid_scaled_p,xgrid_scaled_p],\
+                ax[i, j].plot([0, num_grid_fine], [xgrid_scaled_p,xgrid_scaled_p],\
                                 c = 'grey',lw = 0.5)
                 # Calculate the scaled position for the vertical line
                 xgrid_scaled_q = xgrid_N_unit[self.pltP['slc_idx_dim2']]*num_grid_fine
                 # Draw vertical line
-                axes[i, j].plot([xgrid_scaled_q, xgrid_scaled_q],\
+                ax[i, j].plot([xgrid_scaled_q, xgrid_scaled_q],\
                                 [0, num_grid_fine], c = 'grey',lw = 0.5)
                 # Mark the intersection point
-                axes[i, j].scatter(xgrid_scaled_q, xgrid_scaled_p, c = 'k', s = 10)
+                ax[i, j].scatter(xgrid_scaled_q, xgrid_scaled_p, c = 'k', s = 10)
                 # ticks and title
                 if self.pltP['flag_rescale_axes_label']:
-                    self._update_axes_labels(axes[i,j], xgrid_N_unit*num_grid_fine,\
+                    self._update_axes_labels(ax[i,j], xgrid_N_unit*num_grid_fine,\
                                              xgrid_N_unit, nsteps = 2)
                 else:
-                    self._update_axes_labels(axes[i,j], xgrid_N_unit*num_grid_fine,\
+                    self._update_axes_labels(ax[i,j], xgrid_N_unit*num_grid_fine,\
                                              xgrid_W_unit, nsteps = 2)  
-                self._update_axes_limits(axes[i,j], [0,num_grid_fine-1])
-                axes[i, j].set_title(self.pltP['title_list'][i][j])
+                self._update_axes_limits(ax[i,j], [0,num_grid_fine-1])
+                ax[i, j].set_title(self.pltP['title_list'][i][j])
         
         # Remove the axes that will be merged into the big plot
-        plt.delaxes(axes[0, 2])
-        plt.delaxes(axes[0, 3])
-        plt.delaxes(axes[1, 2])
-        plt.delaxes(axes[1, 3])
+        plt.delaxes(ax[0, 2])
+        plt.delaxes(ax[0, 3])
+        plt.delaxes(ax[1, 2])
+        plt.delaxes(ax[1, 3])
         
         cbar_ax = fig.add_axes([0.065, 0.1, 0.4, 0.02])  # [left, bottom, width, height]
         fig.colorbar(im, cax=cbar_ax, orientation='horizontal')
@@ -320,8 +331,10 @@ class wishart_model_basics_visualization:
         if len(self.fig_dir) !=0 and self.save_fig:
             self._save_figure(fig, self.pltP['fig_name'])
             
+        return fig, ax
+            
 #%%
-    def plot_basis_function_2D(self, degree, grid, **kwargs):
+    def plot_basis_function_2D(self, degree, grid, ax = None, **kwargs):
         """
         Plot 2D Chebyshev basis functions on a specified grid.
     
@@ -355,9 +368,13 @@ class wishart_model_basics_visualization:
         # Initialize a grid for storing coefficients of the 2D polynomials.
         cg = np.zeros((degree, degree))
         
-        # Create a figure with subplots arranged in a square grid.
-        fig, axes = plt.subplots(degree, degree, figsize= self.pltP['fig_size'],\
-                                 sharex=True, sharey=True)
+        if ax is None:
+            # Create a figure with subplots arranged in a square grid.
+            fig, ax = plt.subplots(degree, degree, figsize= self.pltP['fig_size'],\
+                                     sharex=True, sharey=True)
+        else:
+            fig = ax.figure
+
         for i in range(degree):
             for j in range(degree):
                 # Activate the (i, j)th term by setting its coefficient to 1.
@@ -366,21 +383,23 @@ class wishart_model_basics_visualization:
                 zg_2d = chebval2d(xg, yg, cg)
                 
                 # Display the result as an image in the corresponding subplot.
-                axes[i, j].imshow(zg_2d, cmap = self.pltP['cmap'], \
+                ax[i, j].imshow(zg_2d, cmap = self.pltP['cmap'], \
                                   vmin = self.pltP['cmap_bds'][0], \
                                   vmax = self.pltP['cmap_bds'][1])
                 # Reset the coefficient for the next iteration.
                 cg[i, j] = 0.0
                 
                 # Update axis labels and limits to make the plots cleaner.
-                self._update_axes_labels(axes[i,j], [], [])
-                self._update_axes_limits(axes[i,j], [0,grid.shape[0]-1])
+                self._update_axes_labels(ax[i,j], [], [])
+                self._update_axes_limits(ax[i,j], [0,grid.shape[0]-1])
                 
                 # Set a title for each subplot to indicate the polynomial degrees.
-                axes[i, j].set_title(f"({i}, {j})", fontsize = self.pltP['fontsize'])
+                ax[i, j].set_title(f"({i}, {j})", fontsize = self.pltP['fontsize'])
         plt.tight_layout()
         if len(self.fig_dir) !=0 and self.save_fig:
             self._save_figure(fig, self.pltP['fig_name'])
+        
+        return fig, ax
 
 #%%
     def plot_basis_functions_3D(self, XG, YG, ZG, M, **kwargs):

@@ -66,7 +66,7 @@ Sigmas_est_grid   = model.compute_Sigmas(model.compute_U(W_est, xgrid_fine))
 
 #%%
 visualize_sigma2D = wishart_model_basics_visualization(fig_dir=fig_outputDir,\
-                                             save_fig=True, save_gif=True)
+                                             save_fig=False, save_gif=False)
     
 # Define titles for subplots using the first two letters of the plane
 ttl_list = [[r'$\sigma^2_{' + plane_2D[0] + '}$', r'$\sigma_{' + plane_2D[0:2] + '}$'],\
@@ -74,9 +74,7 @@ ttl_list = [[r'$\sigma^2_{' + plane_2D[0] + '}$', r'$\sigma_{' + plane_2D[0:2] +
     
 for p in range(NUM_GRID_PTS):
     for q in range(NUM_GRID_PTS):
-        fig, axes = plt.subplots(2, 4, figsize=(8,4), dpi = visualize_sigma2D.pltP['dpi'],\
-                                 sharex=True, sharey=True)
-        visualize_sigma2D.plot_2D_covMat(axes, fig, Sigmas_est_grid, modelPred_ell,\
+        visualize_sigma2D.plot_2D_covMat(Sigmas_est_grid, modelPred_ell,\
                     xgrid_dim1_N_unit, slc_idx_dim1 = p, slc_idx_dim2 = q, \
                     title_list = ttl_list, plane_2D = plane_2D)
         
@@ -109,19 +107,14 @@ for p in range(NUM_GRID_PTS):
         ellipses_rand[p,q] = PointsOnEllipseQ(*axes_lengths*2, theta, *xgrid[p,q], nTheta = 200)
 
 #%%
-visualize_sigma2D_rand = wishart_model_basics_visualization(fig_dir=fig_outputDir,\
-                                             save_fig=True, save_gif=True)
-    
 for p in range(NUM_GRID_PTS):
     for q in range(NUM_GRID_PTS):
-        fig, axes = plt.subplots(2, 4, figsize=(8,4),  dpi = visualize_sigma2D.pltP['dpi'],\
-                                 sharex=True, sharey=True)
-        visualize_sigma2D_rand.plot_2D_covMat(axes, fig, Sigmas_test_grid_fine, ellipses_rand,\
+        visualize_sigma2D.plot_2D_covMat(Sigmas_test_grid_fine, ellipses_rand,\
                        xgrid_dim1_N_unit, slc_idx_dim1 = p, slc_idx_dim2 = q,\
                        figName_ext = f'decayRate{model_test.decay_rate}_seed222')
 
 #save as a gif
-if visualize_sigma2D_rand.save_gif: 
-    visualize_sigma2D_rand._save_gif(visualize_sigma2D_rand.pltP['fig_name'][:-7], \
-                                   visualize_sigma2D_rand.pltP['fig_name'][:-7])
+if visualize_sigma2D.save_gif: 
+    visualize_sigma2D._save_gif(visualize_sigma2D.pltP['fig_name'][:-7], \
+                                   visualize_sigma2D.pltP['fig_name'][:-7])
 
