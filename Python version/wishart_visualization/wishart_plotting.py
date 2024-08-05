@@ -96,29 +96,49 @@ class wishart_model_basics_visualization:
         if self.ndims == 3: 
             ax.set_zlim(lim)
         
-    def _update_axes_labels(self, ax, unit_true, unit_show, nsteps = 2):
+    def _update_axes_labels(self, ax, unit_true_x, unit_show_x, unit_true_y = None,
+                            unit_show_y = None, unit_true_z = None, unit_show_z = None,
+                            nsteps = 2):
         """
         Sets ticks and labels for plot axes, adapting to the number of dimensions.
+        If there is no input unit_true_y and unit_show_y, it means they are the 
+        same as x axis. 
         
         Parameters:
             ax (Axes): The matplotlib axes object to modify.
-            unit_true (list): Actual data points for tick positions.
-            unit_show (list): Values to display at tick positions.
+            unit_true_x (list): Actual data points for tick positions.
+            unit_show_x (list): Values to display at tick positions.
             nsteps (int): Interval for selecting ticks and labels.
+            
         """
-
-        if ~np.any(np.array(unit_true)):
+        #default is 2d plot
+        #if there is no input y ticks and y label, we assume they are the same
+        #as the x ticks and x label
+        if unit_true_y is None and unit_show_y is None:
+            unit_true_y = unit_true_x
+            unit_show_y = unit_show_x
+            
+        #if we do not want to have any tickmarks 
+        if ~np.any(np.array(unit_true_x)):
             ax.set_xticks([])
             ax.set_yticks([])
-            if self.ndims == 3: ax.set_zticks([])
-        else:
-            ax.set_xticks(unit_true[::nsteps])
-            ax.set_yticks(unit_true[::nsteps])
-            ax.set_xticklabels([f"{x:.2f}" for x in unit_show[::nsteps]])
-            ax.set_yticklabels([f"{x:.2f}" for x in unit_show[::nsteps]])
-            if self.ndims == 3: 
-                ax.set_zticks(unit_true[::nsteps])
-                ax.set_zticklabels([f"{x:.2f}" for x in unit_show[::nsteps]])
+        else: #otherwise
+            ax.set_xticks(unit_true_x[::nsteps])
+            ax.set_yticks(unit_true_y[::nsteps])
+            ax.set_xticklabels([f"{x:.2f}" for x in unit_show_x[::nsteps]])
+            ax.set_yticklabels([f"{x:.2f}" for x in unit_show_y[::nsteps]])
+            
+        #if the plot is a 3d
+        if self.ndims == 3:
+            if unit_true_z is None and unit_show_z is None:
+                unit_true_z = unit_true_x
+                unit_show_z = unit_show_x
+            if ~np.any(np.array(unit_true_z)):
+                ax.set_zticks([])
+            else:
+                ax.set_zticks(unit_true_z[::nsteps])
+                ax.set_zticklabels([f"{x:.2f}" for x in unit_show_z[::nsteps]])
+                
         self.pltP['xticks'] = ax.get_xticks()
         self.pltP['yticks'] = ax.get_yticks()
         self.pltP['xticklabels'] = ax.get_xticklabels()

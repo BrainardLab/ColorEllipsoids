@@ -9,7 +9,6 @@ Created on Tue Jul 23 17:39:59 2024
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
 import ast
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/"+\
                 "Python version/wishart_visualization/")
@@ -161,6 +160,7 @@ class AEPsych_predictions_visualization(wishart_model_basics_visualization):
         else:
             ax.set_title('')
             
+    #%%        
     def plot_2D_predictions(self, server, pseudo_order, xgrid, ax = None, **kwargs):
         self.ndims = 2
         # Initialize method-specific settings and update with any additional configurations provided.
@@ -194,13 +194,14 @@ class AEPsych_predictions_visualization(wishart_model_basics_visualization):
         # Set the y and x ticks with appropriate scaling and labels
         xticks = np.linspace(lb_bds[0], ub_bds[0], 5)
         yticks = np.linspace(lb_bds[1], ub_bds[1], 5)
-        self._update_axes_labels(ax, xticks, self._rgb_to_N_units(xticks))
-        self._update_axes_labels(ax, yticks, self._rgb_to_N_units(yticks))
+        self._update_axes_labels(ax, xticks, self._rgb_to_N_unit(xticks),\
+                                 unit_true_y = yticks,\
+                                 unit_show_y = self._rgb_to_N_unit(yticks))
         
         if self.pltP['visualize_gt'] and self.pltP['gt_2D_ellipse'].shape[0] != 0:
             # Calculate the center of the RGB bounds and convert it to a normalized range
             center_rgb = (np.array(ub_bds) - np.array(lb_bds))/ 2 + np.array(lb_bds)
-            center = self._rgb_to_W_units(center_rgb)
+            center = self._rgb_to_W_unit(center_rgb)
             
             # Find indices of the closest grid points to the center in the x and y directions
             x_idx = np.argmin(np.abs(np.unique(xgrid) - center[1]))
@@ -214,13 +215,14 @@ class AEPsych_predictions_visualization(wishart_model_basics_visualization):
         
         output_filename = self.fig_dir +  self.pltP['fig_name']
         plot_strat(server_org, ax = ax, target_level = None, gridsize = 100,\
-               xlabel = self.pltP['xlabel'], ylabel = self.pltP['ylabel'],\
-               save_path = output_filename, include_colorbar=True, show=False,\
-               yes_label = self.plt['yes_label'], no_label = self.plt['no_label'])
+                   xlabel = self.pltP['xlabel'], \
+                   ylabel = self.pltP['ylabel'], save_path = output_filename,\
+                   include_colorbar=True, show=False, yes_label = self.pltP['yes_label'],\
+                   no_label = self.pltP['no_label'])
             
         return fig, ax
     
-            
+    #%% 
     def plot_3D_predictions(self, strat, ref, indices, lb_comp, ub_comp,
                             fixed_dim, ax = None, **kwargs):
         """
@@ -349,4 +351,81 @@ class AEPsych_predictions_visualization(wishart_model_basics_visualization):
             self._save_figure(fig, self.pltP['fig_name'] + str_ext)
             
         return fig, ax
+
+#%%
+    def plot_4D_predictions(self, strat, dim1_val, dim2_val, lb_comp, ub_comp, fixed_dim,\
+                            fixed_val, ax = None, **kwargs):
+        method_specific_settings = {
+            'str_dim': ['R', 'G', 'B'],
+            'str_plane': ['GB plane', 'RB plane', 'RG plane'],
+            'visualize_gt': False,
+            'gt_2D_ellipse': np.array([]),
+            'gt_2D_ellipse_scaler':5,
+            'gt_ls':'-',
+            'gt_color': np.array([1,1,1]),
+            'gt_lw':3,
+            'visualize_data': True,
+            'data_yes_color': np.array([107,142,35])/255,
+            'data_no_color': np.array([128,0,0])/255,
+            'data_mc': 20,
+            'data_marker':'.',
+            'data_alpha':1,
+            'flag_rescale_axes_label':True,
+            'fontsize':8,
+            'fig_name':'RandomSamples'}
+        
+        self.pltP.update(method_specific_settings)
+        self.pltP.update(kwargs)  # Apply any external configurations
+        
+        if ax is None:
+            fig, ax = plt.subplots(nrows=len(dim1_val), ncols=len(dim2_val),\
+                                    dpi= self.pltP['dpi'], figsize=(10,10))
+        else:
+            fig = ax.figure
+        
+        ticks  = np.array([lb_comp/2,0,ub_comp/2])
+        
+        for row_idx, r in enumerate(dim1_val):
+            for col_idx, m in enumerate(dim2_val):
+                
+                ax_ij = ax[row_idx][col_idx]
+                
+                plot_slice(ax_ij, strat, server.parnames, [0,1],\
+                           [r, m], 0.333, 1, contour_levels= [0.78], gridsize=100)
+                
+                r_W_unit = self._rgb_to_W_unit(r)
+                m_W_unit = self._rgb_to_W_unit(m)
+                
+                # Find indices where the match is True
+                idx1 = np.argmin(np.abs(R_val_W_unit - r_W_unit))
+                idx2 = np.argmin(np.abs(R_val_W_unit - m_W_unit))
+                
+                if self.pltP['visualize_gt'] and self.pltP['gt_2D_ellipse'].shape[0]:
+                    # recenter
+                    gt_recenter = self.pltP['gt_2D_ellipse'][idx1,idx2] - np.reshape(xgrid[idx1, idx2],(2,1))
+                    gt_recenter = gt_recenter/2 * 255
+                    
+                    ax_ij.plot(gt_recenter[0], gt_recenter[1], linestyle = self.pltP['gt_ls'],
+                               c = self.pltP['gt_color'], lw = self.pltP['gt_lw'])
+                ax_ij.set_xlim([lb_comp[0]/2, ub_comp[0]/2])
+                ax_ij.set_ylim([lb_comp[1]/2, ub_comp[1]/2])
+                
+                self._update_subplots_axes_labels(ax_ij, len(dim1_val),\
+                                                  row_idx, col_idx,\
+                                                  ticks, self._rgb_to_N_unit(ticks),\
+                                                  ticks, self._rgb_to_N_unit(ticks),\
+                                                  fixed_dim, fixed_val)
+        return fig, ax 
+
+
+
+
+
+
+
+
+
+
+
+
 
