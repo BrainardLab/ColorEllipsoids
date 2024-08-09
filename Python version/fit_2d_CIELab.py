@@ -11,7 +11,6 @@ This fits a Wishart Process model to the simulated data using the CIELab color s
 #%% import modules
 import jax
 jax.config.update("jax_enable_x64", True)
-
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import pickle
@@ -23,7 +22,7 @@ from core import optim, oddity_task
 from core.wishart_process import WishartProcessModel
 from analysis.color_thres import color_thresholds
 from core.model_predictions import wishart_model_pred
-from plotting.wishart_predictions_plotting import wishart_predictions_visualization
+from plotting.wishart_predictions_plotting import WishartPredictionsVisualization
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version')
 from data_reorg import organize_data
 
@@ -45,9 +44,7 @@ output_fileDir = baseDir + 'ELPS_analysis/ModelFitting_DataFiles/2D_oddity_task/
 path_str      = baseDir + 'ELPS_analysis/Simulation_DataFiles/'
 # Create an instance of the class
 color_thres_data = color_thresholds(2, baseDir + 'ELPS_analysis/',
-                                    fixed_value = 0.5, 
-                                    plane_2D = plane_2D,
-                                    fixed_color_dim = plane_2D_idx)
+                                    plane_2D = plane_2D)
 # Load Wishart model fits
 color_thres_data.load_CIE_data()
 stim = color_thres_data.get_data('stim2D', dataset = 'CIE_data')
@@ -159,7 +156,7 @@ class sim_data:
         self.x1_all = x1_all
 sim_trial_by_CIE = sim_data(xref_jnp, x1_jnp)
 
-wishart_pred_vis = wishart_predictions_visualization(sim_trial_by_CIE,
+wishart_pred_vis = WishartPredictionsVisualization(sim_trial_by_CIE,
                                                      model, 
                                                      model_pred_Wishart, 
                                                      color_thres_data,
