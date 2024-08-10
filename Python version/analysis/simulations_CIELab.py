@@ -10,7 +10,6 @@ from scipy.io import loadmat
 import colour
 import numpy as np
 from scipy.optimize import minimize
-import matplotlib.pyplot as plt
 import sys
 import os
 
