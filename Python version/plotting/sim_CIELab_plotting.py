@@ -16,8 +16,89 @@ class CIELabVisualization(WishartModelBasicsVisualization):
 
         super().__init__(fig_dir, save_fig, save_gif)
         self.sim_CIE = sim_CIE
+    
+    def plot_primaries(self, rgb = None, ax = None, **kwargs):
+        #default values for optional parameters
+        method_specific_settings = {
+            'figsize':(2,2),
+            'visualize_primaries': True,
+            'cmap': np.array([[178,34,34], [0, 100,0],[0,0,128]])/255,
+            'ls':[':','-','--'],
+            'ylim': [],
+            'lw':2,
+            'fontsize':10,
+            'fig_name':'Monitor_primaries',
+            }
         
-   # def plot_RGB_to_LAB(self, RGB, LAB, sampled_points, ax = None):
+        # Update plot parameters with method-specific settings and external configurations.
+        self.pltP.update(method_specific_settings)
+        self.pltP.update(kwargs) 
+        
+        # Create a new figure and axes if not provided.
+        if ax is None:
+            fig, ax =  plt.subplots(1, 1, dpi = self.pltP['dpi'], figsize = self.pltP['figsize'])
+        else:
+            fig = ax.figure
+            
+        if self.pltP['visualize_primaries']:
+            for i in range(self.sim_CIE.nPlanes):
+                ax.plot(self.sim_CIE.B_MONITOR[:,i],
+                        c = self.pltP['cmap'][i],
+                        lw = self.pltP['lw'])
+        if rgb is not None:
+            for j in range(rgb.shape[1]):
+                spd_j = self.sim_CIE.B_MONITOR @ rgb[:,j]
+                ax.plot(spd_j, c= 'k', 
+                        linestyle = self.pltP['ls'][j],
+                        lw = self.pltP['lw'])
+            if len(self.pltP['ylim']) != 0:
+                ax.set_ylim(self.pltP['ylim'])
+            ax.set_xticks([])
+            ax.set_yticks([])
+        # Save the plot with bbox_inches='tight' to ensure labels are not cropped
+        if len(self.fig_dir) !=0 and self.save_fig:
+            plt.savefig(self.fig_dir + self.pltP['fig_name'])
+        return fig, ax
+    
+        
+    def plot_Tcones(self, ax = None, **kwargs):
+        #default values for optional parameters
+        method_specific_settings = {
+            'cmap': np.array([[178,34,34], [0, 100,0],[0,0,128]])/255,
+            'ylim': [],
+            'fontsize':10,
+            'fig_name':'T_cones',
+            }
+        
+        # Update plot parameters with method-specific settings and external configurations.
+        self.pltP.update(method_specific_settings)
+        self.pltP.update(kwargs) 
+        
+        # Create a new figure and axes if not provided.
+        if ax is None:
+            fig, ax =  plt.subplots(1, 1, dpi = self.pltP['dpi'], figsize = (2,2))
+        else:
+            fig = ax.figure
+
+        for i in range(self.sim_CIE.nPlanes):
+            ax.plot(self.sim_CIE.T_CONES[i], c = self.pltP['cmap'][i])
+            if len(self.pltP['ylim']) != 0:
+                ax.set_ylim(self.pltP['ylim'])
+            ax.set_xticks([])
+            ax.set_yticks([])
+        # Save the plot with bbox_inches='tight' to ensure labels are not cropped
+        if len(self.fig_dir) !=0 and self.save_fig:
+            plt.savefig(self.fig_dir + self.pltP['fig_name'])
+        return fig, ax
+    
+    def plot_LMS_XYZ(self, val, ax = None, **kwargs):
+        # Create a new figure and axes if not provided.
+        if ax is None:
+            fig, ax =  plt.subplots(1, 1, dpi = self.pltP['dpi'], figsize = (2,2))
+        else:
+            fig = ax.figure
+        ax.bar(list(range(3)), val, color = [0.5,0.5,0.5])
+        
     def plot_RGB_to_LAB(self, ref_rgb, ref_lab, ax = None, **kwargs):
         #default values for optional parameters
         method_specific_settings = {
@@ -87,7 +168,7 @@ class CIELabVisualization(WishartModelBasicsVisualization):
         # Project the surface onto the YZ plane (X = min(X))
         ax[1].scatter(xylim[0] * np.ones_like(A_slc_f), B_slc_f, L_slc_f,
                         c=colors_flat, edgecolor='none', 
-                        marker = 'o',s = 5,  alpha=0.02)
+                        marker = 'o',s = 4,  alpha=0.02)
 
         ax[1].set_xlim(xylim); ax[1].set_ylim(xylim); ax[1].set_zlim(zlim)
         ax[1].set_xticks(self.pltP['lab_ticks']); ax[1].set_yticks(self.pltP['lab_ticks'])

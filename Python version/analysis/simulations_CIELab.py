@@ -147,10 +147,8 @@ class SimThresCIELab:
         
         #RGB -> SPD
         color_Spd = self.B_MONITOR @ color_RGB
-    
         #SPD -> LMS
         color_LMS = self.T_CONES @ color_Spd
-     
         #LMS -> XYZ
         color_XYZ = self.M_LMS_TO_XYZ @ color_LMS
     

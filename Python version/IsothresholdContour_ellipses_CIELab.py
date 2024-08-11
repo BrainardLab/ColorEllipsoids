@@ -8,8 +8,6 @@ This is a temporary script file.
 import sys
 import numpy as np
 import pickle
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/"+\
                 "Python version")
 from analysis.simulations_CIELab import SimThresCIELab
@@ -101,7 +99,7 @@ for p in range(sim_thres_CIELab.nPlanes):
 #%% PLOTTING AND SAVING DATA
 sim_CIE_vis = CIELabVisualization(sim_thres_CIELab,
                                   fig_dir=output_figDir, 
-                                  save_fig= True)
+                                  save_fig= False)
 
 grid_est = np.stack((X,Y), axis = 2)
 sim_CIE_vis.plot_2D(grid_est, 
@@ -114,15 +112,13 @@ sim_CIE_vis.plot_2D(grid_est,
                     fig_name = 'Isothreshold_contour_2D')
 
 #%%
-viewing_angle = [[30,-25],[30,-40], [30,-75]]
+viewing_angle = [[30,-25],[30,-15], [30,-75]]
 lab_comp = np.full(plane_points.shape,np.nan)
 for p in range(sim_thres_CIELab.nPlanes):
     #for each chromatic direction
     for i in range(nGridPts_ref_fine):
         for j in range(nGridPts_ref_fine):
             rgb_comp_slc_ij = plane_points[p,:,i,j]
-            #fun minimize to search for the magnitude of vector that 
-            #leads to a pre-determined deltaE
             lab_comp[p,:,i,j],_,_ = sim_thres_CIELab.convert_rgb_lab(rgb_comp_slc_ij)
     sim_CIE_vis.plot_RGB_to_LAB(plane_points[p], 
                                 lab_comp[p], 
