@@ -99,7 +99,7 @@ for p in range(sim_thres_CIELab.nPlanes):
 #%% PLOTTING AND SAVING DATA
 sim_CIE_vis = CIELabVisualization(sim_thres_CIELab,
                                   fig_dir=output_figDir, 
-                                  save_fig= False)
+                                  save_fig= True)
 
 grid_est = np.stack((X,Y), axis = 2)
 sim_CIE_vis.plot_2D(grid_est, 
@@ -109,7 +109,7 @@ sim_CIE_vis.plot_2D(grid_est,
                     ell_lc = [1,1,1],
                     ref_mc = [1,1,1],
                     rgb_background = np.transpose(plane_points,(0,2,3,1)),
-                    fig_name = 'Isothreshold_contour_2D')
+                    fig_name = 'Isothreshold_contour_2D.pdf')
 
 #%%
 viewing_angle = [[30,-25],[30,-15], [30,-75]]
@@ -125,6 +125,21 @@ for p in range(sim_thres_CIELab.nPlanes):
                                 lab_viewing_angle = viewing_angle[p],
                                 fig_name = f'RGB_to_CIELab_conversion{p}.pdf')
 
+#%%
+#sim_CIE_vis.plot_primaries(fig_name = 'Monitor_primaries.pdf')
+rgb_instances = np.stack((sim_thres_CIELab.background_rgb, np.array([0.5, 0.8, 0.2])), axis = 1)
+sim_CIE_vis.plot_primaries(rgb = rgb_instances, figsize = (3,3),
+                           visualize_primaries = False,
+                           fig_name = 'spd_background.pdf')
+#sim_CIE_vis.plot_Tcones(fig_name = 'T_cones.pdf')
+color_CIE_background, color_XYZ_background, color_LMS_background = \
+    sim_thres_CIELab.convert_rgb_lab(sim_thres_CIELab.background_rgb)
+
+color_CIE_eg, color_XYZ_eg, color_LMS_eg = \
+    sim_thres_CIELab.convert_rgb_lab(np.array([0.5, 0.8, 0.2]))
+
+print(color_CIE_background)
+print(color_CIE_eg)
 
 #%%save to CSV
 file_name   = f'Isothreshold_contour_CIELABderived_fixedVal{fixed_RGBvec}.pkl'

@@ -91,14 +91,6 @@ class CIELabVisualization(WishartModelBasicsVisualization):
             plt.savefig(self.fig_dir + self.pltP['fig_name'])
         return fig, ax
     
-    def plot_LMS_XYZ(self, val, ax = None, **kwargs):
-        # Create a new figure and axes if not provided.
-        if ax is None:
-            fig, ax =  plt.subplots(1, 1, dpi = self.pltP['dpi'], figsize = (2,2))
-        else:
-            fig = ax.figure
-        ax.bar(list(range(3)), val, color = [0.5,0.5,0.5])
-        
     def plot_RGB_to_LAB(self, ref_rgb, ref_lab, ax = None, **kwargs):
         #default values for optional parameters
         method_specific_settings = {
@@ -220,7 +212,8 @@ class CIELabVisualization(WishartModelBasicsVisualization):
         for p in range(self.sim_CIE.nPlanes):
             if self.pltP['rgb_background'] is not None:
                 #fill in RGB color
-                ax[p].imshow(self.pltP['rgb_background'][p], extent = [0,1,0,1])
+                ax[p].imshow(self.pltP['rgb_background'][p], extent = [0,1,0,1],
+                             origin='lower')
             
             #Ground truth
             for i in range(num_grid_pts_x):
@@ -233,8 +226,8 @@ class CIELabVisualization(WishartModelBasicsVisualization):
                     
                     #ellipses
                     ax[p].plot(*fitEllipse[p,i,j],
-                              linestyle = self.pltP['ell_ls'],\
-                              color = self.pltP['ell_lc'],\
+                              linestyle = self.pltP['ell_ls'],
+                              color = self.pltP['ell_lc'],
                               linewidth = self.pltP['ell_lw'])
                         
                     #thresholds
@@ -249,7 +242,7 @@ class CIELabVisualization(WishartModelBasicsVisualization):
             self.pltP['plane_2D'] = self.sim_CIE.plane_2D_list[p]
             self._configure_labels_and_title(ax[p])
         # Show the figure after all subplots have been drawn
-        plt.show()
         if len(self.fig_dir) !=0 and self.save_fig:
-            self._save_figure(fig, self.pltP['fig_name'])
+            plt.savefig(self.fig_dir + self.pltP['fig_name'])
+        plt.show()
         return fig, ax
