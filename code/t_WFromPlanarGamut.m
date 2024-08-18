@@ -11,7 +11,7 @@ clear; close all;
 setpref('BrainardLabToolbox','CalDataFolder','/Users/dhb/Aguirre-Brainard Lab Dropbox/David Brainard/CNST_materials/ColorTrackingTask/calData');
 whichCalFile = 'ViewSonicG220fb_670.mat';
 whichCalNumber = 4;
-nDeviceBits = 8;
+nDeviceBits = 14;
 whichCones = 'ss2';
 cal = LoadCalFile(whichCalFile,whichCalNumber,getpref('BrainardLabToolbox','CalDataFolder'));
 
@@ -68,7 +68,7 @@ T_Y = T_xyz(2,:);
 SetSensorColorSpace(calObjXYZ,T_xyz,Scolor);
 
 %% Compute ambient
-ambientCones = SettingsToSensor(calObjCones,[0 0 0]');
+ambientLMS = SettingsToSensor(calObjCones,[0 0 0]');
 ambientXYZ = SettingsToSensor(calObjXYZ,[0 0 0']');
 
 %% Compute the background, taking quantization into account
@@ -162,7 +162,7 @@ for aa = 1:nAngles
     % Get the settings that as closely as possible approximate what we
     % want.  One of these should be very close to 1 or 0, and none should
     % be less than 0 or more than 1.
-    [gamutSettings,badIndex] = PrimaryToSettings(calObjCones,gamutPrimaryDir + bgPrimary);
+    [gamutSettings(:,aa),badIndex] = PrimaryToSettings(calObjCones,gamutPrimaryDir + bgPrimary);
     if (any(badIndex))
         error('Somehow settings got out of gamut\n');
     end
@@ -171,11 +171,12 @@ for aa = 1:nAngles
     % then convert to contrast as our maximum contrast in this direction.
     %
     % Dividing by imageScaleFactor handles the sine phase of the Gabor
-    gamutLMS(:,aa) = SettingsToSensor(calObjCones,gamutSettings);
+    gamutLMS(:,aa) = SettingsToSensor(calObjCones,gamutSettings(:,aa));
     gamutContrast(:,aa) = ExcitationToContrast(gamutLMS(:,aa),bgLMS);
     gamutDKL(:,aa) = M_ConeIncToDKL*M_ConeContrastToConeInc*gamutContrast(:,aa);
     vectorLengthGamutContrast(aa) = norm(gamutContrast(:,aa));
 end
+gamutDKLPlane = gamutDKL(2:3,:);
 
 % Make a plot of the gamut in the DKL isoluminantplane
 figure; clf; hold on;
@@ -187,5 +188,85 @@ plot(gamutDKL(2,:),gamutDKL(3,:),'k','LineWidth',2);
 axis('square');
 xlabel('DKL L/(L+M)')
 ylabel('DKL S');
-%saveas(gcf,fullfile(figureDir,sprintf('MonitorGamutFigure_%s.pdf',whichExperiment)),'pdf');
 
+%% Let's try to find the corners
+%
+% First define the corners that we think could be there,
+% by defining the line segments a plane could intersect.
+theGamutLineSegmentsPrimary = {[ [0 0 0]' [1 0 0]' ] ...
+                               [ [0 0 0]' [0 1 0]' ] ...
+                               [ [0 0 0]' [0 0 1]' ] ...
+                               [ [1 0 0]' [1 1 0]' ] ...
+                               [ [1 0 0]' [1 0 1]' ] ...
+                               [ [0 1 0]' [1 1 0]' ] ...
+                               [ [0 1 0]' [0 1 1]' ] ...
+                               [ [0 0 1]' [1 0 1]' ] ...
+                               [ [0 0 1]' [0 1 1]' ] ...
+                               [ [1 1 0]' [1 1 1]' ] ...
+                               [ [0 1 1]' [1 1 1]' ] ...
+                               [ [1 0 1]' [1 1 1]' ] ...
+                               };
+
+% Convert each of these into DKL
+for ll = 1:length(theGamutLineSegmentsPrimary)
+    theGamutLineSegmentsLMS{ll} = PrimaryToSensor(calObjCones,theGamutLineSegmentsPrimary{ll});
+    theGamutLineSegmentsContrast{ll} = ExcitationToContrast(theGamutLineSegmentsLMS{ll},bgLMS);
+    theGamutLineSegmentsDKL{ll} = M_ConeIncToDKL*M_ConeContrastToConeInc*theGamutLineSegmentsContrast{ll};
+end
+
+% Define the plane we'll intersect with these line segments
+bgDKL = [0 0 0]';
+planeBasisDKL = [ [0 1 0]' [0 0 1]' ];
+
+% Find each intersection point of plane with the line.  This
+% involves solving a set of linear equations for each line segment
+% and checking whether the intersection is between the two
+% endpoints.
+for ll = 1:length(theGamutLineSegmentsPrimary)
+    lineSegmentBase = theGamutLineSegmentsDKL{ll}(:,1);
+    lineSegmentDelta = theGamutLineSegmentsDKL{ll}(:,2) - theGamutLineSegmentsDKL{ll}(:,1);
+    lhs = [planeBasisDKL -lineSegmentDelta];
+    rhs =  lineSegmentBase - bgDKL;
+    intersectionVector = lhs\rhs;
+    lineSegmentFactor(ll) = intersectionVector(3);
+
+    % These two ways of computing the intersecting point should agree as
+    % that is the equation we solved
+    intersectingPoints(:,ll) = planeBasisDKL*intersectionVector(1:2) + bgDKL;
+    intersectingPoints1(:,ll) = lineSegmentBase + lineSegmentFactor(ll)*lineSegmentDelta;
+    if (lineSegmentFactor(ll) >= 0 && lineSegmentFactor(ll) <= 1)
+        corner(ll) = true;
+        plot(intersectingPoints(2,ll),intersectingPoints(3,ll),'bo','MarkerFaceColor','b','MarkerSize',14);
+        plot(intersectingPoints1(2,ll),intersectingPoints1(3,ll),'ro','MarkerFaceColor','r','MarkerSize',10);
+    else
+        corner(ll) = false;
+    end
+end
+
+% Select out the corner coordinates in 2D
+cornerIndices = find(corner);
+cornerPointsDKLPlane = intersectingPoints1(2:3,cornerIndices);
+bgDKLPlane = bgDKL(2:3);
+
+% If there are 4 corners, try to map to W space.
+if (length(cornerIndices) == 4)
+    targetCorners = [ [-1 -1]' [-1 1]' [1 -1]' [1 1]' ];
+    M_DKLPlaneTo2DW = ((cornerPointsDKLPlane-bgDKLPlane)'\(targetCorners)')';
+    M_2DWToDLKPlane = inv(M_DKLPlaneTo2DW);
+    cornerPoints2DW = M_DKLPlaneTo2DW*(cornerPointsDKLPlane-bgDKLPlane);
+    gamut2DW = M_DKLPlaneTo2DW*(gamutDKLPlane-bgDKLPlane);
+
+    % Make a plot of the gamut in the DKL isoluminantplane
+    figure; clf; hold on;
+    % plot([-100 100],[0 0],'k:','LineWidth',0.5);
+    % plot([0 0],[-100 100],'k:','LineWidth',0.5);
+    plot(gamut2DW(1,:),gamut2DW(2,:),'k','LineWidth',2);
+    for cc = 1:length(cornerIndices)
+        plot(cornerPoints2DW(1,cc),cornerPoints2DW(2,cc),'bo','MarkerFaceColor','b','MarkerSize',14);
+    end
+    xlim([-1.5 1.5])
+    ylim([-1.5 1.5]);
+    axis('square');
+    xlabel('W space dim 1');
+    ylabel('W space dim 2');
+end
