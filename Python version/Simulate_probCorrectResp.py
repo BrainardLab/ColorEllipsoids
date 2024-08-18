@@ -53,14 +53,7 @@ def query_simCondition(default_value = 'R', default_str = 'NearContour',
         if square_ub != '':
             sim['range_randomSampling'] = [-float(square_ub), float(square_ub)]
         else: 
-            sim['range_randomSampling'] = [-default_ub, default_ub]
-    elif sim['method_sampling'] == 'Gaussian':
-        # QUESTION 3: For 'Random', ask for the upper bound of the square range.
-        scaler = input('Enter the scaler for the cov matrix (default: 1):')
-        if scaler != '':
-            sim['covMatrix_scaler'] = float(scaler)
-        else: 
-            sim['covMatrix_scaler'] = 1   
+            sim['range_randomSampling'] = [-default_ub, default_ub] 
     else:
         # If an invalid sampling method is entered, revert to default and ask 
         #for jitter variability.
@@ -147,22 +140,6 @@ def sample_rgb_comp_2DNearContour(rgb_ref, varying_RGBplane, slc_fixedVal,
     #set the fixed RGB dimension to the specificed fixed value for all simulations
     rgb_comp_sim[fixed_RGBplane,:] = slc_fixedVal;
     
-    return rgb_comp_sim
-
-def sample_rgb_comp_Gaussian(rgb_ref, varying_RGBplane, slc_fixedVal,
-                             covMatrix, nSims, scaler = 1):
-    #Identify the fixed RGB dimension by excluding the varying dimensions.
-    allPlans = set(range(3))
-    fixed_RGBplane = list(allPlans.difference(set(varying_RGBplane)))
-    rgb_ref = rgb_ref.reshape((len(varying_RGBplane),1)) 
-    
-    rgb_comp_sim = np.full((3,nSims), np.nan)
-    rgb_comp_sim_part1 = np.random.multivariate_normal(rgb_ref.reshape(\
-        (len(varying_RGBplane))), covMatrix * scaler, size = (nSims))    
-    rgb_comp_sim[varying_RGBplane,:] = rgb_comp_sim_part1.T
-    if len(fixed_RGBplane) != 0:
-        rgb_comp_sim[fixed_RGBplane,:] = slc_fixedVal
-
     return rgb_comp_sim
 
 def sample_rgb_comp_random(rgb_ref, varying_RGBplane, slc_fixedVal,

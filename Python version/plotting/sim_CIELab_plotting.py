@@ -8,6 +8,8 @@ Created on Mon Jul 29 11:15:34 2024
 
 import numpy as np
 import matplotlib.pyplot as plt
+import sys
+sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
 from plotting.wishart_plotting import WishartModelBasicsVisualization 
 
 #%%
