@@ -102,6 +102,11 @@ class CIELabVisualization(WishartModelBasicsVisualization):
             'lab_viewing_angle': [30,-25],
             'lab_ticks':[-60,0,60],
             'lab_lim_margin': 10,
+            'lab_xylim':None,
+            'lab_zlim':None,
+            'lab_scatter_ms':5,
+            'lab_scatter_alpha':0.5,
+            'lab_scatter_edgecolor':'none',
             'fontsize':10,
             'fig_name':'Isothreshold_contour',
             }
@@ -111,6 +116,8 @@ class CIELabVisualization(WishartModelBasicsVisualization):
         self.pltP.update(kwargs)  
         self.ndims = 3
         plt.rcParams['font.sans-serif'] = ['Arial']
+        # Set default font size for all elements
+        plt.rcParams.update({'font.size': self.pltP['fontsize']})
         
         # Create a new figure and axes if not provided.
         if ax is None:
@@ -141,32 +148,43 @@ class CIELabVisualization(WishartModelBasicsVisualization):
         A_slc_f = A_slc.flatten()
         B_slc_f = B_slc.flatten()
         ax[1].scatter(A_slc_f, B_slc_f, L_slc_f, c = colors_flat, 
-                   marker = 'o',s=5, edgecolor='none')
-
-        xymin = np.min([np.min(A_slc_f), np.min(B_slc_f)])
-        xymax = np.max([np.max(A_slc_f), np.max(B_slc_f)])
-        xylim = np.array([-1,1])* np.max([np.abs(xymin), xymax]) + np.array([-1,1])*self.pltP['lab_lim_margin']
-        zmin = np.min(L_slc_f)
-        zmax = np.max(L_slc_f)
-        zlim = np.array([zmin, zmax]) + np.array([-1,1])*self.pltP['lab_lim_margin']
+                   marker = 'o',s= self.pltP['lab_scatter_ms'],
+                   alpha = self.pltP['lab_scatter_alpha'],
+                   edgecolor= self.pltP['lab_scatter_edgecolor'])
+        
+        if self.pltP['lab_xylim'] is None: 
+            xymin = np.min([np.min(A_slc_f), np.min(B_slc_f)])
+            xymax = np.max([np.max(A_slc_f), np.max(B_slc_f)])
+            xylim = np.array([-1,1])* np.max([np.abs(xymin), xymax]) +\
+                np.array([-1,1])*self.pltP['lab_lim_margin']
+        else:
+            xylim = self.pltP['lab_xylim']
+            
+        if self.pltP['lab_zlim'] is None:
+            zmin = np.min(L_slc_f)
+            zmax = np.max(L_slc_f)
+            zlim = np.array([zmin, zmax]) + np.array([-1,1])*self.pltP['lab_lim_margin']
+        else:
+            zlim = self.pltP['lab_zlim']
         # Project the surface onto the XY plane (Z = min(Z))
         ax[1].scatter(A_slc_f, B_slc_f, zlim[0] * np.ones_like(B_slc_f),
-                        c=colors_flat, edgecolor='none',  
+                        c=colors_flat, edgecolor= self.pltP['lab_scatter_edgecolor'],  
                         marker = 'o',s = 2, alpha=0.05)
 
         # Project the surface onto the XZ plane (Y = max(Y))
         ax[1].scatter(A_slc_f, xylim[1] * np.ones_like(B_slc_f), L_slc_f,
-                        c=colors_flat, edgecolor='none', 
+                        c=colors_flat, edgecolor=self.pltP['lab_scatter_edgecolor'], 
                         marker = 'o',s= 4,  alpha=0.02)
 
         # Project the surface onto the YZ plane (X = min(X))
         ax[1].scatter(xylim[0] * np.ones_like(A_slc_f), B_slc_f, L_slc_f,
-                        c=colors_flat, edgecolor='none', 
+                        c=colors_flat, edgecolor=self.pltP['lab_scatter_edgecolor'], 
                         marker = 'o',s = 4,  alpha=0.02)
 
+        print(xylim)
         ax[1].set_xlim(xylim); ax[1].set_ylim(xylim); ax[1].set_zlim(zlim)
-        ax[1].set_xticks(self.pltP['lab_ticks']); ax[1].set_yticks(self.pltP['lab_ticks'])
         ax[1].set_xlabel('a'); ax[1].set_ylabel('b'); ax[1].set_zlabel('L')
+        ax[1].set_xticks(self.pltP['lab_ticks']); ax[1].set_yticks(self.pltP['lab_ticks'])
         ax[1].set_box_aspect([1,1,1])
         ax[1].set_title('CIELab space')
         ax[1].view_init(*self.pltP['lab_viewing_angle'])
@@ -248,3 +266,99 @@ class CIELabVisualization(WishartModelBasicsVisualization):
             plt.savefig(self.fig_dir + self.pltP['fig_name'])
         plt.show()
         return fig, ax
+      
+    #%%
+    @staticmethod
+    def visualize_stimuli_at_thres(s_rgb,  ax = None, label_rgb = True, **kwargs):
+        #default values for optional parameters
+        pltP = {
+            'dpi':256,
+            'fontsize':20,
+            'figName':'color_patches',
+            'save_fig': False,
+            'fig_dir':''
+        }
+        
+        pltP.update(kwargs)
+        
+        """
+        Visualizes a set of stimuli at threshold by displaying each as a square 
+        filled with its corresponding RGB color.
+        
+        Parameters:
+        - s_rgb (numpy.ndarray): Array of shape (3, n), where each column represents an RGB color.
+        - ax (matplotlib.axes.Axes, optional): Array of matplotlib axes. 
+            If None, a new figure and axes are created.
+        - label_rgb (bool, optional): Whether to label each square with its RGB values. 
+            Default is True.
+        
+        """
+        
+        # Determine the number of stimuli (i.e., the number of RGB values) to display.
+        n = s_rgb.shape[1]
+        # Create a new figure and axes if not provided.
+        if ax is None:
+            fig, ax =  plt.subplots(1, n,figsize=(n*4,6), dpi= pltP['dpi'])
+        else:
+            fig = ax.figure        
+            
+        # Loop through each RGB value and create a corresponding color square.
+        for i in range(n):
+            # Create a 1x1 square filled with the ith RGB color.
+            color_square = np.full((1, 1, 3), s_rgb[:,i])
+            # Display the color square using imshow on the ith axis.
+            ax[i].imshow(color_square, extent = [0,1,0,1])
+            # If label_rgb is True, add the RGB values as the title of the square.
+            if label_rgb:
+                # Convert the RGB values to integers and round them
+                rgb_int = np.round(color_square[0, 0, :] * 255).astype(int)
+                # Set the title with the RGB values
+                ax[i].set_title(f'r: {rgb_int[0]} \ng: {rgb_int[1]} \nb: {rgb_int[2]}', 
+                                fontsize = pltP['fontsize'])
+            # Remove the axes for better visualization 
+            ax[i].axis('off')
+        # Show the figure after all subplots have been drawn
+        if len(pltP['fig_dir']) !=0 and pltP['save_fig']:
+            plt.savefig(pltP['fig_dir'] + pltP['fig_name'])
+        # Display the plot
+        plt.show()
+            
+        return fig, ax
+        
+    @staticmethod
+    def plot_deltaE(deltaE, comp_rgb, ax = None, **kwargs):
+        #default values for optional parameters
+        pltP = {
+            'dpi':256,
+            'fontsize':10,
+            'fig_size': (3,4),
+            'ylim':[-2,30],
+            'marker_size': 200,
+            'lw':2,
+            'figName':'deltaE',
+            'save_fig': False,
+            'fig_dir':''
+        }
+        
+        pltP.update(kwargs)
+        plt.rcParams.update({'font.size': pltP['fontsize']})
+        
+        if ax is None:
+            fig, ax =  plt.subplots(1, 1,figsize= pltP['fig_size'], dpi= pltP['dpi'])
+        else:
+            fig = ax.figure         
+        x = np.array(list(range(len(deltaE))))
+        ax.plot(x, deltaE, lw= pltP['lw'], c = 'k')
+        ax.scatter(x, deltaE, c = comp_rgb, s = pltP['marker_size'])
+        ax.set_ylim(pltP['ylim'])
+        ax.set_xticks([])
+        ax.set_ylabel('Delta E')
+        ax.set_yticks(np.linspace(0, pltP['ylim'][1],5))
+        # Show the figure after all subplots have been drawn
+        if len(pltP['fig_dir']) !=0 and pltP['save_fig']:
+            plt.savefig(pltP['fig_dir'] + pltP['fig_name'])
+        plt.show()
+        return fig, ax
+        
+        
+        

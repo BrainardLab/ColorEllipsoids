@@ -21,29 +21,44 @@ output_fileDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
                 'ELPS_analysis/Simulation_DataFiles/'
 
 #%% LOAD DATA WE NEED
+# Define the path to the directory containing the necessary files for the simulation
 path_str = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/"+\
                 "FilesFromPsychtoolbox/"
-#set the background RGB
+# Set the background RGB color values used for normalization (in this case, a neutral gray)
 background_RGB = np.array([0.5,0.5,0.5])
+
+# Initialize the SimThresCIELab class with the path and background RGB values
 sim_thres_CIELab = SimThresCIELab(path_str, background_RGB)
-#for RG / RB / GB plane, we fix the B / G / R value to be one of the following
+# For RG, RB, and GB planes, fix the B, G, and R values respectively to be 0.5
 fixed_RGBvec = 0.5
-#First create a cube and select the RG, the RB and the GB planes
+# Define the lower and upper bounds for the varying color dimension in the fine grid
+lb_RGBvec_fine = 0
+ub_RGBvec_fine = 1
+# Set the number of grid points for the reference stimuli in the fine grid
 nGridPts_ref_fine = 100
-plane_points, _,_,_ = sim_thres_CIELab.get_planes(0, 1,
-                                           num_grid_pts= nGridPts_ref_fine,
-                                           fixed_val = fixed_RGBvec)
-#get the grid points for the reference stimuli of each plane
+# Generate 3 slices of 2D planes (GB, RB, RG) in the RGB color space
+# 'plane_points' has the shape (3 slices x 3 RGB values x 100 x 100 grid points)
+plane_points, _,_,_ = sim_thres_CIELab.get_planes(lb_RGBvec_fine, 
+                                                  ub_RGBvec_fine,
+                                                  num_grid_pts= nGridPts_ref_fine,
+                                                  fixed_val = fixed_RGBvec)
+
+# Define the lower and upper bounds for the varying color dimension in the coarse grid
+lb_RGBvec = 0.2
+ub_RGBvec = 0.8
+# Set the number of grid points for the reference stimuli in the coarse grid
 nGridPts_ref= 5
-ref_points, grid_ref, X, Y = sim_thres_CIELab.get_planes(0.2, 0.8,
+# Generate 3 slices of 2D planes (GB, RB, RG) in the RGB color space with the coarse grid
+ref_points, grid_ref, X, Y = sim_thres_CIELab.get_planes(lb_RGBvec, 
+                                                         ub_RGBvec,
                                                          num_grid_pts= nGridPts_ref,
                                                          fixed_val = fixed_RGBvec)
 
-#sample total of 16 directions (0 to 360 deg) 
+# Sample a total of 16 chromatic directions uniformly distributed from 0 to 360 degrees
 numDirPts = 16
 grid_theta_xy = sim_thres_CIELab.set_chromatic_directions(num_dir_pts= numDirPts) 
 
-#define threshold as deltaE = 1
+# Define the threshold value for deltaE (color difference in CIELab space) to be 1
 deltaE_1JND   = 1
 
 #%%make a finer grid for the direction (just for the purpose of visualization)
@@ -111,7 +126,7 @@ sim_CIE_vis.plot_2D(grid_est,
                     rgb_background = np.transpose(plane_points,(0,2,3,1)),
                     fig_name = 'Isothreshold_contour_2D.pdf')
 
-#%%
+#%% visualize RGB color space and CIELab color space
 viewing_angle = [[30,-25],[30,-15], [30,-75]]
 lab_comp = np.full(plane_points.shape,np.nan)
 for p in range(sim_thres_CIELab.nPlanes):
@@ -125,21 +140,92 @@ for p in range(sim_thres_CIELab.nPlanes):
                                 lab_viewing_angle = viewing_angle[p],
                                 fig_name = f'RGB_to_CIELab_conversion{p}.pdf')
 
-#%%
-#sim_CIE_vis.plot_primaries(fig_name = 'Monitor_primaries.pdf')
-rgb_instances = np.stack((sim_thres_CIELab.background_rgb, np.array([0.5, 0.8, 0.2])), axis = 1)
-sim_CIE_vis.plot_primaries(rgb = rgb_instances, figsize = (3,3),
+#%% visualize primaries of the monitor
+rgb_s_green = np.array([0.5, 0.8, 0.2])
+rgb_instances = np.stack((sim_thres_CIELab.background_rgb,rgb_s_green), 
+                         axis = 1)
+sim_CIE_vis.plot_primaries(rgb = rgb_instances, 
+                           figsize = (3,3),
                            visualize_primaries = False,
                            fig_name = 'spd_background.pdf')
-#sim_CIE_vis.plot_Tcones(fig_name = 'T_cones.pdf')
+
+#compute the CIELab with provided background and stimulus rgb values
 color_CIE_background, color_XYZ_background, color_LMS_background = \
     sim_thres_CIELab.convert_rgb_lab(sim_thres_CIELab.background_rgb)
 
 color_CIE_eg, color_XYZ_eg, color_LMS_eg = \
-    sim_thres_CIELab.convert_rgb_lab(np.array([0.5, 0.8, 0.2]))
+    sim_thres_CIELab.convert_rgb_lab(rgb_s_green)
 
 print(color_CIE_background)
 print(color_CIE_eg)
+
+#%% visualize color patches at the threshold
+# Define an RGB color array for blue with shape (3, 1). This is just an example
+rgb_s_blue = np.array([[0.5],[0.8],[0.8]])
+
+# Extract the scaled threshold value for blue from the rgb_comp_contour_scaled array
+rgb_s_blue_thres_scaled = rgb_comp_contour_scaled[0,-1,-1]
+
+# Unscale the threshold value by applying the contour_scaler and adjusting with 
+#the original RGB values
+#rgb_s_blue_thres_unscaled = (rgb_s_blue_thres_scaled - rgb_s_blue[1:])/contour_scaler +\
+#    rgb_s_blue[1:]
+    
+# Combine the unscaled threshold value with the fixed R value (first row) and 
+# stack to form a (3, numDirPts) array
+rgb_s_blue_thres = np.vstack((np.full((1, numDirPts), rgb_s_blue[0]), 
+                              rgb_s_blue_thres_scaled))
+
+# Visualize the stimuli at threshold using the provided visualization method
+sim_CIE_vis.visualize_stimuli_at_thres(rgb_s_blue_thres,
+                                       save_fig = True,
+                                       fig_dir = output_figDir,
+                                       fig_name = f'color_patches_thres_r{rgb_s_blue[0]}'+\
+                                           f'_g{rgb_s_blue[1]}_b{rgb_s_blue[2]}.pdf')
+
+# Define the upper bounds for the blue color using grid_theta_xy, scaled by 0.2
+rgb_s_blue_ub = np.vstack((np.full((1, numDirPts), 0), 
+                        grid_theta_xy*0.2)) + rgb_s_blue
+# Visualize the stimuli at the upper bounds using the provided visualization method
+sim_CIE_vis.visualize_stimuli_at_thres(rgb_s_blue_ub,
+                                       save_fig = True,
+                                       fig_dir = output_figDir,
+                                       fig_name = f'color_patches_ub_r{rgb_s_blue[0]}'+\
+                                           f'_g{rgb_s_blue[1]}_b{rgb_s_blue[2]}.pdf')
+
+#%%
+slc_dir = grid_theta_xy[:,2] #2 or 14
+# Tile the array to have a shape of (2, 20)
+num_pts_path = 10
+path_points_blue_tile = np.tile(slc_dir[:, np.newaxis], (1, num_pts_path))*\
+    np.linspace(0,0.2,num_pts_path).reshape(1,num_pts_path)
+path_points_blue = np.vstack((np.full((1, num_pts_path), 0), path_points_blue_tile)) + rgb_s_blue
+comp_CIE_blue = np.full(path_points_blue.shape, np.nan)
+deltaE_blue = np.full((num_pts_path),np.nan)
+for idx in range(num_pts_path):
+    comp_CIE_blue[:,idx], _, _ = sim_thres_CIELab.convert_rgb_lab(path_points_blue[:,idx])
+    deltaE_blue[idx] = sim_thres_CIELab.compute_deltaE(path_points_blue[:,0],[],[],
+                                                       comp_RGB = path_points_blue[:,idx])
+    
+sim_CIE_vis.plot_RGB_to_LAB(path_points_blue[:,:,np.newaxis], 
+                            comp_CIE_blue[:,:,np.newaxis], 
+                            lab_viewing_angle = viewing_angle[0],
+                            lab_xylim = [-15,0],
+                            lab_zlim = [118,130],
+                            lab_scatter_ms = 50,
+                            lab_ticks = [-20,-10,0],
+                            lab_scatter_alpha = 1,
+                            lab_scatter_edgecolor = 'k',
+                            fontsize = 15,
+                            fig_name = f'RGB_to_CIELab_conversion{p}_1path_cDir'+\
+                                f'_{slc_dir[0]:.2f}_{slc_dir[1]:.2f}.pdf')
+    
+# sim_CIE_vis.plot_deltaE(deltaE_blue, 
+#                         np.transpose(path_points_blue,(1,0)),
+#                         save_fig = True,
+#                         fig_dir = output_figDir,
+#                         fig_name = 'deltaE_1path_cDir'+\
+#                             f'_{slc_dir[0]:.2f}_{slc_dir[1]:.2f}.pdf')
 
 #%%save to CSV
 file_name   = f'Isothreshold_contour_CIELABderived_fixedVal{fixed_RGBvec}.pkl'

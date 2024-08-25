@@ -161,7 +161,7 @@ class SimThresCIELab:
         
         return color_Lab, color_XYZ, color_LMS
     
-    def compute_deltaE(self, ref_RGB, vecDir, vecLen):
+    def compute_deltaE(self, ref_RGB, vecDir, vecLen, comp_RGB = None):
         """
         Computes the perceptual difference (deltaE) between a reference stimulus
         and a comparison stimulus in the CIELab color space. The comparison stimulus
@@ -179,11 +179,11 @@ class SimThresCIELab:
             and comparison stimuli.
         """
     
-        #pdb.set_trace()
         # Calculate the RGB values for the comparison stimulus by adjusting the reference RGB
         # along the specified chromatic direction by the given vector length (vecLen).
         ref_Lab,_,_ = self.convert_rgb_lab(ref_RGB)
-        comp_RGB = ref_RGB + vecDir * vecLen
+        if comp_RGB is None:
+            comp_RGB = ref_RGB + vecDir * vecLen
         
         # Convert the computed RGB values of the comparison stimulus into Lab values
         # using the provided parameters and the background RGB. 
