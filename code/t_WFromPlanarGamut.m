@@ -8,9 +8,9 @@
 clear; close all;
 
 %% Temporary, because I cannot find the COLE_materials folder
-setpref('BrainardLabToolbox','CalDataFolder','/Users/dhb/Aguirre-Brainard Lab Dropbox/David Brainard/CNST_materials/ColorTrackingTask/calData');
-whichCalFile = 'ViewSonicG220fb_670.mat';
-whichCalNumber = 4;
+% setpref('BrainardLabToolbox','CalDataFolder','/Users/dhb/Aguirre-Brainard Lab Dropbox/David Brainard/CNST_materials/ColorTrackingTask/calData');
+whichCalFile = 'NEC_08092024.mat';
+whichCalNumber = 1;
 nDeviceBits = 14;
 whichCones = 'ss2';
 cal = LoadCalFile(whichCalFile,whichCalNumber,getpref('BrainardLabToolbox','CalDataFolder'));
@@ -49,7 +49,6 @@ SetSensorColorSpace(calObjCones,T_cones,Scolor);
 
 %% XYZ cal object
 calObjXYZ = ObjectToHandleCalOrCalStruct(cal);
-calObjXYZ1 = ObjectToHandleCalOrCalStruct(cal);
 
 % Get gamma correct
 CalibrateFitGamma(calObjXYZ, nDeviceLevels);
@@ -76,7 +75,7 @@ ambientXYZ = SettingsToSensor(calObjXYZ,[0 0 0']');
 % The calculations here account for display quantization.
 SPECIFIEDBG = false;
 if (SPECIFIEDBG)
-    bgxyYTarget = [0.326, 0.372 30.75]';
+    bgxyYTarget = [0.326, 0.372 110]';
     bgXYZTarget = xyYToXYZ(bgxyYTarget);
     bgPrimary = SettingsToPrimary(calObjXYZ,SensorToSettings(calObjXYZ,bgXYZTarget));
 else
@@ -141,7 +140,11 @@ for aa = 1:nAngles
     thePrimaryDir = SensorToPrimary(calObjCones,theLMSExcitations) - SensorToPrimary(calObjCones,bgLMS);
 
     % Find out how far we can go in the desired direction and scale the
-    % unitPrimaryDir by that amount
+    % unitPrimaryDir by that amount.
+    % 
+    % Using s rather than sPos here seems a little conservative, but when
+    % we try sPos we find we are out of gamut in some cases.  Maybe we are
+    % not reading the documentation of MaximizeGamutContrast properly.
     [s,sPos,sNeg] = MaximizeGamutContrast(thePrimaryDir,bgPrimary);
     gamutPrimaryDir = s*thePrimaryDir;
     if (any(gamutPrimaryDir+bgPrimary < -1e-3) | any(gamutPrimaryDir+bgPrimary > 1+1e-3))
@@ -169,8 +172,6 @@ for aa = 1:nAngles
 
     % Figure out the cone excitations for the settings we computed, and
     % then convert to contrast as our maximum contrast in this direction.
-    %
-    % Dividing by imageScaleFactor handles the sine phase of the Gabor
     gamutLMS(:,aa) = SettingsToSensor(calObjCones,gamutSettings(:,aa));
     gamutContrast(:,aa) = ExcitationToContrast(gamutLMS(:,aa),bgLMS);
     gamutDKL(:,aa) = M_ConeIncToDKL*M_ConeContrastToConeInc*gamutContrast(:,aa);
