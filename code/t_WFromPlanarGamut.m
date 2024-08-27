@@ -7,8 +7,7 @@
 %% Initialize
 clear; close all;
 
-%% Temporary, because I cannot find the COLE_materials folder
-% setpref('BrainardLabToolbox','CalDataFolder','/Users/dhb/Aguirre-Brainard Lab Dropbox/David Brainard/CNST_materials/ColorTrackingTask/calData');
+%% Retrieve the correct calibration file
 whichCalFile = 'NEC_08092024.mat';
 whichCalNumber = 1;
 nDeviceBits = 14;
@@ -73,9 +72,9 @@ ambientXYZ = SettingsToSensor(calObjXYZ,[0 0 0']');
 %% Compute the background, taking quantization into account
 %
 % The calculations here account for display quantization.
-SPECIFIEDBG = false;
+SPECIFIEDBG = true;
 if (SPECIFIEDBG)
-    bgxyYTarget = [0.326, 0.372 110]';
+    bgxyYTarget = [0.31, 0.31, 40]';
     bgXYZTarget = xyYToXYZ(bgxyYTarget);
     bgPrimary = SettingsToPrimary(calObjXYZ,SensorToSettings(calObjXYZ,bgXYZTarget));
 else
@@ -117,14 +116,18 @@ fprintf('Pooled cone contrast for unit DKL directions with initial scaling: %0.3
     lumPooled, rgPooled, sPooled);
 
 %% Max contrast
-%
+% initialize
+nAngles = 1000;
+[gamutSettings, gamutLMS, gamutContrast, gamutDKL] = deal(NaN(3, nAngles));
+vectorLengthGamutContrast = NaN(1, nAngles);
+
 % Find maximum in gamut contrast for a set of color directions.
 % This calculation does not worry about quantization.  It is
 % done for the main case.  Because we care about this primarily
-% for the tracking experiment, since the experimental specification
+% for the XXX experiment, since the experimental specification
 % matched what we intended for tha experiment.
-nAngles = 1000;
 theAngles = linspace(0,2*pi,nAngles);
+gamut_bg_primary = NaN(3, nAngles);
 for aa = 1:nAngles
     % Get a unit contrast vector at the specified angle
     targetDKLDir = [0 cos(theAngles(aa)) sin(theAngles(aa))]';
@@ -143,14 +146,10 @@ for aa = 1:nAngles
     % unitPrimaryDir by that amount.
     % 
     % Using s rather than sPos here seems a little conservative, but when
-    % we try sPos we find we are out of gamut in some cases.  Maybe we are
-    % not reading the documentation of MaximizeGamutContrast properly.
+    % we try sPos we find we are out of gamut in some cases.  
     [s,sPos,sNeg] = MaximizeGamutContrast(thePrimaryDir,bgPrimary);
-    gamutPrimaryDir = s*thePrimaryDir;
-    if (any(gamutPrimaryDir+bgPrimary < -1e-3) | any(gamutPrimaryDir+bgPrimary > 1+1e-3))
-        error('Somehow primaries got too far out of gamut\n');
-    end
-    if (any(-gamutPrimaryDir+bgPrimary < -1e-3) | any(-gamutPrimaryDir+bgPrimary > 1+1e-3))
+    gamutPrimaryDir = sPos*thePrimaryDir;
+    if (any(gamutPrimaryDir+bgPrimary < -1e-3) || any(gamutPrimaryDir+bgPrimary > 1+1e-3))
         error('Somehow primaries got too far out of gamut\n');
     end
     gamutDevPos1 = abs(gamutPrimaryDir+bgPrimary - 1);
@@ -165,7 +164,9 @@ for aa = 1:nAngles
     % Get the settings that as closely as possible approximate what we
     % want.  One of these should be very close to 1 or 0, and none should
     % be less than 0 or more than 1.
-    [gamutSettings(:,aa),badIndex] = PrimaryToSettings(calObjCones,gamutPrimaryDir + bgPrimary);
+    gamut_bg_primary(:,aa) = gamutPrimaryDir + bgPrimary;
+    [gamutSettings(:,aa),badIndex] = PrimaryToSettings(calObjCones,...
+        gamut_bg_primary(:,aa));
     if (any(badIndex))
         error('Somehow settings got out of gamut\n');
     end
@@ -179,13 +180,29 @@ for aa = 1:nAngles
 end
 gamutDKLPlane = gamutDKL(2:3,:);
 
-% Make a plot of the gamut in the DKL isoluminantplane
+%% Make a plot of the gamut in the RGB space
+figure
+%add walls
+fill3([1,0,0,1],[0,0,0,0],[0,0,1,1],'k','FaceAlpha',0.05); hold on
+fill3([0,0,0,0],[1,0,0,1],[0,0,1,1],'k','FaceAlpha',0.05); 
+fill3([1,0,0,1],[1,1,1,1],[0,0,1,1],'k','FaceAlpha',0.05); 
+fill3([1,1,1,1],[1,0,0,1],[0,0,1,1],'k','FaceAlpha',0.05); 
+%real plots
+scatter3(bgPrimary(1),bgPrimary(2),bgPrimary(3),200,'g+','lineWidth',5);  
+scatter3(gamut_bg_primary(1,:), gamut_bg_primary(2,:), gamut_bg_primary(3,:),...
+    20, 'k', 'filled', 'MarkerEdgeColor','g'); 
+fill3(gamut_bg_primary(1,:), gamut_bg_primary(2,:), gamut_bg_primary(3,:),...
+    'k','FaceColor','k','FaceAlpha',0.3);
+for aa = 1:25:nAngles
+    vec_aa = horzcat(bgPrimary, gamut_bg_primary(:,aa));
+    plot3(vec_aa(1,:), vec_aa(2,:), vec_aa(3,:),'k-.');
+end
+xlim([0,1]); ylim([0,1]); zlim([0,1]); xlabel('R'); ylabel('G'); zlabel('B')
+axis square; grid on
+
+%%  Make a plot of the gamut in the DKL isoluminant plane
 figure; clf; hold on;
-% plot([-100 100],[0 0],'k:','LineWidth',0.5);
-% plot([0 0],[-100 100],'k:','LineWidth',0.5);
 plot(gamutDKL(2,:),gamutDKL(3,:),'k','LineWidth',2);
-% xlim([-100 100])
-% ylim([-100 100]);
 axis('square');
 xlabel('DKL L/(L+M)')
 ylabel('DKL S');
@@ -207,9 +224,13 @@ theGamutLineSegmentsPrimary = {[ [0 0 0]' [1 0 0]' ] ...
                                [ [0 1 1]' [1 1 1]' ] ...
                                [ [1 0 1]' [1 1 1]' ] ...
                                };
+numLineSeg = length(theGamutLineSegmentsPrimary); 
 
+%initialize
+[theGamutLineSegmentsLMS, theGamutLineSegmentsContrast, theGamutLineSegmentsDKL] = ...
+    deal(cell(1, length(theGamutLineSegmentsPrimary)));
 % Convert each of these into DKL
-for ll = 1:length(theGamutLineSegmentsPrimary)
+for ll = 1:numLineSeg
     theGamutLineSegmentsLMS{ll} = PrimaryToSensor(calObjCones,theGamutLineSegmentsPrimary{ll});
     theGamutLineSegmentsContrast{ll} = ExcitationToContrast(theGamutLineSegmentsLMS{ll},bgLMS);
     theGamutLineSegmentsDKL{ll} = M_ConeIncToDKL*M_ConeContrastToConeInc*theGamutLineSegmentsContrast{ll};
@@ -223,7 +244,10 @@ planeBasisDKL = [ [0 1 0]' [0 0 1]' ];
 % involves solving a set of linear equations for each line segment
 % and checking whether the intersection is between the two
 % endpoints.
-for ll = 1:length(theGamutLineSegmentsPrimary)
+%initialize
+[lineSegmentFactor, corner] = deal(NaN(1, numLineSeg));
+[intersectingPoints, intersectingPoints1] = deal(NaN(3, numLineSeg));
+for ll = 1:numLineSeg
     lineSegmentBase = theGamutLineSegmentsDKL{ll}(:,1);
     lineSegmentDelta = theGamutLineSegmentsDKL{ll}(:,2) - theGamutLineSegmentsDKL{ll}(:,1);
     lhs = [planeBasisDKL -lineSegmentDelta];
@@ -237,30 +261,61 @@ for ll = 1:length(theGamutLineSegmentsPrimary)
     intersectingPoints1(:,ll) = lineSegmentBase + lineSegmentFactor(ll)*lineSegmentDelta;
     if (lineSegmentFactor(ll) >= 0 && lineSegmentFactor(ll) <= 1)
         corner(ll) = true;
-        plot(intersectingPoints(2,ll),intersectingPoints(3,ll),'bo','MarkerFaceColor','b','MarkerSize',14);
-        plot(intersectingPoints1(2,ll),intersectingPoints1(3,ll),'ro','MarkerFaceColor','r','MarkerSize',10);
+        plot(intersectingPoints(2,ll),intersectingPoints(3,ll),...
+            'bo','MarkerFaceColor','b','MarkerSize',14);
+        plot(intersectingPoints1(2,ll),intersectingPoints1(3,ll),...
+            'ro','MarkerFaceColor','r','MarkerSize',10);
     else
         corner(ll) = false;
     end
 end
 
-% Select out the corner coordinates in 2D
+%% Select out the corner coordinates in 2D
 cornerIndices = find(corner);
 cornerPointsDKLPlane = intersectingPoints1(2:3,cornerIndices);
-bgDKLPlane = bgDKL(2:3);
+bgDKLPlane = [bgDKL(2:3)];
+bgDKLPlane_ext = [bgDKLPlane; 0];
+numCor = length(cornerIndices);
+use_builtInTrans = true;
 
 % If there are 4 corners, try to map to W space.
 if (length(cornerIndices) == 4)
     targetCorners = [ [-1 -1]' [-1 1]' [1 -1]' [1 1]' ];
-    M_DKLPlaneTo2DW = ((cornerPointsDKLPlane-bgDKLPlane)'\(targetCorners)')';
-    M_2DWToDLKPlane = inv(M_DKLPlaneTo2DW);
-    cornerPoints2DW = M_DKLPlaneTo2DW*(cornerPointsDKLPlane-bgDKLPlane);
-    gamut2DW = M_DKLPlaneTo2DW*(gamutDKLPlane-bgDKLPlane);
-
+    targetCorners_ext = vertcat(targetCorners, ones(1,numCor));
+    cornerPointsDKLPlane_ext = vertcat(cornerPointsDKLPlane, ones(1,numCor));
+    if use_builtInTrans
+        tform = fitgeotform2d(cornerPointsDKLPlane'-bgDKLPlane',...
+            targetCorners',"projective");
+        M_DKLPlaneTo2DW = tform.A;
+    else
+        % resource: https://cseweb.ucsd.edu/classes/wi07/cse252a/homography_estimation/homography_estimation.pdf
+        % Initialize matrix M
+        M = [];
+        % Populate A with the equations
+        for i = 1:numCor
+            xi = cornerPointsDKLPlane(1,i);
+            yi = cornerPointsDKLPlane(2,i);
+            x_prime = targetCorners(1,i);
+            y_prime = targetCorners(2,i);
+            
+            M = [M;
+                 -xi, -yi, -1, 0, 0, 0, xi*x_prime, yi*x_prime, x_prime;
+                 0, 0, 0, -xi, -yi, -1, xi*y_prime, yi*y_prime, y_prime];
+            % Perform SVD to solve for h
+            [~, ~, V] = svd(M);
+            % The last column of V gives the solution
+            h = V(:, end);
+            M_DKLPlaneTo2DW = reshape(h, 3, 3)';
+        end
+    end
+    %M_2DWToDLKPlane = inv(M_DKLPlaneTo2DW);
+    cornerPoints2DW_temp = M_DKLPlaneTo2DW*(cornerPointsDKLPlane_ext- bgDKLPlane_ext);
+    cornerPoints2DW = cornerPoints2DW_temp(1:2,:) ./ cornerPoints2DW_temp(3,:);
+    gamut2DW_temp = M_DKLPlaneTo2DW*([gamutDKLPlane;ones(1,nAngles)]-bgDKLPlane_ext);
+    gamut2DW = gamut2DW_temp(1:2,:)./gamut2DW_temp(3,:);
+    
     % Make a plot of the gamut in the DKL isoluminantplane
     figure; clf; hold on;
-    % plot([-100 100],[0 0],'k:','LineWidth',0.5);
-    % plot([0 0],[-100 100],'k:','LineWidth',0.5);
     plot(gamut2DW(1,:),gamut2DW(2,:),'k','LineWidth',2);
     for cc = 1:length(cornerIndices)
         plot(cornerPoints2DW(1,cc),cornerPoints2DW(2,cc),'bo','MarkerFaceColor','b','MarkerSize',14);
