@@ -72,7 +72,7 @@ ambientXYZ = SettingsToSensor(calObjXYZ,[0 0 0']');
 %% Compute the background, taking quantization into account
 %
 % The calculations here account for display quantization.
-SPECIFIEDBG = true;
+SPECIFIEDBG = false;
 if (SPECIFIEDBG)
     bgxyYTarget = [0.31, 0.31, 40]';
     bgXYZTarget = xyYToXYZ(bgxyYTarget);
@@ -202,10 +202,16 @@ axis square; grid on
 
 %%  Make a plot of the gamut in the DKL isoluminant plane
 figure; clf; hold on;
-plot(gamutDKL(2,:),gamutDKL(3,:),'k','LineWidth',2);
-axis('square');
+[X, Y, Z] = sphere;
+surf(X, Y, Z,'FaceColor', 'k', 'FaceAlpha', 0.02,'EdgeColor', [0.6,0.6,0.6]);
+fill3([-1,-1,1,1],[-1,1,1,-1],[0,0,0,0],'k','FaceAlpha',0.05,'EdgeColor','none'); 
+fill3(gamutDKL(2,:),gamutDKL(3,:),zeros(nAngles),'k','FaceColor','k','FaceAlpha',0.4);
+xticks(-1:1:1); yticks(-1:1:1);zticks(-1:1:1);
 xlabel('DKL L/(L+M)')
 ylabel('DKL S');
+zlabel('DKL lum');
+axis square; grid on;
+view(-30,30);
 
 %% Let's try to find the corners
 %
@@ -261,9 +267,9 @@ for ll = 1:numLineSeg
     intersectingPoints1(:,ll) = lineSegmentBase + lineSegmentFactor(ll)*lineSegmentDelta;
     if (lineSegmentFactor(ll) >= 0 && lineSegmentFactor(ll) <= 1)
         corner(ll) = true;
-        plot(intersectingPoints(2,ll),intersectingPoints(3,ll),...
+        plot3(intersectingPoints(2,ll),intersectingPoints(3,ll),0,...
             'bo','MarkerFaceColor','b','MarkerSize',14);
-        plot(intersectingPoints1(2,ll),intersectingPoints1(3,ll),...
+        plot3(intersectingPoints1(2,ll),intersectingPoints1(3,ll),0,...
             'ro','MarkerFaceColor','r','MarkerSize',10);
     else
         corner(ll) = false;
@@ -326,3 +332,31 @@ if (length(cornerIndices) == 4)
     xlabel('W space dim 1');
     ylabel('W space dim 2');
 end
+
+%% save file
+% Get a list of all variables in the current workspace
+vars = who;
+% Open a MAT-file to save the variables
+matfileName = 'W_from_PlanarGamut.mat';
+outputName = fullfile('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox/',matfileName);
+% Check if the file already exists
+fileExists = isfile(outputName);
+
+for i = 1:length(vars)
+    % Get the variable name
+    varName = vars{i};
+    % Skip variables that start with 'calObj'
+    if length(varName) >= 6 && strcmp(varName(1:6), 'calObj')
+        continue;
+    end
+    % Use dynamic field referencing to access the variable
+    varValue = eval(varName);
+    if fileExists
+        save(outputName, varName, '-append');
+    else
+        save(outputName, varName);
+        fileExists = true; % Set flag to true after creating the file
+    end
+end
+
+
