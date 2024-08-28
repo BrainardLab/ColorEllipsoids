@@ -125,11 +125,12 @@ vectorLengthGamutContrast = NaN(1, nAngles);
 
 % Find maximum in gamut contrast for a set of color directions.
 % This calculation does not worry about quantization.  It is
-% done for the main case.  Because we care about this primarily
-% for the XXX experiment, since the experimental specification
-% matched what we intended for tha experiment.
+% done for the main case.  
 theAngles = linspace(0,2*pi,nAngles);
 gamut_bg_primary = NaN(3, nAngles);
+
+%color space involved:
+%
 for aa = 1:nAngles
     % Get a unit contrast vector at the specified angle
     targetDKLDir = [0 cos(theAngles(aa)) sin(theAngles(aa))]';
@@ -192,8 +193,8 @@ fill3(ax_rgb,[0,0,0,0],[1,0,0,1],[0,0,1,1],'k','FaceAlpha',0.05);
 fill3(ax_rgb,[1,0,0,1],[1,1,1,1],[0,0,1,1],'k','FaceAlpha',0.05); 
 fill3(ax_rgb,[1,1,1,1],[1,0,0,1],[0,0,1,1],'k','FaceAlpha',0.05); 
 %real plots
-f_bgPrimary = scatter3(ax_rgb,bgPrimary(1),bgPrimary(2),bgPrimary(3),200,'g+','lineWidth',5);  
-f_gamut_bg_primary = scatter3(ax_rgb,gamut_bg_primary(1,:), gamut_bg_primary(2,:), ...
+f_rgb_1 = scatter3(ax_rgb,bgPrimary(1),bgPrimary(2),bgPrimary(3),200,'g+','lineWidth',2);  
+f_rgb_2 = scatter3(ax_rgb,gamut_bg_primary(1,:), gamut_bg_primary(2,:), ...
     gamut_bg_primary(3,:), 20, 'k', 'filled', 'MarkerEdgeColor','g'); 
 fill3(ax_rgb, gamut_bg_primary(1,:), gamut_bg_primary(2,:), ...
     gamut_bg_primary(3,:), 'k','FaceColor','k','FaceAlpha',0.3);
@@ -271,58 +272,56 @@ for ll = 1:numLineSeg
     intersectingPoints1(:,ll) = lineSegmentBase + lineSegmentFactor(ll)*lineSegmentDelta;
     if (lineSegmentFactor(ll) >= 0 && lineSegmentFactor(ll) <= 1)
         corner(ll) = true;
-        f_dkl_3 = plot3(ax_dkl, intersectingPoints(2,ll),intersectingPoints(3,ll),0,...
+        f_dkl_3 = plot3(ax_dkl, intersectingPoints(2,ll),intersectingPoints(3,ll), bgDKL(1),...
             'bo','MarkerFaceColor','b','MarkerSize',14);
-        f_dkl_4 = plot3(ax_dkl, intersectingPoints1(2,ll),intersectingPoints1(3,ll),0,...
+        f_dkl_4 = plot3(ax_dkl, intersectingPoints1(2,ll),intersectingPoints1(3,ll),bgDKL(1),...
             'ro','MarkerFaceColor','r','MarkerSize',10);
-        legend(ax_dkl,[f_dkl_1, f_dkl_2(1), f_dkl_3, f_dkl_4], ...
-            {'Isoluminant plane in DKL', ...
-            'The portion within the monitor gamut',...
-            'Corner points computed using method 1',...
-            'Corner points computed using method 2'},...
-            'Location','north');
     else
         corner(ll) = false;
     end
 end
 
 %% Select out the corner coordinates in 2D
+%there are two ways of finding the corner points in the RGB space
+%1: find the angle indices that correspond to the corners
 cornerIndices = find(corner);
+numCorners = length(cornerIndices);
 cornerPointsDKLPlane = intersectingPoints1(2:3,cornerIndices);
-DKL_diff_val = arrayfun(@(idx) sum(abs(cornerPointsDKLPlane(:,idx) - gamutDKL(2:3,:))), 1:length(cornerIndices), 'UniformOutput', false);
-angleIndices = arrayfun(@(idx) find(DKL_diff_val{idx} == min(DKL_diff_val{idx}), 1, 'first'),1:length(cornerIndices));
+DKL_diff_val = arrayfun(@(idx) sum(abs(cornerPointsDKLPlane(:,idx) - gamutDKL(2:3,:))),...
+    1:length(cornerIndices), 'UniformOutput', false);
+angleIndices = arrayfun(@(idx) find(DKL_diff_val{idx} == min(DKL_diff_val{idx}), 1, 'first'),...
+    1:length(cornerIndices));
+%retrieve the corner points in the RGB space
 cornerPointsRGB = gamut_bg_primary(:, angleIndices);
-b_dots = plot3(ax_rgb, cornerPointsRGB(1,:), cornerPointsRGB(2,:),...
+f_rgb_3 = plot3(ax_rgb, cornerPointsRGB(1,:), cornerPointsRGB(2,:),...
     cornerPointsRGB(3,:), 'bo','MarkerFaceColor','b','MarkerSize',14); 
 
-corner_DKLDir = vertcat(zeros(1,4),cornerPointsDKLPlane)';
-corner_theLMSExcitations = arrayfun(@(idx) ContrastToExcitation(M_ConeIncToConeContrast*...
-    M_DKLToConeInc*corner_DKLDir(idx,:)',bgLMS), 1:4,'UniformOutput', false); %loop through the four corners
-corner_PointsRGB = M_LMSTORGB*(cell2mat(corner_theLMSExcitations) - ambientLMS);
-r_dots = plot3(ax_rgb, corner_PointsRGB(1,:), corner_PointsRGB(2,:),...
+%2: go through all the color spaces from DKL to RGB
+corner_DKLDir = vertcat(zeros(1,numCorners),cornerPointsDKLPlane)';
+corner_theLMSExcitations_temp = arrayfun(@(idx) ContrastToExcitation(M_ConeIncToConeContrast*...
+    M_DKLToConeInc*corner_DKLDir(idx,:)',bgLMS), 1:numCorners,'UniformOutput', false); %loop through the four corners
+corner_theLMSExcitations = cell2mat(corner_theLMSExcitations_temp);
+% we the LMS cone excitations, we can them multiply the transformation
+% matrix M_LMSTORGB. Note that we have to subtract the amblient LMS here
+corner_PointsRGB = M_LMSTORGB*(corner_theLMSExcitations - ambientLMS);
+f_rgb_4 = plot3(ax_rgb, corner_PointsRGB(1,:), corner_PointsRGB(2,:),...
     corner_PointsRGB(3,:), 'ro','MarkerFaceColor','r','MarkerSize',10); 
-legend(ax_rgb,[f_bgPrimary, f_gamut_bg_primary, b_dots, r_dots], ...
-    {'Background primary',...
-    'Stimulus primary bounded by the gamut',...
-    'Corner points computed using angle indices corresponding to corner points',...
-    'Corner points computed using the transformation matrix from LMS to RGB'},...
-    'Location','north');
 
-%%
-bgDKLPlane = [bgDKL(2:3)];
-bgDKLPlane_ext = [bgDKLPlane; 0];
+%% transformations trom DKL to W space, and RGB space
+bgDKLPlane = [bgDKL(2:3)]; %1st dim: lum; 2nd dim: L/(L+M); 3rd dim: S
 numCor = length(cornerIndices);
 use_builtInTrans = true;
 
 % If there are 4 corners, try to map to W space.
-if (length(cornerIndices) == 4)
-    targetCorners = [ [-1 -1]' [-1 1]' [1 -1]' [1 1]' ];
-    targetCorners_ext = vertcat(targetCorners, ones(1,numCor));
-    cornerPointsDKLPlane_ext = vertcat(cornerPointsDKLPlane, ones(1,numCor));
+if (numCorners == 4)
+    %target corners have to be in the same order as the source corners
+    %the order is: bottom left, bottom right, top left, top right
+    sourceCorners = cornerPointsDKLPlane'-bgDKLPlane';
+    targetCorners = [ [-1 -1]' [1 -1]' [-1 1]' [1 1]' ];
+
     if use_builtInTrans
-        %from DKL to W
-        tform_DKLPlaneTo2DW = fitgeotform2d(cornerPointsDKLPlane'-bgDKLPlane',...
-            targetCorners',"projective");
+        %use matlab built-in function to solve for the transformation matrix
+        tform_DKLPlaneTo2DW = fitgeotform2d(sourceCorners, targetCorners',"projective");
         M_DKLPlaneTo2DW = tform_DKLPlaneTo2DW.A;
     else
         % resource: https://cseweb.ucsd.edu/classes/wi07/cse252a/homography_estimation/homography_estimation.pdf
@@ -345,67 +344,102 @@ if (length(cornerIndices) == 4)
             M_DKLPlaneTo2DW = reshape(h, 3, 3)';
         end
     end
-    M_2DWToDLKPlane = inv(M_DKLPlaneTo2DW);
-    cornerPoints2DW_temp = M_DKLPlaneTo2DW*(cornerPointsDKLPlane_ext- bgDKLPlane_ext);
+    %the transformation matrix is 3 x 3, but the source corners have size
+    %of 2 x 4, so we need to adding a third column of ones
+    cornerPoints2DW_temp = M_DKLPlaneTo2DW*vertcat(sourceCorners', ones(1,numCor));
+    %Divide the first two columns by the third column to get the final Nx2 transformed points.
     cornerPoints2DW = cornerPoints2DW_temp(1:2,:) ./ cornerPoints2DW_temp(3,:);
-    gamut2DW_temp = M_DKLPlaneTo2DW*([gamutDKLPlane;ones(1,nAngles)]-bgDKLPlane_ext);
+
+    %repeat the same for all the points along the monitor's gamut
+    gamut2DW_temp = M_DKLPlaneTo2DW*vertcat(gamutDKLPlane-bgDKLPlane,ones(1,nAngles));
     gamut2DW = gamut2DW_temp(1:2,:)./gamut2DW_temp(3,:);
     
     % Make a plot of the gamut in the DKL isoluminantplane
     fig_W = figure; ax_W = axes(fig_W); hold on;
-    plot(ax_W, gamut2DW(1,:),gamut2DW(2,:),'k','LineWidth',2);
-    for cc = 1:length(cornerIndices)
-        plot(ax_W, cornerPoints2DW(1,cc),cornerPoints2DW(2,cc),...
-            'bo','MarkerFaceColor','b','MarkerSize',14);
-    end
+    f_W_1 = plot(ax_W, gamut2DW(1,:),gamut2DW(2,:),'k','LineWidth',2);
+    f_W_2 = plot(ax_W, targetCorners(1,:), targetCorners(2,:),'bo','MarkerFaceColor','b','MarkerSize',14);
+    f_W_3 = plot(ax_W, cornerPoints2DW(1,:),cornerPoints2DW(2,:),'ro','MarkerFaceColor','r','MarkerSize',10);
     xlim([-1.2 1.2]);  ylim([-1.2 1.2]); axis('square');
     xlabel('W space dim 1'); ylabel('W space dim 2');
+
+    %% select 9 reference locations
+    num_grid_pts = 5;
+    ref_W_1d = linspace(-0.6,0.6,num_grid_pts);
+    [ref_W_x, ref_W_y] = meshgrid(ref_W_1d, ref_W_1d);
+    nRef = length(ref_W_x(:));
+    
+    %convert it back to DKL space
+    ref_W = [ref_W_x(:), ref_W_y(:)];
+    ref_W_ext = [ref_W, ones(nRef,1)]';
+    %compute the inverse of the transformation matrix so that it takes us from DKL to W
+    M_2DWToDLKPlane = inv(M_DKLPlaneTo2DW);
+    ref_dkl = M_2DWToDLKPlane*ref_W_ext;
+    %Divide the first two columns by the third column to get the final Nx2 transformed points.
+    %also add zeros to the last row because we 
+    ref_dkl_norm = vertcat(ref_dkl(1:2,:)./ref_dkl(3,:));
+    ref_dkl_ext = vertcat(bgDKL(1).*ones(1,nRef),ref_dkl_norm);
+    %convert it back to RGB space
+    ref_theLMSExcitations = arrayfun(@(idx) ContrastToExcitation(M_ConeIncToConeContrast*...
+        M_DKLToConeInc*ref_dkl_ext(:,idx),bgLMS), 1:nRef,'UniformOutput', false); %loop through the four corners
+    ref_rgb = M_LMSTORGB*(cell2mat(ref_theLMSExcitations) - ambientLMS);
+    
+    %% add ref to the plots
+    cmap = colormap('parula');
+    colors_W = cmap(round(linspace(1, size(cmap, 1), nRef)), :);
+    
+    scatter(ax_W, ref_W_x(:), ref_W_y(:),100, colors_W,...
+        'filled','MarkerEdgeColor','k','Marker','o','lineWidth',2);
+    legend(ax_W, [f_W_1, f_W_2, f_W_3], ...
+        {'The monitor''s gamut', ...
+        'Target corners (pre-specified)',...
+        'Target corners (multiplying transformation matrix and source corners in DKL space)'},...
+        'Location','north');
+    
+    scatter3(ax_dkl, ref_dkl_norm(1,:), ref_dkl_norm(2,:), bgDKL(1).*ones(1, nRef),100,colors_W,...
+        'filled', 'MarkerEdgeColor','k','Marker','o','lineWidth',2);
+    legend(ax_dkl,[f_dkl_1, f_dkl_2(1), f_dkl_3, f_dkl_4], ...
+        {'Isoluminant plane in DKL space', ...
+        'The monitor''s gamut',...
+        'Corner points computed using method 1',...
+        'Corner points computed using method 2'},...
+        'Location','north');
+    
+    scatter3(ax_rgb, ref_rgb(1,:), ref_rgb(2,:), ref_rgb(3,:),100,colors_W,...
+        'filled', 'MarkerEdgeColor','k','Marker','o','lineWidth',2);
+    legend(ax_rgb,[f_rgb_1, f_rgb_2, f_rgb_3, f_rgb_4], ...
+        {'Background primary',...
+        'The monitor''s gamut',...
+        'Corner points computed using angle indices corresponding to corner points',...
+        'Corner points computed using the transformation matrix from LMS to RGB'},...
+        'Location','north');
 end
 
-%% select three reference locations
-ref_W_1d = linspace(-0.6,0.6,3);
-[ref_W_x, ref_W_y] = meshgrid(ref_W_1d, ref_W_1d);
-nRef = length(ref_W_x(:));
-%convert it back to DKL space
-ref_W_ext = [ref_W_x(:), ref_W_y(:), zeros(nRef,1)]';
-ref_dkl = M_2DWToDLKPlane * ref_W_ext;
-ref_dkl_flip = vertcat(zeros(1,nRef),ref_dkl(1:2,:));
-%convert it back to RGB space
-ref_theLMSExcitations = arrayfun(@(idx) ContrastToExcitation(M_ConeIncToConeContrast*...
-    M_DKLToConeInc*ref_dkl_flip(:,idx),bgLMS), 1:nRef,'UniformOutput', false); %loop through the four corners
-ref_rgb = M_LMSTORGB*(cell2mat(ref_theLMSExcitations) - ambientLMS);
-scatter(ax_W, ref_W_x(:), ref_W_y(:),100,'MarkerFaceColor', 'yellow',...
-    'MarkerEdgeColor','k','Marker','o','lineWidth',2);
-scatter3(ax_dkl, ref_dkl(1,:), ref_dkl(2,:), ref_dkl(3,:),100,...
-    'MarkerFaceColor', 'yellow', 'MarkerEdgeColor','k','Marker','o','lineWidth',2);
-scatter3(ax_rgb, ref_rgb(1,:), ref_rgb(2,:), ref_rgb(3,:),100,...
-    'MarkerFaceColor', 'yellow', 'MarkerEdgeColor','k','Marker','o','lineWidth',2);
-
-
 %% save file
-% % Get a list of all variables in the current workspace
-% vars = who;
-% % Open a MAT-file to save the variables
-% matfileName = 'W_from_PlanarGamut.mat';
-% outputName = fullfile('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox/',matfileName);
-% % Check if the file already exists
-% fileExists = isfile(outputName);
-% 
-% for i = 1:length(vars)
-%     % Get the variable name
-%     varName = vars{i};
-%     % Skip variables that start with 'calObj'
-%     if ismember(varName, {'ax_rgb', 'fig_rgb'})
-%         continue;
-%     end
-%     % Use dynamic field referencing to access the variable
-%     varValue = eval(varName);
-%     if fileExists
-%         save(outputName, varName, '-append');
-%     else
-%         save(outputName, varName);
-%         fileExists = true; % Set flag to true after creating the file
-%     end
-% end
+% Get a list of all variables in the current workspace
+vars = who;
+% Open a MAT-file to save the variables
+matfileName = 'W_from_PlanarGamut.mat';
+outputName = fullfile('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox/',matfileName);
+% Check if the file already exists
+fileExists = isfile(outputName);
+
+for i = 1:length(vars)
+    % Get the variable name
+    varName = vars{i};
+    % Skip variables that start with 'calObj'
+    if ismember(varName, {'fig_dkl', 'fig_rgb','fig_W','ax_dkl', 'ax_rgb','ax_W',...
+            'f_dkl_1','f_dkl_2','f_dkl_3','f_dkl_4',...
+            'f_rgb_1','f_rgb_2','f_rgb_3','f_rgb_4','f_W_1','f_W_2','f_W_3'})
+        continue;
+    end
+    % Use dynamic field referencing to access the variable
+    varValue = eval(varName);
+    if fileExists
+        save(outputName, varName, '-append');
+    else
+        save(outputName, varName);
+        fileExists = true; % Set flag to true after creating the file
+    end
+end
 
 
