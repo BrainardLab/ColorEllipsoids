@@ -9,6 +9,7 @@ Created on Mon Jul 29 11:15:34 2024
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
+import os
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
 from plotting.wishart_plotting import WishartModelBasicsVisualization 
 
@@ -267,6 +268,91 @@ class CIELabVisualization(WishartModelBasicsVisualization):
         plt.show()
         return fig, ax
       
+    #%%
+    @staticmethod
+    def plot_3D_isothreshold_ellipsoid(x_grid_ref, y_grid_ref, z_grid_ref,
+                                       fitEllipsoid, nTheta, nPhi, **kwargs):
+        # Default parameters for ellipsoid fitting. Can be overridden by kwargs.
+        pltP = {
+            'slc_x_grid_ref':np.array(len(x_grid_ref)), 
+            'slc_y_grid_ref':np.array(len(y_grid_ref)), 
+            'slc_z_grid_ref':np.array(len(z_grid_ref)), 
+            'visualize_ref':True,
+            'visualize_ellipsoids':True,
+            'visualize_thresholdPoints':False,
+            'threshold_points':[],
+            'ms_ref':100,
+            'lw_ref':2,
+            'color_ref_rgb':[],
+            'color_surf':[],
+            'color_threshold':[],
+            'fontsize':15,
+            'saveFig':False,
+            'figDir':'',
+            'figName':'Isothreshold_ellipsoids'} 
+        pltP.update(kwargs)
+        
+        #selected ref points
+        x_grid_ref_trunc = x_grid_ref[pltP['slc_x_grid_ref']]
+        y_grid_ref_trunc = y_grid_ref[pltP['slc_y_grid_ref']]
+        z_grid_ref_trunc = z_grid_ref[pltP['slc_z_grid_ref']]
+        
+        nGridPts_ref_x = len(x_grid_ref_trunc)
+        nGridPts_ref_y = len(y_grid_ref_trunc)
+        nGridPts_ref_z = len(z_grid_ref_trunc)
+        
+        fig = plt.figure(figsize=(8,8))
+        ax = fig.add_subplot(111, projection='3d')
+        ax.set_box_aspect([1,1,1])
+        for i in range(nGridPts_ref_x):
+            ii = pltP['slc_x_grid_ref'][i]
+            for j in range(nGridPts_ref_y):
+                jj = pltP['slc_y_grid_ref'][j]
+                for k in range(nGridPts_ref_z):    
+                    kk = pltP['slc_z_grid_ref'][k]
+                    if pltP['visualize_ref']:
+                        if len(pltP['color_ref_rgb']) == 0:
+                            cmap_ijk = [x_grid_ref[ii], y_grid_ref[jj], z_grid_ref[kk]]
+                        else:
+                            cmap_ijk = pltP['color_ref_rgb']
+                        ax.scatter(cmap_ijk[0], cmap_ijk[1], cmap_ijk[2], s=pltP['ms_ref'],\
+                                   c=cmap_ijk, marker='+', linewidth=pltP['lw_ref'])
+        
+                    if pltP['visualize_ellipsoids']:
+                        if len(pltP['color_surf']) == 0:
+                            cmap_ijk = [x_grid_ref[ii], y_grid_ref[jj], z_grid_ref[kk]]
+                        else:
+                            cmap_ijk = pltP['color_surf']
+                        ell_ijk = fitEllipsoid[ii, jj, kk]
+                        ell_ijk_x = ell_ijk[0].reshape(nPhi, nTheta)
+                        ell_ijk_y = ell_ijk[1].reshape(nPhi, nTheta)
+                        ell_ijk_z = ell_ijk[2].reshape(nPhi, nTheta)
+                        ax.plot_surface(ell_ijk_x, ell_ijk_y, ell_ijk_z, \
+                                        color=cmap_ijk, edgecolor='none', alpha=0.5)
+        
+                    if pltP['visualize_thresholdPoints'] and pltP['threshold_points'] is not None:
+                        if len(pltP['color_threshold']) == 0:
+                            cmap_ijk = [x_grid_ref[ii], y_grid_ref[jj], z_grid_ref[kk]]
+                        else:
+                            cmap_ijk = pltP['color_threshold']
+                        tp = pltP['threshold_points'][ii, jj, kk, :, :]
+                        tp_x, tp_y, tp_z = tp[:,:,0], tp[:,:,1], tp[:,:,2]
+                        tp_x_f = tp_x.flatten()
+                        tp_y_f = tp_y.flatten()
+                        tp_z_f = tp_z.flatten()
+                        ax.scatter(tp_x_f, tp_y_f, tp_z_f, s=3, c=cmap_ijk, alpha=1)
+        
+        ax.set_xlim([0, 1]); ax.set_ylim([0, 1]); ax.set_zlim([0, 1])
+        ax.set_xticks(sorted([0, 1] + list(x_grid_ref[pltP['slc_x_grid_ref']])))
+        ax.set_yticks(sorted([0, 1] + list(y_grid_ref[pltP['slc_y_grid_ref']])))
+        ax.set_zticks(sorted([0, 1] + list(z_grid_ref[pltP['slc_z_grid_ref']])))
+        ax.set_xlabel('R'); ax.set_ylabel('G'); ax.set_zlabel('B')
+        ax.view_init(elev=35, azim=-120)   # Adjust viewing angle for better visualization
+        plt.show()
+        if pltP['saveFig'] and pltP['figDir'] != '':
+            full_path2 = os.path.join(pltP['figDir'],pltP['figName']+'.png')
+            fig.savefig(full_path2)
+            
     #%%
     @staticmethod
     def visualize_stimuli_at_thres(s_rgb,  ax = None, label_rgb = True, **kwargs):
