@@ -269,89 +269,85 @@ class CIELabVisualization(WishartModelBasicsVisualization):
         return fig, ax
       
     #%%
-    @staticmethod
-    def plot_3D_isothreshold_ellipsoid(x_grid_ref, y_grid_ref, z_grid_ref,
-                                       fitEllipsoid, nTheta, nPhi, **kwargs):
-        # Default parameters for ellipsoid fitting. Can be overridden by kwargs.
-        pltP = {
-            'slc_x_grid_ref':np.array(len(x_grid_ref)), 
-            'slc_y_grid_ref':np.array(len(y_grid_ref)), 
-            'slc_z_grid_ref':np.array(len(z_grid_ref)), 
+    def plot_3D_isothreshold_ellipsoid(grid_est, fitEllipsoid, 
+                                       nTheta = 200, nPhi = 100, ax = None, **kwargs):
+        #default values for optional parameters
+        pltP ={
+            'fig_size':(8,8),
             'visualize_ref':True,
             'visualize_ellipsoids':True,
             'visualize_thresholdPoints':False,
-            'threshold_points':[],
-            'ms_ref':100,
-            'lw_ref':2,
-            'color_ref_rgb':[],
-            'color_surf':[],
-            'color_threshold':[],
+            'threshold_points':None,
+            'ref_color':None,
+            'ref_ms':10,
+            'ref_lw':0.5,
+            'surf_color':None,
+            'surf_alpha':0.5,
+            'scatter_color':None,
+            'scatter_alpha':0.5,
+            'scatter_ms':3,
+            'lim':[0,1],
+            'ticks':np.linspace(0.2,0.8,3),
+            'view_angle':[35,-120],
             'fontsize':15,
-            'saveFig':False,
-            'figDir':'',
+            'save_fig':False,
+            'fig_dir':'',
             'figName':'Isothreshold_ellipsoids'} 
-        pltP.update(kwargs)
+        # Update plot parameters with method-specific settings and external configurations.
+        pltP.update(kwargs)  
+        plt.rcParams['font.sans-serif'] = ['Arial']        
+        nRef = grid_est.shape[0]
         
-        #selected ref points
-        x_grid_ref_trunc = x_grid_ref[pltP['slc_x_grid_ref']]
-        y_grid_ref_trunc = y_grid_ref[pltP['slc_y_grid_ref']]
-        z_grid_ref_trunc = z_grid_ref[pltP['slc_z_grid_ref']]
-        
-        nGridPts_ref_x = len(x_grid_ref_trunc)
-        nGridPts_ref_y = len(y_grid_ref_trunc)
-        nGridPts_ref_z = len(z_grid_ref_trunc)
-        
-        fig = plt.figure(figsize=(8,8))
-        ax = fig.add_subplot(111, projection='3d')
+        # Create a new figure and axes if not provided.
+        if ax is None:
+            fig = plt.figure(figsize = pltP['fig_size'],dpi = 256)
+            ax = fig.add_subplot(111, projection='3d')
+        else:
+            fig = ax.figure
+
         ax.set_box_aspect([1,1,1])
-        for i in range(nGridPts_ref_x):
-            ii = pltP['slc_x_grid_ref'][i]
-            for j in range(nGridPts_ref_y):
-                jj = pltP['slc_y_grid_ref'][j]
-                for k in range(nGridPts_ref_z):    
-                    kk = pltP['slc_z_grid_ref'][k]
-                    if pltP['visualize_ref']:
-                        if len(pltP['color_ref_rgb']) == 0:
-                            cmap_ijk = [x_grid_ref[ii], y_grid_ref[jj], z_grid_ref[kk]]
-                        else:
-                            cmap_ijk = pltP['color_ref_rgb']
-                        ax.scatter(cmap_ijk[0], cmap_ijk[1], cmap_ijk[2], s=pltP['ms_ref'],\
-                                   c=cmap_ijk, marker='+', linewidth=pltP['lw_ref'])
+        for i in range(nRef):
+            cmap_i =grid_est[i]
+            if pltP['ref_color'] is not None: ref_color = pltP['ref_color']
+            else: ref_color = cmap_i
+            ax.scatter(*cmap_i, s=pltP['ref_ms'], c=ref_color, marker='+',
+                       linewidth=pltP['ref_lw'])
         
-                    if pltP['visualize_ellipsoids']:
-                        if len(pltP['color_surf']) == 0:
-                            cmap_ijk = [x_grid_ref[ii], y_grid_ref[jj], z_grid_ref[kk]]
-                        else:
-                            cmap_ijk = pltP['color_surf']
-                        ell_ijk = fitEllipsoid[ii, jj, kk]
-                        ell_ijk_x = ell_ijk[0].reshape(nPhi, nTheta)
-                        ell_ijk_y = ell_ijk[1].reshape(nPhi, nTheta)
-                        ell_ijk_z = ell_ijk[2].reshape(nPhi, nTheta)
-                        ax.plot_surface(ell_ijk_x, ell_ijk_y, ell_ijk_z, \
-                                        color=cmap_ijk, edgecolor='none', alpha=0.5)
-        
-                    if pltP['visualize_thresholdPoints'] and pltP['threshold_points'] is not None:
-                        if len(pltP['color_threshold']) == 0:
-                            cmap_ijk = [x_grid_ref[ii], y_grid_ref[jj], z_grid_ref[kk]]
-                        else:
-                            cmap_ijk = pltP['color_threshold']
-                        tp = pltP['threshold_points'][ii, jj, kk, :, :]
-                        tp_x, tp_y, tp_z = tp[:,:,0], tp[:,:,1], tp[:,:,2]
-                        tp_x_f = tp_x.flatten()
-                        tp_y_f = tp_y.flatten()
-                        tp_z_f = tp_z.flatten()
-                        ax.scatter(tp_x_f, tp_y_f, tp_z_f, s=3, c=cmap_ijk, alpha=1)
-        
-        ax.set_xlim([0, 1]); ax.set_ylim([0, 1]); ax.set_zlim([0, 1])
-        ax.set_xticks(sorted([0, 1] + list(x_grid_ref[pltP['slc_x_grid_ref']])))
-        ax.set_yticks(sorted([0, 1] + list(y_grid_ref[pltP['slc_y_grid_ref']])))
-        ax.set_zticks(sorted([0, 1] + list(z_grid_ref[pltP['slc_z_grid_ref']])))
+            if pltP['visualize_ellipsoids']:
+                if pltP['surf_color'] is not None: surf_color = pltP['surf_color']
+                else: surf_color = cmap_i
+                ell_i = fitEllipsoid[i]
+                if nPhi*nTheta != ell_i.shape[-1]:
+                    raise ValueError('The size of grid points (nPhi x nTheta) does not'+\
+                                     ' equal to the default values! Please pass the correct'+\
+                                     ' nPhi and nTheta.')
+                ell_i_x = ell_i[0].reshape(nPhi, nTheta)
+                ell_i_y = ell_i[1].reshape(nPhi, nTheta)
+                ell_i_z = ell_i[2].reshape(nPhi, nTheta)
+                ax.plot_surface(ell_i_x, ell_i_y, ell_i_z,
+                                color=surf_color, edgecolor='none', 
+                                alpha= pltP['surf_alpha'])
+
+            if pltP['visualize_thresholdPoints'] and pltP['threshold_points'] is not None:
+                if pltP['scatter_color'] is not None: scatter_color = pltP['scatter_color']
+                else: scatter_color = cmap_i
+                tp = pltP['threshold_points'][i]
+                tp_x, tp_y, tp_z = tp[:,:,0], tp[:,:,1], tp[:,:,2]
+                tp_x_f = tp_x.flatten()
+                tp_y_f = tp_y.flatten()
+                tp_z_f = tp_z.flatten()
+                ax.scatter(tp_x_f, tp_y_f, tp_z_f,
+                           s=pltP['scatter_ms'], c= scatter_color, edgecolor = 'none',
+                           alpha= pltP['scatter_alpha'])
+        ax.set_xlim(pltP['lim']); ax.set_ylim(pltP['lim']); ax.set_zlim(pltP['lim'])
+        ax.set_xticks(pltP['ticks']); ax.set_yticks(pltP['ticks']); ax.set_zticks(pltP['ticks'])
         ax.set_xlabel('R'); ax.set_ylabel('G'); ax.set_zlabel('B')
-        ax.view_init(elev=35, azim=-120)   # Adjust viewing angle for better visualization
+        ax.view_init(elev=pltP['view_angle'][0], azim=pltP['view_angle'][1])   # Adjust viewing angle for better visualization
+        # Show the figure after all subplots have been drawn
+        if len(pltP['fig_dir']) !=0 and pltP['save_fig']:
+            plt.savefig(pltP['fig_dir'] + pltP['fig_name'])
         plt.show()
-        if pltP['saveFig'] and pltP['figDir'] != '':
-            full_path2 = os.path.join(pltP['figDir'],pltP['figName']+'.png')
-            fig.savefig(full_path2)
+        return fig, ax
             
     #%%
     @staticmethod

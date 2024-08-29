@@ -161,7 +161,7 @@ print(color_CIE_eg)
 
 #%% visualize color patches at the threshold
 # Define an RGB color array for blue with shape (3, 1). This is just an example
-rgb_s_blue = np.array([[0.5],[0.8],[0.8]])
+rgb_s_blue = np.array([[0.65],[0.8],[0.8]])
 
 # Extract the scaled threshold value for blue from the rgb_comp_contour_scaled array
 rgb_s_blue_thres_scaled = rgb_comp_contour_scaled[0,-1,-1]
