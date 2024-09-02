@@ -162,8 +162,8 @@ fig.tight_layout()
 # Rocover covariance matrices
 # -----------------------------
 # Generate a multidimensional grid based on the number of color dimensions
-grid = jnp.stack(jnp.meshgrid(*[jnp.linspace(jnp.min(xref_jnp),\
-                                              jnp.max(xref_jnp),\
+grid = jnp.stack(jnp.meshgrid(*[jnp.linspace(jnp.min(xref_jnp),
+                                              jnp.max(xref_jnp),
                     NUM_GRID_PTS) for _ in range(model.num_dims)]), axis=-1)
 # Compute the covariance matrices ('Sigmas') at each point in the grid using 
 # the model's compute_U function. 

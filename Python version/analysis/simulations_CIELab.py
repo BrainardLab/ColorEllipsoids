@@ -153,8 +153,7 @@ class SimThresCIELab:
         color_XYZ = self.M_LMS_TO_XYZ @ color_LMS
     
         #XYZ -> Lab
-        background_XYZ_arr = np.array(background_XYZ)
-        background_xyY = colour.XYZ_to_xyY(background_XYZ_arr)
+        background_xyY = colour.XYZ_to_xyY(background_XYZ)
     
         color_Lab = colour.XYZ_to_Lab(color_XYZ, background_xyY) 
         #print(color_Lab)

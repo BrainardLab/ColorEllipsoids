@@ -27,6 +27,7 @@ sys.path.append(path_str)
 #load data
 iso_mat = loadmat('W_from_PlanarGamut.mat')
 gamut_rgb = iso_mat['gamut_bg_primary']
+corner_points_rgb = iso_mat['cornerPointsRGB']
 
 #%% define output directory for output files and figures
 COLOR_DIMENSION = 3
@@ -83,19 +84,13 @@ test_Wishart = gt_Wishart
 test_Wishart.convert_Sig_Threshold_oddity_batch(grid_trans)
 
 #%% Calculate the mean of the points (centroid)
-centroid = np.mean(gamut_rgb, axis=1)
+#here we can use either gamut_rgb or corner_points_rgb
+centroid = np.mean(corner_points_rgb, axis=1)
 # Subtract the centroid to center the points
-centered_points = gamut_rgb - centroid[:,None]
+centered_points = corner_points_rgb - centroid[:,None]
 # Perform Singular Value Decomposition (SVD)
-U, S, Vt = np.linalg.svd(np.transpose(centered_points),(1,0))
+U, S, Vt = np.linalg.svd(np.transpose(centered_points,(1,0)))
 
-# Extract the two vectors spanning the plane
-# These vectors are the first two columns of V (or rows of Vt)
-v1, v2 = Vt[0], Vt[1]
-
-# Orthogonalize v2 with respect to v1
-v2 = v2 - np.dot(v2, v1) * v1
-v2 = v2 / np.linalg.norm(v2)  # Normalize the orthogonalized vector
 nTheta = 200
 sliced_ell_byPlane = np.full((nRef_on_plane, COLOR_DIMENSION, nTheta), np.nan)
 for n in range(nRef_on_plane):
@@ -103,11 +98,11 @@ for n in range(nRef_on_plane):
     radii_n = ell_params_n['radii']/2
     center_n = color_thres_data.W_unit_to_N_unit(np.reshape(ell_params_n['center'],(-1)))
     evecs_n = ell_params_n['evecs']
-    sliced_ell_byPlane[n] = slice_ellipsoid_byPlane(center_n, 
+    sliced_ell_byPlane[n], _ = slice_ellipsoid_byPlane(center_n, 
                                                     radii_n, 
                                                     evecs_n, 
-                                                    v1, 
-                                                    v2,
+                                                    Vt[0], 
+                                                    Vt[1],
                                                     num_grid_pts= nTheta)
 
 #%%
@@ -119,6 +114,13 @@ for n in range(nRef_on_plane):
     ax1.plot(*sliced_ell_byPlane[n],color = 'k')
 # Add the filled area
 ax1.add_collection3d(Poly3DCollection(verts, color=[0.5,0.5,0.5], alpha=0.35))
+#plot Vt, which is an orthogonal matrix where each row represents a basis vector 
+#in the input space (the 3-dimensional space of the original data)
+for s in range(COLOR_DIMENSION):
+    ax1.plot([centroid[0], centroid[0]+Vt[s,0]],
+             [centroid[1], centroid[1]+Vt[s,1]],
+             [centroid[2], centroid[2]+Vt[s,2]],
+             color='k', lw = 0.5)
 fitEll_unscaled1 = color_thres_data.W_unit_to_N_unit(gt_Wishart.fitEll_unscaled)
 CIELabVisualization.plot_3D_isothreshold_ellipsoid(color_thres_data.W_unit_to_N_unit(ref_points_on_plane),
                                                    np.reshape(fitEll_unscaled1,(nRef_on_plane,COLOR_DIMENSION,-1)),

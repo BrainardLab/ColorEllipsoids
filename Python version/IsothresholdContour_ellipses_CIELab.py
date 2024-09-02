@@ -114,7 +114,7 @@ for p in range(sim_thres_CIELab.nPlanes):
 #%% PLOTTING AND SAVING DATA
 sim_CIE_vis = CIELabVisualization(sim_thres_CIELab,
                                   fig_dir=output_figDir, 
-                                  save_fig= True)
+                                  save_fig= False)
 
 grid_est = np.stack((X,Y), axis = 2)
 sim_CIE_vis.plot_2D(grid_est, 
