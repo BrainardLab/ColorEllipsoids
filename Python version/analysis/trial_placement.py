@@ -252,12 +252,18 @@ class TrialPlacementWithoutAdaptiveSampling:
                                                                 self.sim['alpha'], 
                                                                 self.sim['beta'], 
                                                                 self.sim['guessing_rate'])
-                # Simulate binary responses (0 or 1) based on the calculated probabilities.
-                self.sim['resp_binary'][i,j] = np.random.binomial(1, 
-                                                                  self.sim['probC'][i,j],\
-                                                                 (self.sim['nSims'],))
+                    # Simulate binary responses (0 or 1) based on the calculated probabilities.
+                    self.sim['resp_binary'][i,j,n] = np.random.binomial(1, self.sim['probC'][i,j,n])
+        
+    @staticmethod
+    def stretch_unit_circle(x, y, ax_length_x, ax_length_y):
+        #adjust coordinates based on the ellipsoid's semi-axis lengths
+        x_stretched = x * ax_length_x
+        y_stretched = y * ax_length_y
+        return x_stretched, y_stretched
     
-    def sample_rgb_comp_2DNearContour(self, rgb_ref, paramEllipse, random_seed = None, **kwargs):
+    def sample_rgb_comp_2DNearContour(self, rgb_ref, paramEllipse, 
+                                      random_seed = None, **kwargs):
         """
         Samples RGB compositions near an isothreshold ellipsoidal contour.
         This function generates simulated RGB compositions based on a reference
@@ -349,7 +355,7 @@ class TrialPlacementWithoutAdaptiveSampling:
         rgb_comp_sim = np.random.rand(3, self.sim['nSims']) *\
             (box_range[1] - box_range[0]) + box_range[0]
             
-        if len(self.sim['slc_RGBplane']) != 0:
+        if self.sim['slc_RGBplane'] in list(range(3)):
             rgb_comp_sim[self.sim['slc_RGBplane'],:] = self.sim['slc_fixedVal']
         
         rgb_comp_sim[self.sim['varying_RGBplane'],:] = \
