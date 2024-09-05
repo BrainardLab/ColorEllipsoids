@@ -33,7 +33,18 @@ def compute_normalized_Bures_similarity(M1, M2):
     # Calculate NBS
     NBS = trace_value / normalization_factor    
     return NBS
-                    
+
+def log_psd_matrix(S, tol=1e-4):
+	v, U = np.linalg.eigh(S)
+	d = np.log(np.clip(v, tol, None))
+	return U @ np.diag(d) @ U.T
+
+def log_operator_norm_distance(A, B):
+	lgA = log_psd_matrix(A)
+	lgB = log_psd_matrix(B)
+	return np.linalg.norm(lgA - lgB, 2)
+     
+#%%               
 def plot_similarity_metric_scores(ax, similarity_score, bin_edges, **kwargs):
     nSets = similarity_score.shape[0]
     
@@ -47,7 +58,7 @@ def plot_similarity_metric_scores(ax, similarity_score, bin_edges, **kwargs):
     pltP.update(kwargs)
     
     #fig, ax = plt.subplots(1, 1, figsize=(5,4.5))
-    plt.rcParams['figure.dpi'] = 250
+    plt.rcParams['figure.dpi'] = 256
     for j in range(nSets):
         if len(pltP['cmap']) == 0: cmap_l = np.random.rand(1,3)
         else: cmap_l = pltP['cmap'][j];
@@ -56,7 +67,7 @@ def plot_similarity_metric_scores(ax, similarity_score, bin_edges, **kwargs):
                 label = pltP['legend_labels'][j])
         #plot the median
         median_j = np.median(similarity_score[j].flatten())
-        ax.plot([median_j,median_j], [0,pltP['y_ub']],color = cmap_l, linestyle = '--')
+        ax.plot([median_j,median_j], [0,pltP['y_ub']],color = cmap_l, linestyle = '--', lw = 1)
     ax.grid(True, alpha=0.3)
     
 
@@ -72,7 +83,7 @@ def plot_benchmark_similarity(ax, similarity_score, bin_edges, **kwargs):
     pltP.update(kwargs)
     
     #fig, ax = plt.subplots(1, 1, figsize=(5,4.5))
-    plt.rcParams['figure.dpi'] = 250
+    plt.rcParams['figure.dpi'] = 256
     bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
     for m in range(nSets):
         if len(pltP['cmap']) == 0: cmap_m = np.random.rand(1,3)
@@ -80,5 +91,5 @@ def plot_benchmark_similarity(ax, similarity_score, bin_edges, **kwargs):
         if len(pltP['linestyle']) == 0: ls_m = '-';
         else: ls_m = pltP['linestyle'][m]
         counts_m,_ = np.histogram(similarity_score[m].flatten(), bins=bin_edges)
-        ax.plot(bin_centers+pltP['jitter'][m], counts_m,  color = cmap_m, ls = ls_m)
+        ax.plot(bin_centers+pltP['jitter'][m], counts_m,  color = cmap_m, ls = ls_m, lw = 1)
     ax.grid(True, alpha=0.3)

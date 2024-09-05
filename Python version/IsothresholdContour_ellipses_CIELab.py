@@ -15,10 +15,9 @@ from plotting.sim_CIELab_plotting import CIELabVisualization
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
 from analysis.ellipses_tools import fit_2d_isothreshold_contour
 
-output_figDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                'ELPS_analysis/Simulation_FigFiles/Python_version/CIE/'
-output_fileDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                'ELPS_analysis/Simulation_DataFiles/'
+base_dir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
+output_figDir = base_dir+ 'ELPS_analysis/Simulation_FigFiles/Python_version/CIE/'
+output_fileDir = base_dir+ 'ELPS_analysis/Simulation_DataFiles/'
 
 #%% LOAD DATA WE NEED
 # Define the path to the directory containing the necessary files for the simulation

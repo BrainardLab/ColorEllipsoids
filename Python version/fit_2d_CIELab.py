@@ -8,12 +8,14 @@ Created on Mon Apr  8 11:52:44 2024
 This fits a Wishart Process model to the simulated data using the CIELab color space. 
 
 """
+
 #%% import modules
 import jax
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-import pickle
+import types
+import dill as pickle
 import sys
 import numpy as np
 
@@ -28,9 +30,11 @@ from data_reorg import organize_data
 
 #three variables we need to define for loading the data
 plane_2D      = 'RB plane'
-plane_2D_idx  = 1 #index for the fixed color dimension ('GB plnae': 0; 'RB plnae': 1; 'RG plnae': 2)
-sim_jitter    = '0.1'
+plane_2D_dict = {'GB plane': 0, 'RB plane': 1, 'RG plane': 2}
+plane_2D_idx  = plane_2D_dict[plane_2D]
+sim_jitter    = '0.3'
 nSims         = 240 #number of simulations: 240 trials for each ref stimulus
+rnd_seed      = 8
 
 baseDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
 output_figDir_fits = baseDir + 'ELPS_analysis/ModelFitting_FigFiles/Python_version/2D_oddity_task/'
@@ -47,12 +51,11 @@ color_thres_data = color_thresholds(2, baseDir + 'ELPS_analysis/',
                                     plane_2D = plane_2D)
 # Load Wishart model fits
 color_thres_data.load_CIE_data()
-stim = color_thres_data.get_data('stim2D', dataset = 'CIE_data')
 results = color_thres_data.get_data('results2D', dataset = 'CIE_data')  
 
 #file 2
-file_sim      = 'Sims_isothreshold_'+plane_2D+'_sim'+str(nSims)+'perCond_'+\
-                'samplingNearContour_jitter'+sim_jitter+'.pkl'
+file_sim      = f"Sims_isothreshold_{plane_2D}_sim{nSims}perCond_"+\
+                f"samplingNearContour_jitter{sim_jitter}_seed{rnd_seed}.pkl"
 full_path     = f"{path_str}{file_sim}"   
 with open(full_path, 'rb') as f:  data_load = pickle.load(f)
 sim = data_load[0]
@@ -94,10 +97,10 @@ OPT_KEY      = jax.random.PRNGKey(444)  # Key passed to optimizer.
 # Fit W by maximizing posterior
 # -----------------------------
 # Fit model, initialized at random W
-W_init = model.sample_W_prior(W_INIT_KEY) #1e-1*
+W_init = 1e-1*model.sample_W_prior(W_INIT_KEY) 
 
 opt_params = {
-    "learning_rate": 1e-2,#1e-2
+    "learning_rate": 1e-3,#1e-2
     "momentum": 0.2,
     "mc_samples": MC_SAMPLES,
     "bandwidth": BANDWIDTH,
@@ -106,7 +109,7 @@ W_est, iters, objhist = optim.optimize_posterior(
     W_init, data_new, model, OPT_KEY,
     opt_params,
     oddity_task.simulate_oddity, #oddity_task.simulate_oddity or oddity_task.simulate_oddity_reference
-    total_steps=100,
+    total_steps=500,
     save_every=1,
     show_progress=True
 )
@@ -122,8 +125,6 @@ fig.tight_layout()
 # Specify grid over stimulus space
 grid_1d = jnp.linspace(jnp.min(xref_jnp), jnp.max(xref_jnp), NUM_GRID_PTS)
 grid = jnp.stack(jnp.meshgrid(*[grid_1d for _ in range(model.num_dims)]), axis=-1)
-
-Sigmas_init_grid = model.compute_Sigmas(model.compute_U(W_init, grid))
 Sigmas_est_grid = model.compute_Sigmas(model.compute_U(W_est, grid))
 
 # -----------------------------
@@ -134,6 +135,8 @@ model_pred_Wishart = wishart_model_pred(model, opt_params, NUM_GRID_PTS,
                                         DATA_KEY, OPT_KEY, W_init, 
                                         W_est, Sigmas_est_grid, 
                                         color_thres_data,
+                                        target_pC=2/3,
+                                        scaler_x1 = scaler_x1,
                                         ngrid_bruteforce = 500,
                                         bds_bruteforce = [0.01, 0.25])
 
@@ -170,11 +173,16 @@ wishart_pred_vis.plot_2D(
     visualize_samples= True,
     visualize_gt = False,
     visualize_model_estimatedCov = True,
-    samples_alpha = 0.3,
+    samples_alpha = 1,
+    samples_s = 1,
     plane_2D = plane_2D,
-    modelpred_mc = 'k',
-    modelpred_ls = '--',
-    fig_name = fig_name_part1+'_withSamples') 
+    modelpred_ls = '-',
+    modelpred_lc = [0.3,0.3,0.3],
+    modelpred_lw = 2,
+    mdoelpred_alpha = 1,
+    gt_lw= 0.5,
+    gt_lc =[0.1,0.1,0.1],
+    fig_name = fig_name_part1+'_withSamples.pdf') 
 
 wishart_pred_vis.plot_2D(
     grid, 
@@ -187,20 +195,35 @@ wishart_pred_vis.plot_2D(
     gt_alpha = 0.5, 
     modelpred_lw = 2, 
     modelpred_alpha = 0.5,
-    fig_name = fig_name_part1) 
+    fig_name = fig_name_part1 + '.pdf') 
 
         
 #%% save data
-import dill as pickle
-output_file = fig_name_part1 + '_oddity.pkl'
+output_file = fig_name_part1 + "_oddity.pkl"
 full_path = f"{output_fileDir}{output_file}"
 
 variable_names = ['plane_2D', 'sim_jitter','nSims', 'data','x1_raw',
                   'xref_raw','sim_trial_by_CIE', 'grid_1d', 'grid','grid_trans',
                   'iters', 'objhist','model','model_pred_Wishart', 'gt_covMat_CIE']
     
+def has_chebyshev_basis_reference(value):
+    """Check if the object contains a reference to chebyshev_basis."""
+    try:
+        return 'chebyshev_basis' in str(value)
+    except Exception:
+        return False
+
 vars_dict = {}
-for i in variable_names: vars_dict[i] = eval(i)
+for i in variable_names:
+    try:
+        value = eval(i)
+        # Skip any function, or objects referencing 'chebyshev_basis'
+        if isinstance(value, types.FunctionType) or has_chebyshev_basis_reference(value):
+            print(f"Skipping {i} because it contains a function or references 'chebyshev_basis'")
+            continue
+        vars_dict[i] = value
+    except pickle.PicklingError:
+        print(f"Skipping {i} due to PicklingError")
 
 # Write the list of dictionaries to a file using pickle
 with open(full_path, 'wb') as f:

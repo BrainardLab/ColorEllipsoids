@@ -7,36 +7,34 @@ Created on Fri Mar  8 21:02:33 2024
 """
 
 import sys
-from scipy.io import loadmat
 import os
 import math
 import numpy as np
-import matplotlib.pyplot as plt
 import pickle
 
-folder_path = '/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/'+\
-    'Python version/efit-python'
-sys.path.append(folder_path)
-from ellipsoid_fit import ellipsoid_fit
+sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/"+\
+                "Python version")
+from analysis.simulations_CIELab import SimThresCIELab
 from plotting.sim_CIELab_plotting import CIELabVisualization
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
-from analysis.simulations_CIELab import UnitCircleGenerate_3D, fit_3d_isothreshold_ellipsoid
+from analysis.ellipsoids_tools import UnitCircleGenerate_3D, fit_3d_isothreshold_ellipsoid
+                
+base_dir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
+output_figDir = base_dir+ 'ELPS_analysis/Simulation_FigFiles/Python_version/CIE/'
+output_fileDir = base_dir+ 'ELPS_analysis/Simulation_DataFiles/'
 
+#%%import functions from the other script
+# Define the path to the directory containing the necessary files for the simulation
+path_str = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/"+\
+                "FilesFromPsychtoolbox/"
+# Set the background RGB color values used for normalization (in this case, a neutral gray)
+background_RGB = np.array([0.5,0.5,0.5])
 
-#import functions from the other script
-func_path = '/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version/'
-os.chdir(func_path)
-from simulations_CIELab import convert_rgb_lab, find_vecLen
+# Initialize the SimThresCIELab class with the path and background RGB values
+sim_thres_CIELab = SimThresCIELab(path_str, background_RGB)
 
-
-numRef = input('How many reference stimuli per color dimension (default: 5): ') 
-# first see if the script has been run before and we already have the data saved
-if numRef == '5' or '':
-    file_name = 'Isothreshold_ellipsoid_CIELABderived.pkl'
-else:
-    str_ext = '_numRef'+numRef
-    file_name = 'Isothreshold_ellipsoid_CIELABderived'+str_ext+'.pkl'
-numRef_int = int(numRef)
+#%%
+file_name = 'Isothreshold_ellipsoid_CIELABderived.pkl'
 path_str = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
         'ELPS_analysis/Simulation_DataFiles/'
 full_path = f"{path_str}{file_name}"
@@ -50,148 +48,129 @@ try:
     param, stim, results, plt_specifics = data_load[0], data_load[1], \
         data_load[2], data_load[3]
 except:
-    #%% LOAD DATA WE NEED
-    path_str = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/"+\
-        "FilesFromPsychtoolbox"
-    os.chdir(path_str)
-    #load data
-    param = {}
-    T_cones_mat = loadmat('T_cones.mat')
-    param['T_cones'] = T_cones_mat['T_cones'] #size: (3, 61)
-
-    B_monitor_mat = loadmat('B_monitor.mat')
-    param['B_monitor'] = B_monitor_mat['B_monitor'] #size: (61, 3)
-
-    M_LMSToXYZ_mat = loadmat('M_LMSToXYZ.mat')
-    param['M_LMSToXYZ'] = M_LMSToXYZ_mat['M_LMSToXYZ'] #size: (3, 3)
 
     #%% DEINE STIMULUS PROPERTIES AND PLOTTING SPECIFICS
-    stim, results, plt_specifics = {},{},{}
     #define a 5 x 5 x 5 grid of RGB values as reference stimuli
-    stim['nGridPts_ref'] = numRef_int
+    nGridPts_ref = 5
     #define grid points from 0.2 to 0.8 in each dimension
-    stim['grid_ref'] = np.linspace(0.2,0.8,stim['nGridPts_ref']);
+    grid_ref = np.linspace(0.2,0.8, nGridPts_ref);
     
     #generate 3D grid
-    stim['x_grid_ref'], stim['y_grid_ref'], stim['z_grid_ref'] = \
-        np.meshgrid(stim['grid_ref'],stim['grid_ref'],stim['grid_ref'],indexing = 'ij')
+    x_grid_ref, y_grid_ref, z_grid_ref = \
+        np.meshgrid(grid_ref, grid_ref, grid_ref,indexing = 'ij')
     
     #Concatenate grids to form reference points matrix
-    stim['ref_points'] = np.stack((stim['x_grid_ref'], stim['y_grid_ref'],\
-                                         stim['z_grid_ref']), axis = 3)
-        
-    #Define a neutral background RGB value for the simulations
-    stim['background_RGB'] = np.ones((3,1))*0.5
+    ref_points = np.stack((x_grid_ref, y_grid_ref,  z_grid_ref), axis = 3)
     
     #sample total of 16 directions (0 to 360 deg) 
-    stim['numDirPts_xy'] = 16
+    numDirPts_xy = 16
     #Sample directions along Z (polar), fewer due to spherical geometry
-    stim['numDirPts_z'] = int(np.ceil(stim['numDirPts_xy']/2))+1
+    numDirPts_z = int(np.ceil(numDirPts_xy/2))+1
     #Azimuthal angle, 0 to 360 degrees
-    stim['grid_theta'] = np.linspace(0,2*math.pi - math.pi/8,stim['numDirPts_xy'])
+    grid_theta = np.linspace(0,2*math.pi - math.pi/8, numDirPts_xy)
     #Polar angle, 0 to 180 degrees
-    stim['grid_phi'] = np.linspace(0, np.pi, stim['numDirPts_z'])
+    grid_phi = np.linspace(0, np.pi, numDirPts_z)
     #Create a grid of angles, excluding the redundant final theta
-    stim['grid_THETA'], stim['grid_PHI'] = np.meshgrid(stim['grid_theta'], stim['grid_phi'])
+    grid_THETA, grid_PHI = np.meshgrid(grid_theta, grid_phi)
     
     #Calculate Cartesian coordinates for direction vectors on a unit sphere
-    stim['grid_x'] = np.sin(stim['grid_PHI']) * np.cos(stim['grid_THETA'])
-    stim['grid_y'] = np.sin(stim['grid_PHI']) * np.sin(stim['grid_THETA'])
-    stim['grid_z'] = np.cos(stim['grid_PHI'])
-    stim['grid_xyz'] = np.stack((stim['grid_x'], stim['grid_y'], stim['grid_z']), axis = 2)
+    grid_x = np.sin(grid_PHI) * np.cos(grid_THETA)
+    grid_y = np.sin(grid_PHI) * np.sin(grid_THETA)
+    grid_z = np.cos(grid_PHI)
+    grid_xyz = np.stack((grid_x, grid_y, grid_z), axis = 2)
     
     #define threshold as deltaE = 0.5
-    stim['deltaE_1JND'] = 1
+    deltaE_1JND = 1
     
     #the raw isothreshold contour is very tiny, we can amplify it by 5 times
     #for the purpose of visualization
-    results['ellipsoid_scaler'] = 5
+    ellipsoid_scaler = 5
     
     #make a finer grid for the direction (just for the purpose of visualization)
-    plt_specifics['nThetaEllipsoid'] = 200
-    plt_specifics['nPhiEllipsoid'] = 100
-    plt_specifics['circleIn3D'] = UnitCircleGenerate_3D(plt_specifics['nThetaEllipsoid'],\
-                                                        plt_specifics['nPhiEllipsoid'])
+    nThetaEllipsoid = 200
+    nPhiEllipsoid   = 100
+    circleIn3D = UnitCircleGenerate_3D(nThetaEllipsoid, nPhiEllipsoid)
     
     #initialization
-    results['ref_Lab'] = np.full(stim['ref_points'].shape, np.nan)
-    results['opt_vecLen'] = np.full((stim['nGridPts_ref'],stim['nGridPts_ref'],\
-                                    stim['nGridPts_ref'],stim['numDirPts_z'],\
-                                    stim['numDirPts_xy']),np.nan)
-    results['fitEllipsoid_scaled'] = np.full((stim['nGridPts_ref'],stim['nGridPts_ref'],\
-                                      stim['nGridPts_ref'],3,plt_specifics['nThetaEllipsoid']*\
-                                          plt_specifics['nPhiEllipsoid']),np.nan)
-    results['fitEllipsoid_unscaled'] = np.full(results['fitEllipsoid_scaled'].shape,np.nan)
-    results['rgb_surface_scaled'] = np.full((stim['nGridPts_ref'],stim['nGridPts_ref'],\
-                                    stim['nGridPts_ref'],stim['numDirPts_z'],\
-                                    stim['numDirPts_xy'],3),np.nan)
-    results['rgb_surface_cov'] = np.full((stim['nGridPts_ref'],stim['nGridPts_ref'],\
-                                    stim['nGridPts_ref'],3,3),np.nan)
-    results['ellipsoidParams'] = np.full((stim['nGridPts_ref'],stim['nGridPts_ref'],\
-                                          stim['nGridPts_ref']),{})
+    base_shape1 = (nGridPts_ref, nGridPts_ref, nGridPts_ref)
+    base_shape2 = (numDirPts_z, numDirPts_xy)
+    
+    ref_Lab               = np.full(ref_points.shape, np.nan)
+    opt_vecLen            = np.full(base_shape1 + base_shape2, np.nan)
+    fitEllipsoid_scaled   = np.full(base_shape1 + (3, nThetaEllipsoid* nPhiEllipsoid),np.nan)
+    fitEllipsoid_unscaled = np.full(base_shape1 + (3, nThetaEllipsoid* nPhiEllipsoid),np.nan)
+    rgb_surface_scaled    = np.full(base_shape1 + base_shape2 + (3,),np.nan)
+    rgb_surface_cov       = np.full(base_shape1 + (3,3),np.nan)
+    ellipsoidParams       = np.full(base_shape1,{})
     
     #%%Fitting starts from here
     #for each reference stimulus
-    for i in range(stim['nGridPts_ref']):
+    for i in range(nGridPts_ref):
         print(i)
-        for j in range(stim['nGridPts_ref']):
-            for k in range(stim['nGridPts_ref']):
+        for j in range(nGridPts_ref):
+            for k in range(nGridPts_ref):
                 #grab the reference stimulus' RGB
-                rgb_ref_ijk = stim['ref_points'][i,j,k]
-                
-                # Convert the reference RGB values to Lab color space.
-                ref_Lab_ijk, _, _ = convert_rgb_lab(param['B_monitor'],\
-                                                stim['background_RGB'],\
-                                                rgb_ref_ijk)
-                results['ref_Lab'][i,j,k] = ref_Lab_ijk
-                
+                rgb_ref_ijk = ref_points[i,j,k]
+                        
                 #for each chromatic direction
-                for l in range(stim['numDirPts_z']):
-                    for m in range(stim['numDirPts_xy']):
+                for l in range(numDirPts_z):
+                    for m in range(numDirPts_xy):
                         #determine the direction we are going
-                        vecDir = np.array([[stim['grid_x'][l,m],\
-                                           stim['grid_y'][l,m],\
-                                           stim['grid_z'][l,m]]])
+                        vecDir = np.array([grid_x[l,m], grid_y[l,m], grid_z[l,m]])
                         
                         #run minimize to search for the magnitude of vector that
                         #leads to a pre-determined deltaE
-                        results['opt_vecLen'][i,j,k,l,m] = \
-                            find_vecLen(stim['background_RGB'],rgb_ref_ijk,\
-                                        ref_Lab_ijk, vecDir,stim['deltaE_1JND'])
+                        opt_vecLen[i,j,k,l,m] = sim_thres_CIELab.find_vecLen(rgb_ref_ijk,
+                                                                           vecDir,
+                                                                           deltaE_1JND)
                         
                 #fit an ellipsoid 
-                results['fitEllipsoid_scaled'][i,j,k],\
-                    results['fitEllipsoid_unscaled'][i,j,k],\
-                    results['rgb_surface_scaled'][i,j,k],\
-                    results['rgb_surface_cov'][i,j,k],\
-                    results['ellipsoidParams'][i,j,k] = \
-                    fit_3d_isothreshold_ellipsoid(rgb_ref_ijk, [], stim['grid_xyz'],\
-                        vecLen = results['opt_vecLen'][i,j,k],\
-                        nThetaEllipsoid=plt_specifics['nThetaEllipsoid'],\
-                        nPhiEllipsoid = plt_specifics['nPhiEllipsoid'],\
-                        ellipsoid_scaler = results['ellipsoid_scaler'])
-    #save the data
-    path_output = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-        'ELPS_analysis/Simulation_DataFiles/'
-    full_path = f"{path_output}{file_name}"
+                fit_results = fit_3d_isothreshold_ellipsoid(rgb_ref_ijk, [], grid_xyz,\
+                        vecLen = opt_vecLen[i,j,k],
+                        nThetaEllipsoid=nThetaEllipsoid,
+                        nPhiEllipsoid = nPhiEllipsoid,
+                        ellipsoid_scaler = ellipsoid_scaler)
+                
+                fitEllipsoid_scaled[i,j,k],fitEllipsoid_unscaled[i,j,k],\
+                    rgb_surface_scaled[i,j,k], rgb_surface_cov[i,j,k],\
+                    ellipsoidParams[i,j,k] = fit_results
+                        
+    #%%
+    #save all the stim info
+    stim_keys = ['nGridPts_ref', 'grid_ref', 'x_grid_ref', 'y_grid_ref',
+                 'z_grid_ref', 'ref_points', 'background_RGB', 'numDirPts_xy',
+                 'numDirPts_z', 'grid_theta', 'grid_phi', 'grid_THETA', 'grid_PHI',
+                 'grid_x', 'grid_y', 'grid_z', 'grid_xyz', 'deltaE_1JND']
+    stim = {}
+    for i in stim_keys: stim[i] = eval(i)
+    
+    results_keys = ['ellipsoid_scaler', 'ref_Lab', 'opt_vecLen', 
+                    'fitEllipsoid_scaled', 'fitEllipsoid_unscaled',
+                    'rgb_surface_scaled', 'rgb_surface_cov', 'ellipsoidParams']
+    results = {}
+    for i in results_keys: results[i] = eval(i)    
+    
+    plt_specifics_keys = ['nThetaEllipsoid', 'nPhiEllipsoid', 'circleIn3D']
+    plt_specifics = {}
+    for i in  plt_specifics_keys: plt_specifics[i] = eval(i)     
+    
+    full_path = f"{output_fileDir}{file_name}"
         
     # Write the list of dictionaries to a file using pickle
     with open(full_path, 'wb') as f:
-        pickle.dump([param, stim, results, plt_specifics], f)
+        pickle.dump([sim_thres_CIELab, stim, results, plt_specifics], f)
                         
 #%%visualize ellipsoids
-CIELabVisualization.plot_3D_isothreshold_ellipsoid(stim['grid_ref'], stim['grid_ref'],
-                               stim['grid_ref'], results['fitEllipsoid_scaled'],
-                               plt_specifics['nThetaEllipsoid'], 
-                               plt_specifics['nPhiEllipsoid'],
-                               slc_x_grid_ref = np.arange(0,5,2),
-                               slc_y_grid_ref = np.arange(0,5,2),
-                               slc_z_grid_ref = np.arange(0,5,2),
-                               visualize_thresholdPoints = True,
-                               threshold_points = results['rgb_surface_scaled'],
-                               color_ref_rgb = np.array([0.2,0.2,0.2]),
-                               color_surf = np.array([0.8,0.8,0.8]),
-                               color_threshold = [])
+sim_CIE_vis = CIELabVisualization(sim_thres_CIELab,
+                                  fig_dir=output_figDir, 
+                                  save_fig= False)
+sim_CIE_vis.plot_3D(np.reshape(stim['ref_points'],(125,-1)), 
+                            np.reshape(results['fitEllipsoid_scaled'],(125,3,-1)),
+                            visualize_thresholdPoints = True,
+                            threshold_points = np.reshape(results['rgb_surface_scaled'],(125,9,16,3)),
+                            color_ref_rgb = np.array([0.2,0.2,0.2]),
+                            color_surf = np.array([0.8,0.8,0.8]),
+                            color_threshold = [])
                                     
     
     

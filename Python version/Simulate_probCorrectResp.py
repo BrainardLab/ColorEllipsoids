@@ -57,13 +57,13 @@ print(f"target probability: {sim_trial.sim['pC_given_alpha_beta']}")
 # Initialize the visualization object for plotting simulation results
 sim_trial_2D_vis = TrialPlacementVisualization(sim_trial,
                                                fig_dir= output_figDir, 
-                                               save_fig=True) 
+                                               save_fig=False) 
 # Visualize the Weibull psychometric function
 x_PMF = np.linspace(0,3,100)
 sim_trial_2D_vis.plot_WeibullPMF(x_PMF)
 
 #%% specify the seed
-rnd_seed = 0
+rnd_seed = 9
 # Run the simulation with the specified random seed
 sim_trial.run_sim(sim_CIELab, random_seed = rnd_seed)
 
@@ -121,7 +121,7 @@ if sim_trial.sim['method_sampling'] == 'NearContour':
 
 #%%save to pkl
 file_name_firsthalf = f"Sims_isothreshold_{sim_trial.sim['plane_2D']}_sim"+\
-    f"{sim_trial.sim['nSims']}_perCond_sampling_{sim_trial.sim['method_sampling']}"
+    f"{sim_trial.sim['nSims']}perCond_sampling{sim_trial.sim['method_sampling']}"
 if sim_trial.sim['method_sampling'] == 'NearContour':
     file_name_secondhalf = f"_jitter{sim_trial.sim['random_jitter']}_seed{rnd_seed}.pkl"
 elif sim_trial.sim['method_sampling'] == 'Random':

@@ -6,36 +6,44 @@ Created on Mon Apr  8 11:52:44 2024
 @author: fangfang
 
 This fits a Wishart Process model to the pilot human data. Trial placement
-was guided by AEPsych. 
+was determined by AEPsych. 
 
 """
-#%% import modules
+#%% 
+# -----------------------------------------------------------
+# SECTION 1: import modules and set directories
+# -----------------------------------------------------------
 import jax
 jax.config.update("jax_enable_x64", True)
-
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import os
 import dill as pickled
 import sys
 import numpy as np
+import pandas as pd
 
+## ----- NEED TO CHANGE -----
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
+## --------------------------
 from core import optim, oddity_task
 from core.wishart_process import WishartProcessModel
 from core.model_predictions import wishart_model_pred
 from analysis.color_thres import color_thresholds
 from plotting.wishart_predictions_plotting import WishartPredictionsVisualization
 from plotting.AEPsych_predictions_plotting import AEPsych_predictions_visualization
-
 # Add the parent directory of the aepsych package to sys.path
-path_str = '/Users/fangfang/Documents/MATLAB/toolboxes/aepsych-main'
-sys.path.append(path_str)
+## ----- NEED TO CHANGE -----
+sys.path.append('/Users/fangfang/Documents/MATLAB/toolboxes/aepsych-main')
+## --------------------------
 from aepsych.server import AEPsychServer
 
 #data path
-baseDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
-path_str  = baseDir+ 'Meta_analysis/Pilot_DataFiles/Pilot_FH/'
+## ----- NEED TO CHANGE -----
+# this is the dir where we store our .db files
+base_dir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
+path_str  = base_dir+ 'Meta_analysis/Pilot_DataFiles/Pilot_FH/'
+## --------------------------
             
 #specify the file name
 subN = 1
@@ -44,26 +52,35 @@ file_name = f'unity_color_discrimination_2d_oddity_task_{plane_2D[:2]}plane_sub{
 full_path = f"{path_str}{file_name}"
 os.chdir(path_str)
 
+## ----- NEED TO CHANGE -----
+# this is the dir where we store CIE simulated data
+path_dir2 = base_dir + 'ELPS_analysis/'
+## --------------------------
+
 # Define the color plane for the simulations
 COLOR_DIMENSION = 2
-color_thres_data = color_thresholds(COLOR_DIMENSION, baseDir + 'ELPS_analysis/', plane_2D = plane_2D)
+color_thres_data = color_thresholds(COLOR_DIMENSION, 
+                                    path_dir2,
+                                    plane_2D = plane_2D)
 
 #specify figure name and path
-output_figDir_fits = baseDir+'META_analysis/ModelFitting_FigFiles/2dTask/pilot/'
-output_fileDir_fits = baseDir+ 'META_analysis/ModelFitting_DataFiles/2dTask/pilot/'
+## ----- NEED TO CHANGE -----
+output_figDir_fits = base_dir+'META_analysis/ModelFitting_FigFiles/2dTask/pilot/'
+output_fileDir_fits = base_dir+ 'META_analysis/ModelFitting_DataFiles/2dTask/pilot/'
+## --------------------------
 
 #%%
 # -----------------------------------------------------------
-# Load data simulated using CIELab and organize data
+# SECTION 2: Load and organize the pilot data 
 # -----------------------------------------------------------
 # Initialize the AEPsych server to interact with the database.
 serv             = AEPsychServer(database_path = file_name)
 exp_ids          = [rec.experiment_id for rec in serv.db.get_master_records()]
 nSims            = 360 # Number of simulations or trials per reference stimulus.
-nRefs = 9#len(exp_ids)
-expt_indices = list(range(nRefs))#list(range(len(exp_ids)))
-expt_idx_skip = []#22
-#expt_indices.remove(expt_idx_skip)
+expt_indices     = list(range(len(exp_ids)))#list(range(len(exp_ids)))
+expt_idx_skip    = 22
+expt_indices.remove(expt_idx_skip)
+nRefs            = len(expt_indices)
 
 # Initialize arrays to store reference and comparison stimuli, and observer responses.
 refStimulus      = np.full((nRefs,nSims,COLOR_DIMENSION), np.nan)
@@ -108,15 +125,16 @@ x1_jnp   = jnp.reshape(compStimulus, (nRefs*nSims,2))
 y_jnp    = jnp.reshape(responses, (nRefs*nSims))
 
 # Pack the processed data into a tuple for further use.
-#data = (y_jnp, xref_jnp, x0_jnp, x1_jnp)
 data = (y_jnp, xref_jnp, x1_jnp)
+# for sanity check, make the plot below. The dots should be within [-0.3, 0.3] for both axes
+# plt.scatter(x1_jnp[:,0] - xref_jnp[:,0], x1_jnp[:,1] - xref_jnp[:,1])
 
 #%% -------------------------------
-# Constants describing simulation
+# SECTION 3: Fit the Wishart model
 # -------------------------------
 model = WishartProcessModel(
     5,     # Degree of the polynomial basis functions
-    2,     # Number of stimulus dimensions
+    COLOR_DIMENSION, # Number of stimulus dimensions
     1,     # Number of extra inner dimensions in `U`.
     3e-4,  # Scale parameter for prior on `W`.
     0.4,   # Geometric decay rate on `W`. 
@@ -132,11 +150,8 @@ W_INIT_KEY   = jax.random.PRNGKey(225)  # Key to initialize `W_est`.
 DATA_KEY     = jax.random.PRNGKey(333)  # Key to generate datatset.
 OPT_KEY      = jax.random.PRNGKey(444)  # Key passed to optimizer.
 
-# -----------------------------
-# Fit W by maximizing posterior
-# -----------------------------
 # Fit model, initialized at random W
-W_init = 1e-1*model.sample_W_prior(W_INIT_KEY) #1e-1*
+W_init = 1e-1*model.sample_W_prior(W_INIT_KEY) 
 
 opt_params = {
     "learning_rate": 1e-4,
@@ -158,9 +173,9 @@ ax.plot(iters, objhist)
 fig.tight_layout()
 
 #%%
-# -----------------------------
-# Rocover covariance matrices
-# -----------------------------
+# -------------------------------------------------------
+# SECTION 4: Compute model predictions (66.7% correct )
+# -------------------------------------------------------
 # Generate a multidimensional grid based on the number of color dimensions
 grid = jnp.stack(jnp.meshgrid(*[jnp.linspace(jnp.min(xref_jnp),
                                               jnp.max(xref_jnp),
@@ -175,7 +190,7 @@ model_pred_Wishart = wishart_model_pred(model, opt_params, NUM_GRID_PTS,
                                         DATA_KEY, OPT_KEY, W_init,
                                         W_est, Sigmas_est_grid,
                                         color_thres_data, 
-                                        target_pC=0.67,
+                                        target_pC=0.667,
                                         ngrid_bruteforce = 1000,
                                         bds_bruteforce = [0.0005, 0.2])
 
@@ -186,9 +201,9 @@ grid_trans = np.transpose(grid,(2,0,1))
 model_pred_Wishart.convert_Sig_Threshold_oddity_batch(grid_trans)
         
 #%%
-# -----------------------------
-# Visualize model predictions
-# -----------------------------
+# -----------------------------------------
+# SECTION 5: Visualize model predictions
+# -----------------------------------------
 #specify figure name and path
 fig_name_part1 = f'Fitted_isothreshold_{plane_2D}_sim{nSims}perRef_{nRefs}refs_'+\
                 f'AEPsychSampling_bandwidth{BANDWIDTH}'
@@ -199,14 +214,17 @@ class expt_data:
         self.x1_all = x1_all
         self.y_all = y_all
         self.pseudo_order = pseudo_order
-expt_trial = expt_data(xref_jnp, x1_jnp, y_jnp, np.reshape(np.array([20,0,14,22,10,24,12,4,2]),(nRefs,1)))
-#expt_trial = expt_data(xref_jnp, x1_jnp, y_jnp, np.reshape(np.array([20,0,14,22,10,24,12,4,2,6,18,16,8,7,13,11,17,1,19,5,23,3,21,15,9]),(nRefs,1)))
+        
+#retrieve the session order
+df = pd.read_excel('Pilot_subject_log.xlsx')
+session_order = np.array(df['Session order'])-1 #-1 because python starts from 0 
+expt_trial = expt_data(xref_jnp, x1_jnp, y_jnp, session_order[:,np.newaxis])
 wishart_pred_vis = WishartPredictionsVisualization(expt_trial,
                                                    model, 
                                                    model_pred_Wishart, 
                                                    color_thres_data,
                                                    fig_dir = output_figDir_fits, 
-                                                   save_fig = True)
+                                                   save_fig = False)
 wishart_pred_vis.pltP['dpi'] = 1024
 grid_samples_temp = color_thres_data.N_unit_to_W_unit(np.linspace(0.2, 0.8,5))
 grid_samples = jnp.stack(jnp.meshgrid(*[grid_samples_temp for _ in range(2)]), axis=-1)
@@ -245,9 +263,12 @@ wishart_pred_vis.plot_2D(
     samples_colorcoded_resp = True,
     fig_name = fig_name_part1 +'_wYesNo')
 
-#%% Fit individual ellipses
+#%% 
+# -----------------------------------------
+# SECTION 6: Fit individual ellipses
+# -----------------------------------------
 # Unroll the grid into a 2D array where each column is a flattened reference location.
-idx_slc = [0,2,4]
+idx_slc = list(range(NUM_GRID_PTS)) #could be [0,2,4] if we just want to select 3 x 3 grid
 grid_unroll = np.reshape(grid_trans[:,idx_slc][:,:,idx_slc], (model.num_dims, nRefs))
 
 # Initialize a mask for the weight matrix W, where only the first element is unconstrained.
@@ -333,7 +354,9 @@ for n in range(nRefs):
 # Reshape the individual ellipse fits to match the original shape.
 fitEll_indv_org = np.reshape(fitEll_indv, model_pred_Wishart.fitEll_unscaled.shape)
     
-#%% visualize model predictions by joint fit and by individual fits
+#%% ---------------------------------------------------------------------------
+# SECTION 7: visualize model predictions by joint fit and by individual fits
+# -----------------------------------------------------------------------------
 wishart_pred_vis.plot_2D(
     grid, 
     grid_samples, 
@@ -356,7 +379,7 @@ wishart_pred_vis.plot_2D(
     fig_name = fig_name_part1+'_wIndvFits')   
 
 #%% ----------------------------------------------------
-# Visualize AEPsych-estimated thresholds
+# SECTION 8: Visualize AEPsych-estimated thresholds
 # ------------------------------------------------------
 # Initialize the visualization class for AEPsych predictions
 AEPsych_pred_vis = AEPsych_predictions_visualization(expt_trial,

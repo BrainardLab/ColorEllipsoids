@@ -59,11 +59,10 @@ class CIELabVisualization(WishartModelBasicsVisualization):
             ax.set_xticks([])
             ax.set_yticks([])
         # Save the plot with bbox_inches='tight' to ensure labels are not cropped
-        if len(self.fig_dir) !=0 and self.save_fig:
+        if self.fig_dir and self.save_fig:
             plt.savefig(self.fig_dir + self.pltP['fig_name'])
         return fig, ax
     
-        
     def plot_Tcones(self, ax = None, **kwargs):
         #default values for optional parameters
         method_specific_settings = {
@@ -90,7 +89,7 @@ class CIELabVisualization(WishartModelBasicsVisualization):
             ax.set_xticks([])
             ax.set_yticks([])
         # Save the plot with bbox_inches='tight' to ensure labels are not cropped
-        if len(self.fig_dir) !=0 and self.save_fig:
+        if self.fig_dir and self.save_fig:
             plt.savefig(self.fig_dir + self.pltP['fig_name'])
         return fig, ax
     
@@ -190,7 +189,7 @@ class CIELabVisualization(WishartModelBasicsVisualization):
         ax[1].set_title('CIELab space')
         ax[1].view_init(*self.pltP['lab_viewing_angle'])
         # Save the plot with bbox_inches='tight' to ensure labels are not cropped
-        if len(self.fig_dir) !=0 and self.save_fig:
+        if self.fig_dir and self.save_fig:
             plt.savefig(self.fig_dir + self.pltP['fig_name'], bbox_inches='tight',
                     pad_inches=0.3)
 
@@ -263,16 +262,15 @@ class CIELabVisualization(WishartModelBasicsVisualization):
             self.pltP['plane_2D'] = self.sim_CIE.plane_2D_list[p]
             self._configure_labels_and_title(ax[p])
         # Show the figure after all subplots have been drawn
-        if len(self.fig_dir) !=0 and self.save_fig:
+        if self.fig_dir and self.save_fig:
             plt.savefig(self.fig_dir + self.pltP['fig_name'])
         plt.show()
         return fig, ax
       
     #%%
-    def plot_3D_isothreshold_ellipsoid(grid_est, fitEllipsoid, 
-                                       nTheta = 200, nPhi = 100, ax = None, **kwargs):
+    def plot_3D(self, grid_est, fitEllipsoid, nTheta = 200, nPhi = 100, ax = None, **kwargs):
         #default values for optional parameters
-        pltP ={
+        method_specific_settings ={
             'fig_size':(8,8),
             'visualize_ref':True,
             'visualize_ellipsoids':True,
@@ -294,13 +292,14 @@ class CIELabVisualization(WishartModelBasicsVisualization):
             'fig_dir':'',
             'figName':'Isothreshold_ellipsoids'} 
         # Update plot parameters with method-specific settings and external configurations.
-        pltP.update(kwargs)  
+        self.pltP.update(method_specific_settings)
+        self.pltP.update(kwargs)  
         plt.rcParams['font.sans-serif'] = ['Arial']        
         nRef = grid_est.shape[0]
         
         # Create a new figure and axes if not provided.
         if ax is None:
-            fig = plt.figure(figsize = pltP['fig_size'],dpi = 256)
+            fig = plt.figure(figsize = self.pltP['fig_size'],dpi = self.pltP['dpi'])
             ax = fig.add_subplot(111, projection='3d')
         else:
             fig = ax.figure
@@ -308,13 +307,16 @@ class CIELabVisualization(WishartModelBasicsVisualization):
         ax.set_box_aspect([1,1,1])
         for i in range(nRef):
             cmap_i =grid_est[i]
-            if pltP['ref_color'] is not None: ref_color = pltP['ref_color']
+            if self.pltP['ref_color'] is not None: 
+                ref_color = self.pltP['ref_color']
             else: ref_color = cmap_i
-            ax.scatter(*cmap_i, s=pltP['ref_ms'], c=ref_color, marker='+',
-                       linewidth=pltP['ref_lw'])
+            ax.scatter(cmap_i[0],cmap_i[1],cmap_i[2], s =self.pltP['ref_ms'], 
+                       c = ref_color, marker='+',
+                       linewidth= self.pltP['ref_lw'])
         
-            if pltP['visualize_ellipsoids']:
-                if pltP['surf_color'] is not None: surf_color = pltP['surf_color']
+            if self.pltP['visualize_ellipsoids']:
+                if self.pltP['surf_color'] is not None: 
+                    surf_color = self.pltP['surf_color']
                 else: surf_color = cmap_i
                 ell_i = fitEllipsoid[i]
                 if nPhi*nTheta != ell_i.shape[-1]:
@@ -326,26 +328,32 @@ class CIELabVisualization(WishartModelBasicsVisualization):
                 ell_i_z = ell_i[2].reshape(nPhi, nTheta)
                 ax.plot_surface(ell_i_x, ell_i_y, ell_i_z,
                                 color=surf_color, edgecolor='none', 
-                                alpha= pltP['surf_alpha'])
+                                alpha= self.pltP['surf_alpha'])
 
-            if pltP['visualize_thresholdPoints'] and pltP['threshold_points'] is not None:
-                if pltP['scatter_color'] is not None: scatter_color = pltP['scatter_color']
+            if self.pltP['visualize_thresholdPoints'] and self.pltP['threshold_points'] is not None:
+                if self.pltP['scatter_color'] is not None: 
+                    scatter_color = self.pltP['scatter_color']
                 else: scatter_color = cmap_i
-                tp = pltP['threshold_points'][i]
+                tp = self.pltP['threshold_points'][i]
                 tp_x, tp_y, tp_z = tp[:,:,0], tp[:,:,1], tp[:,:,2]
                 tp_x_f = tp_x.flatten()
                 tp_y_f = tp_y.flatten()
                 tp_z_f = tp_z.flatten()
                 ax.scatter(tp_x_f, tp_y_f, tp_z_f,
-                           s=pltP['scatter_ms'], c= scatter_color, edgecolor = 'none',
-                           alpha= pltP['scatter_alpha'])
-        ax.set_xlim(pltP['lim']); ax.set_ylim(pltP['lim']); ax.set_zlim(pltP['lim'])
-        ax.set_xticks(pltP['ticks']); ax.set_yticks(pltP['ticks']); ax.set_zticks(pltP['ticks'])
+                           s=self.pltP['scatter_ms'], 
+                           c= scatter_color, edgecolor = 'none',
+                           alpha= self.pltP['scatter_alpha'])
+        ax.set_xlim(self.pltP['lim']); 
+        ax.set_ylim(self.pltP['lim']); 
+        ax.set_zlim(self.pltP['lim'])
+        ax.set_xticks(self.pltP['ticks']); 
+        ax.set_yticks(self.pltP['ticks']); 
+        ax.set_zticks(self.pltP['ticks'])
         ax.set_xlabel('R'); ax.set_ylabel('G'); ax.set_zlabel('B')
-        ax.view_init(elev=pltP['view_angle'][0], azim=pltP['view_angle'][1])   # Adjust viewing angle for better visualization
+        ax.view_init(elev=self.pltP['view_angle'][0], azim=self.pltP['view_angle'][1])   # Adjust viewing angle for better visualization
         # Show the figure after all subplots have been drawn
-        if len(pltP['fig_dir']) !=0 and pltP['save_fig']:
-            plt.savefig(pltP['fig_dir'] + pltP['fig_name'])
+        if self.pltP['fig_dir'] and self.pltP['save_fig']:
+            plt.savefig(self.pltP['fig_dir'] + self.pltP['fig_name'])
         plt.show()
         return fig, ax
             
