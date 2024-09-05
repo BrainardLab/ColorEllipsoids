@@ -288,12 +288,14 @@ class CIELabVisualization(WishartModelBasicsVisualization):
             'ticks':np.linspace(0.2,0.8,3),
             'view_angle':[35,-120],
             'fontsize':15,
+            'plane_3D': 'RGB space',
             'save_fig':False,
             'fig_dir':'',
             'figName':'Isothreshold_ellipsoids'} 
         # Update plot parameters with method-specific settings and external configurations.
         self.pltP.update(method_specific_settings)
         self.pltP.update(kwargs)  
+        self.ndims = 3
         plt.rcParams['font.sans-serif'] = ['Arial']        
         nRef = grid_est.shape[0]
         
@@ -343,13 +345,9 @@ class CIELabVisualization(WishartModelBasicsVisualization):
                            s=self.pltP['scatter_ms'], 
                            c= scatter_color, edgecolor = 'none',
                            alpha= self.pltP['scatter_alpha'])
-        ax.set_xlim(self.pltP['lim']); 
-        ax.set_ylim(self.pltP['lim']); 
-        ax.set_zlim(self.pltP['lim'])
-        ax.set_xticks(self.pltP['ticks']); 
-        ax.set_yticks(self.pltP['ticks']); 
-        ax.set_zticks(self.pltP['ticks'])
-        ax.set_xlabel('R'); ax.set_ylabel('G'); ax.set_zlabel('B')
+        self._update_axes_limits(ax, lim = self.pltP['lim'])
+        self._configure_labels_and_title(ax)
+        self._update_axes_labels(ax, self.pltP['ticks'], self.pltP['ticks'], nsteps = 1)
         ax.view_init(elev=self.pltP['view_angle'][0], azim=self.pltP['view_angle'][1])   # Adjust viewing angle for better visualization
         # Show the figure after all subplots have been drawn
         if self.pltP['fig_dir'] and self.pltP['save_fig']:

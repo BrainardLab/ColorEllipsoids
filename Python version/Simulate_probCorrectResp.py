@@ -23,6 +23,8 @@ from analysis.ellipses_tools import PointsOnEllipseQ, UnitCircleGenerate
 base_dir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_analysis/'
 output_figDir = base_dir+'Simulation_FigFiles/Python_version/transformation'
 output_fileDir = base_dir + 'Simulation_DataFiles/'
+# specify the seed
+rnd_seed = 9
 
 #%% Load precomputed ground truth data from a pickle file
 file_name = 'Isothreshold_contour_CIELABderived_fixedVal0.5.pkl'
@@ -63,7 +65,6 @@ x_PMF = np.linspace(0,3,100)
 sim_trial_2D_vis.plot_WeibullPMF(x_PMF)
 
 #%% specify the seed
-rnd_seed = 9
 # Run the simulation with the specified random seed
 sim_trial.run_sim(sim_CIELab, random_seed = rnd_seed)
 

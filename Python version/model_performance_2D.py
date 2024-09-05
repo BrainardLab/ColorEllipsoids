@@ -27,50 +27,28 @@ fig_outputDir = base_dir+'ELPS_analysis/ModelPerformance_FigFiles/'
 # ------------------------------------------
 
 varyingFactor = 'jitter'
-varyingLevels = [0.1, 0.3, 0.5]
+jitter = [0.1, 0.3, 0.5]
 fixedFactor = 'nSims'
-fixedLevel = 240
+nSims = 240
 plane_2D = 'GB plane'
 saveFig = False
 
-nLevels = len(varyingLevels)
+nLevels = len(jitter)
 path_str1 = base_dir +'ELPS_analysis/ModelFitting_DataFiles/2D_oddity_task/'
 data_load = []
     
-if fixedFactor == 'jitter':
-    nSims     = varyingLevels #[240, 160, 120] #[240]
-    jitter    = fixedLevel #0.1#[0.1, 0.3, 0.5]
-
-    for j in varyingLevels:
-        if  varyingFactor == 'nSims_total':
-            file_name_j = f'Fitted_isothreshold_{plane_2D}_samplingRandom_' +\
-                        f'wFittedW_jitter{jitter}_nSims{j}total.pkl'
-        elif varyingFactor == 'nSims': #default is per condition
-            file_name_j = f'Fitted_isothreshold_{plane_2D}_sim{j}perCond_samplingNearContour_' +\
-                        f'jitter{jitter}_bandwidth0.005_seed0.pkl'
-        full_path_j = f"{path_str1}{file_name_j}"
-        os.chdir(path_str1)
-        #load data 
-        with open(full_path_j, 'rb') as f:
-            # Load the object from the file
-            data_load_j = pickle.load(f)
-            data_load.append(data_load_j)
-
-elif varyingFactor == 'jitter' and fixedFactor == 'nSims':
-    nSims     = fixedLevel #[240, 160, 120] #[240]
-    jitter    = varyingLevels #0.1#[0.1, 0.3, 0.5]
-    for j in varyingLevels:
-        # file_name_j = f'Fitted_isothreshold_{plane_2D}_samplingRandom_' +\
-        #             f'wFittedW_jitter{j:01}_nSims{nSims}total.pkl'
-        file_name_j = f'Fitted_isothreshold_{plane_2D}_sim{nSims}perCond_' +\
-                    f'samplingNearContour_jitter{j:01}_seed0_bandwidth0.005_oddity.pkl'
-        full_path_j = f"{path_str1}{file_name_j}"
-        os.chdir(path_str1)
-        #load data 
-        with open(full_path_j, 'rb') as f:
-            # Load the object from the file
-            data_load_j = pickle.load(f)
-            data_load.append(data_load_j)
+for j in jitter:
+    # file_name_j = f'Fitted_isothreshold_{plane_2D}_samplingRandom_' +\
+    #             f'wFittedW_jitter{j:01}_nSims{nSims}total.pkl'
+    file_name_j = f'Fitted_isothreshold_{plane_2D}_sim{nSims}perCond_' +\
+                f'samplingNearContour_jitter{j:01}_seed0_bandwidth0.005_oddity.pkl'
+    full_path_j = f"{path_str1}{file_name_j}"
+    os.chdir(path_str1)
+    #load data 
+    with open(full_path_j, 'rb') as f:
+        # Load the object from the file
+        data_load_j = pickle.load(f)
+        data_load.append(data_load_j)
 
 #%% load ground truths
 path_str2 = base_dir + 'ELPS_analysis/Simulation_DataFiles/'
@@ -208,7 +186,7 @@ plt.rcParams.update({'font.size': 10})
 fig2, ax1 = plt.subplots(1,1, figsize = (3.2, 2.5))
 plot_similarity_metric_scores(ax1, BW_distance, BW_bins2,
                               y_ub = y_ub, cmap = cmap_t,
-                              legend_labels = [str(varyingLevels[i])+legend_str[i] \
+                              legend_labels = [str(jitter[i])+legend_str[i] \
                                                for i in range(nLevels)])
 plot_benchmark_similarity(ax1, BW_benchmark, BW_bins,cmap = cmap_BW,\
                           linestyle = [':','--']+['-']*len(idx_corner),\
@@ -243,7 +221,7 @@ plt.rcParams.update({'font.size': 10})
 fig3, ax2 = plt.subplots(1,1, figsize = (3.2, 2.5), dpi = 256)
 plot_similarity_metric_scores(ax2, LU_distance, LU_bins2,
                               y_ub = y_ub, cmap = cmap_t,
-                              legend_labels = [str(varyingLevels[i])+legend_str[i] \
+                              legend_labels = [str(jitter[i])+legend_str[i] \
                                                for i in range(nLevels)])
 plot_benchmark_similarity(ax2, LU_distance_corner, LU_bins,cmap = cmap_LU,\
                           linestyle = ['-']*len(idx_corner),\

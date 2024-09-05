@@ -11,6 +11,7 @@ import os
 import math
 import numpy as np
 import pickle
+import dill as pickled
 
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/"+\
                 "Python version")
@@ -42,14 +43,20 @@ os.chdir(path_str)
 
 #Here is what we do if we want to load the data
 try:
-    with open(full_path, 'rb') as f:
-        # Load the object from the file
-        data_load = pickle.load(f)
-    param, stim, results, plt_specifics = data_load[0], data_load[1], \
+    try: #in older version, the saved data are all dictionaries
+        with open(full_path, 'rb') as f:
+            data_load = pickle.load(f)
+    except: 
+        # in newer version, some of the saved data are object/classes, 
+        #so we have to use dill for loading
+        with open(full_path, 'rb') as f:
+            data_load = pickled.load(f)        
+    _, stim, results, plt_specifics = data_load[0], data_load[1], \
         data_load[2], data_load[3]
 except:
 
     #%% DEINE STIMULUS PROPERTIES AND PLOTTING SPECIFICS
+    ndims = 3 #color dimensions
     #define a 5 x 5 x 5 grid of RGB values as reference stimuli
     nGridPts_ref = 5
     #define grid points from 0.2 to 0.8 in each dimension
@@ -97,10 +104,10 @@ except:
     
     ref_Lab               = np.full(ref_points.shape, np.nan)
     opt_vecLen            = np.full(base_shape1 + base_shape2, np.nan)
-    fitEllipsoid_scaled   = np.full(base_shape1 + (3, nThetaEllipsoid* nPhiEllipsoid),np.nan)
-    fitEllipsoid_unscaled = np.full(base_shape1 + (3, nThetaEllipsoid* nPhiEllipsoid),np.nan)
-    rgb_surface_scaled    = np.full(base_shape1 + base_shape2 + (3,),np.nan)
-    rgb_surface_cov       = np.full(base_shape1 + (3,3),np.nan)
+    fitEllipsoid_scaled   = np.full(base_shape1 + (ndims, nThetaEllipsoid* nPhiEllipsoid),np.nan)
+    fitEllipsoid_unscaled = np.full(base_shape1 + (ndims, nThetaEllipsoid* nPhiEllipsoid),np.nan)
+    rgb_surface_scaled    = np.full(base_shape1 + base_shape2 + (ndims,),np.nan)
+    rgb_surface_cov       = np.full(base_shape1 + (ndims, ndims),np.nan)
     ellipsoidParams       = np.full(base_shape1,{})
     
     #%%Fitting starts from here
@@ -121,15 +128,16 @@ except:
                         #run minimize to search for the magnitude of vector that
                         #leads to a pre-determined deltaE
                         opt_vecLen[i,j,k,l,m] = sim_thres_CIELab.find_vecLen(rgb_ref_ijk,
-                                                                           vecDir,
-                                                                           deltaE_1JND)
+                                                                             vecDir,
+                                                                             deltaE_1JND)
                         
                 #fit an ellipsoid 
-                fit_results = fit_3d_isothreshold_ellipsoid(rgb_ref_ijk, [], grid_xyz,\
-                        vecLen = opt_vecLen[i,j,k],
-                        nThetaEllipsoid=nThetaEllipsoid,
-                        nPhiEllipsoid = nPhiEllipsoid,
-                        ellipsoid_scaler = ellipsoid_scaler)
+                fit_results = fit_3d_isothreshold_ellipsoid(rgb_ref_ijk, 
+                                                            grid_xyz,
+                                                            vecLen = opt_vecLen[i,j,k],
+                                                            nThetaEllipsoid=nThetaEllipsoid,
+                                                            nPhiEllipsoid = nPhiEllipsoid,
+                                                            ellipsoid_scaler = ellipsoid_scaler)
                 
                 fitEllipsoid_scaled[i,j,k],fitEllipsoid_unscaled[i,j,k],\
                     rgb_surface_scaled[i,j,k], rgb_surface_cov[i,j,k],\
@@ -158,16 +166,19 @@ except:
         
     # Write the list of dictionaries to a file using pickle
     with open(full_path, 'wb') as f:
-        pickle.dump([sim_thres_CIELab, stim, results, plt_specifics], f)
+        pickled.dump([sim_thres_CIELab, stim, results, plt_specifics], f)
                         
 #%%visualize ellipsoids
 sim_CIE_vis = CIELabVisualization(sim_thres_CIELab,
                                   fig_dir=output_figDir, 
                                   save_fig= False)
-sim_CIE_vis.plot_3D(np.reshape(stim['ref_points'],(125,-1)), 
-                            np.reshape(results['fitEllipsoid_scaled'],(125,3,-1)),
+ndims = 3
+sim_CIE_vis.plot_3D(np.reshape(stim['ref_points'],(stim['nGridPts_ref']**ndims,-1)), 
+                            np.reshape(results['fitEllipsoid_scaled'],(stim['nGridPts_ref']**ndims,ndims,-1)),
                             visualize_thresholdPoints = True,
-                            threshold_points = np.reshape(results['rgb_surface_scaled'],(125,9,16,3)),
+                            threshold_points = np.reshape(results['rgb_surface_scaled'],\
+                                                          (stim['nGridPts_ref']**ndims,\
+                                                           stim['numDirPts_z'],stim['numDirPts_xy'],ndims)),
                             color_ref_rgb = np.array([0.2,0.2,0.2]),
                             color_surf = np.array([0.8,0.8,0.8]),
                             color_threshold = [])
