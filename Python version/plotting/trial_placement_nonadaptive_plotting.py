@@ -227,3 +227,122 @@ class TrialPlacementVisualization(WishartModelBasicsVisualization):
         plt.tight_layout()
         plt.show()
         
+    @staticmethod
+    def plot_3D_sampledComp(ref_points, fitEllipsoid_unscaled, sampledComp,
+                            fixedPlane, fixedPlaneVal, nPhi = 100, nTheta = 200, 
+                            **kwargs):
+        # Default parameters for ellipsoid fitting. Can be overridden by kwargs.
+        pltP = {
+            'visualize_ellipsoid':True, 
+            'visualize_samples':True, 
+            'scaled_neg12pos1':False,
+            'slc_grid_ref_dim1': list(range(5)),
+            'slc_grid_ref_dim2': list(range(5)),
+            'surf_alpha': 0.3,
+            'samples_alpha': 0.2,
+            'markerSize_samples':2,
+            'default_viewing_angle':False,
+            'bds': 0.025,
+            'fontsize':15,
+            'figsize':(8,8),
+            'title':'',
+            'saveFig':False,
+            'figDir':'',
+            'figName':'Sampled_comparison_stimuli_3D'
+            }
+        pltP.update(kwargs)
+        
+        #Determine the indices of the reference points based on the fixed 
+        # plane specified ('R', 'G', or 'B' for different color channels)
+        if fixedPlane =='R':
+            idx_x = np.where(np.abs(ref_points - fixedPlaneVal)< 1e-6)[0][0]
+        elif fixedPlane == 'G':
+            idx_y = np.where(np.abs(ref_points - fixedPlaneVal)< 1e-6)[0][0]
+        elif fixedPlane == 'B':
+            idx_z = np.where(np.abs(ref_points - fixedPlaneVal)< 1e-6)[0][0]
+        else:
+            return
+        
+        nGridPts_dim1 = len(pltP['slc_grid_ref_dim1'])
+        nGridPts_dim2 = len(pltP['slc_grid_ref_dim2'])
+        ref_points_idx = np.array(list(range(len(ref_points))))
+        
+        fig, axs = plt.subplots(nGridPts_dim2, nGridPts_dim1, subplot_kw={'projection': '3d'}, \
+                                figsize=pltP['figsize'])
+        for j in range(nGridPts_dim2-1,-1,-1):
+            jj = ref_points_idx[pltP['slc_grid_ref_dim2'][nGridPts_dim2-j-1]]
+            for i in range(nGridPts_dim1):
+                ii = ref_points_idx[pltP['slc_grid_ref_dim1'][i]]
+                
+                ax = axs[j, i]
+                base_shape = (nPhi, nTheta)
+                if fixedPlane == 'R':
+                    slc_ref = np.array([fixedPlaneVal, ref_points[ii], ref_points[jj]])
+                    slc_gt = fitEllipsoid_unscaled[idx_x, ii,jj,:,:]
+                    slc_rgb_comp = sampledComp[idx_x, ii,jj,:,:]
+                elif fixedPlane == 'G':
+                    slc_ref = np.array([ref_points[ii], fixedPlaneVal, ref_points[jj]])
+                    slc_gt = fitEllipsoid_unscaled[ii,idx_y,jj,:,:]
+                    slc_rgb_comp = sampledComp[ii,idx_y,jj,:,:]
+                elif fixedPlane == 'B':
+                    slc_ref = np.array([ref_points[ii], ref_points[jj], fixedPlaneVal])
+                    slc_gt = fitEllipsoid_unscaled[ii,jj,idx_z,:,:]
+                    slc_rgb_comp = sampledComp[ii,jj,idx_z,:,:]
+                slc_gt_x = np.reshape(slc_gt[0,:], base_shape)
+                slc_gt_y = np.reshape(slc_gt[1,:], base_shape)
+                slc_gt_z = np.reshape(slc_gt[2,:], base_shape)
+                       
+                #subplot
+                if pltP['visualize_ellipsoid']:
+                    if pltP['scaled_neg12pos1']: color_v = (slc_ref+1)/2
+                    else: color_v = slc_ref
+                    ax.plot_surface(slc_gt_x, slc_gt_y, slc_gt_z, \
+                        color=color_v, edgecolor='none', alpha=0.5)
+                    
+                if pltP['visualize_samples']:
+                    ax.scatter(slc_rgb_comp[0,:], slc_rgb_comp[1,:], slc_rgb_comp[2,:],\
+                               s=pltP['markerSize_samples'], c= [0,0,0],
+                               alpha=pltP['samples_alpha'])
+                        
+                ax.set_xlim(slc_ref[0]+np.array(pltP['bds']*np.array([-1,1]))); 
+                ax.set_ylim(slc_ref[1]+np.array(pltP['bds']*np.array([-1,1])));  
+                ax.set_zlim(slc_ref[2]+np.array(pltP['bds']*np.array([-1,1])));  
+                ax.set_xlabel('');ax.set_ylabel('');ax.set_zlabel('');
+                #set tick marks
+                if fixedPlane == 'R':
+                    ax.set_xticks([]); 
+                else:
+                    ax.set_xticks(np.round(slc_ref[0]+\
+                        np.array(np.ceil(pltP['bds']*100)/100*\
+                        np.array([-1,0,1])),2))
+                    
+                if fixedPlane == 'G':
+                    ax.set_yticks([]); 
+                else:
+                    ax.set_yticks(np.round(slc_ref[1]+\
+                        np.array(np.ceil(pltP['bds']*100)/100*\
+                        np.array([-1,0,1])),2))
+                    
+                if fixedPlane == 'B':
+                    ax.set_zticks([]);
+                else:
+                    ax.set_zticks(np.round(slc_ref[2]+\
+                        np.array(np.ceil(pltP['bds']*100)/100*\
+                        np.array([-1,0,1])),2))
+                # Adjust viewing angle for better visualization
+                if not pltP['default_viewing_angle']:
+                    if fixedPlane == 'R': ax.view_init(0,0)
+                    elif fixedPlane == 'G': ax.view_init(0,-90)
+                    elif fixedPlane == 'B': ax.view_init(90,-90)
+                else:
+                    ax.view_init(30,-37.5)
+                ax.grid(True)
+                ax.set_aspect('equal')
+        fig.suptitle(pltP['title'])
+        plt.tight_layout()
+        plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05,\
+                            wspace=-0.05, hspace=-0.05)
+        plt.show()
+        if pltP['saveFig'] and pltP['figDir'] != '':
+            full_path2 = os.path.join(pltP['figDir'],pltP['figName']+'.png')
+            fig.savefig(full_path2)            

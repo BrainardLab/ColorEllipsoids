@@ -48,7 +48,7 @@ class TrialPlacementWithoutAdaptiveSampling:
         if len(slc_RGBplane_input) == 1 and slc_RGBplane_input in RGBplane:
             slc_RGBplane = RGBplane.find(slc_RGBplane_input)
         elif len(slc_RGBplane_input) == 2:
-            slc_RGBplane = list(range(3))  # All planes
+            slc_RGBplane = None
         else:
             slc_RGBplane = RGBplane.find(default_fixed_plane)
         
@@ -83,9 +83,13 @@ class TrialPlacementWithoutAdaptiveSampling:
         
         #Identify the fixed RGB dimension by excluding the varying dimensions.
         varying_RGBplane = list(range(3))
-        varying_RGBplane.remove(slc_RGBplane)
-        plane_2D_dict = {0: 'GB plane', 1: 'RB plane', 2: 'RG plane'}
-        plane_2D = plane_2D_dict[slc_RGBplane]
+        if slc_RGBplane is not None:
+            varying_RGBplane.remove(slc_RGBplane)
+            plane_2D_dict = {0: 'GB plane', 1: 'RB plane', 2: 'RG plane'}
+            plane_2D = plane_2D_dict[slc_RGBplane]
+            self.ndims = 2
+        else:
+            self.ndims = 3
         
         # Create a dictionary of all simulation parameters
         sim = {
@@ -95,8 +99,9 @@ class TrialPlacementWithoutAdaptiveSampling:
             'random_jitter': random_jitter,
             'range_randomSampling': range_randomSampling,
             'nSims': nSims,
-            'plane_2D': plane_2D
         }
+        
+        if slc_RGBplane is not None: sim['plane_2D'] = plane_2D
                 
         return sim
     
@@ -104,25 +109,33 @@ class TrialPlacementWithoutAdaptiveSampling:
         """
         Extracts reference points and related data based on the selected RGB plane.
         """
-        try:
-            idx = self.sim['slc_RGBplane']
+        try: 
             stim = self.gt_CIE_stim
-    
-            # Use dynamic indexing to extract data based on the selected plane
-            self.sim.update({
-                'plane_points': stim['plane_points'][idx],
-                'ref_points': stim['ref_points'][idx],
-                'background_RGB': stim['background_RGB'],
-                'slc_fixedVal': stim['fixed_RGBvec'],
-                'deltaE_1JND': stim['deltaE_1JND'],
-                'grid_ref': stim['grid_ref']
-            })
+            if self.ndims == 2: #2D
+                idx = self.sim['slc_RGBplane']
+        
+                # Use dynamic indexing to extract data based on the selected plane
+                self.sim.update({
+                    'plane_points': stim['plane_points'][idx],
+                    'ref_points': stim['ref_points'][idx],
+                    'background_RGB': stim['background_RGB'],
+                    'slc_fixedVal': stim['fixed_RGBvec'],
+                    'deltaE_1JND': stim['deltaE_1JND'],
+                    'grid_ref': stim['grid_ref']
+                })
+            else: #3D
+                self.sim.update({
+                    'nGridPts_ref': stim['nGridPts_ref'],
+                    'ref_points': stim['ref_points'],
+                    'background_RGB': stim['background_RGB'],
+                    'deltaE_1JND': stim['deltaE_1JND'],
+                    'grid_ref': stim['grid_ref']
+                })
         except KeyError as e:
             print(f"Error: Missing expected data in gt_CIE_stim - {e}")
         except IndexError as e:
             print(f"Error: Indexing issue with RGB plane - {e}")
-        
-        
+                
     def _initialize(self):
         """
         Initializes simulation arrays to hold computed data such as RGB comparisons, 
@@ -131,42 +144,55 @@ class TrialPlacementWithoutAdaptiveSampling:
         try:
             nGridPts_ref = self.gt_CIE_stim['nGridPts_ref']
             nSims = self.sim['nSims']
-            shape_rgb_comp = (nGridPts_ref, nGridPts_ref, 3, nSims)
-    
+            if self.ndims == 2:
+                base_shape = (nGridPts_ref, nGridPts_ref)
+        
+            elif self.ndims == 3:
+                base_shape = (nGridPts_ref, nGridPts_ref, nGridPts_ref)
             # Allocate memory for the simulation arrays
             self.sim.update({
-                'rgb_comp': np.full(shape_rgb_comp, np.nan),
-                'lab_comp': np.full(shape_rgb_comp, np.nan),
-                'deltaE': np.full((nGridPts_ref, nGridPts_ref, nSims), np.nan),
-                'probC': np.full((nGridPts_ref, nGridPts_ref, nSims), np.nan),
-                'resp_binary': np.full((nGridPts_ref, nGridPts_ref, nSims), np.nan)
+                'rgb_comp': np.full(base_shape + (3, nSims), np.nan),
+                'lab_comp': np.full(base_shape + (3, nSims), np.nan),
+                'deltaE': np.full(base_shape + (nSims,), np.nan),
+                'probC': np.full(base_shape + (nSims,), np.nan),
+                'resp_binary': np.full(base_shape + (nSims,), np.nan)
             })
         except KeyError as e:
             print(f"Error: Missing expected data in gt_CIE_stim or sim - {e}")
         except Exception as e:
             print(f"Unexpected error during initialization - {e}")
     
-    def _generate_comparison_stimuli(self, rgb_ref_ij, row, col):
+    def _generate_comparison_stimuli(self, rgb_ref, ref_idx):
         """
         Generate comparison stimuli based on the selected sampling method.
         
         Parameters:
-        - rgb_ref_ij: Reference RGB values for the current grid point.
+        - rgb_ref: Reference RGB values for the current grid point.
         - i, j: Grid indices.
         
         Returns:
         - rgb_comp_temp: The generated comparison stimuli.
         """
         
-        idx = self.sim['varying_RGBplane']
-        if self.sim['method_sampling'] == 'NearContour':
-            # Use ellipsoidal parameters to generate comparison stimuli
-            ellPara = self.gt_CIE_results['ellParams'][self.sim['slc_RGBplane']][row, col]
-            rgb_comp_temp, _, _, _ =\
-                self.sample_rgb_comp_2DNearContour(rgb_ref_ij[idx], ellPara)                
-        elif self.sim['method_sampling'] == 'Random':
-            # Generate comparison stimuli within a specified square range
-            rgb_comp_temp = self.sample_rgb_comp_random(rgb_ref_ij[idx])
+        if self.ndims == 2:
+            varying_plane_idx = self.sim['varying_RGBplane']
+            if self.sim['method_sampling'] == 'NearContour':
+                # Use ellipsoidal parameters to generate comparison stimuli
+                ellPara = self.gt_CIE_results['ellParams'][self.sim['slc_RGBplane']][*ref_idx]
+                rgb_comp_temp, _, _, _ = self.sample_rgb_comp_2DNearContour(rgb_ref[varying_plane_idx],
+                                                                            ellPara)                
+            elif self.sim['method_sampling'] == 'Random':
+                # Generate comparison stimuli within a specified square range
+                rgb_comp_temp = self.sample_rgb_comp_random(rgb_ref[varying_plane_idx])
+        else:
+            if self.sim['method_sampling'] == 'NearContour':
+                # Use ellipsoidal parameters to generate comparison stimuli
+                ellPara = self.gt_CIE_results['ellipsoidParams'][*ref_idx]
+                rgb_comp_temp = self.sample_rgb_comp_3DNearContour(rgb_ref, ellPara)      
+            elif self.sim['method_sampling'] == 'Random':
+                print('Some day, remember to update sample_rgb_comp_random so that it generalizes to 3D.')
+                # Generate comparison stimuli within a specified square range
+                rgb_comp_temp = self.sample_rgb_comp_random(rgb_ref)
         return rgb_comp_temp
     
     def setup_WeibullFunc(self, alpha=1.1729, beta=1.2286, guessing_rate=1/3):
@@ -196,10 +222,41 @@ class TrialPlacementWithoutAdaptiveSampling:
         self.sim['pC_given_alpha_beta'] = self.WeibullFunc(self.sim['deltaE_1JND'],
                                                            alpha, beta, guessing_rate)
     
+    def run_sim_1ref(self, sim_CIELab, rgb_ref, rgb_comp):
+        #initialize
+        lab_comp = np.full((3,self.sim['nSims']), np.nan)
+        deltaE = np.full((self.sim['nSims']), np.nan)
+        probC = np.full((self.sim['nSims']), np.nan)
+        resp_binary = np.full((self.sim['nSims']), np.nan)
+        
+        # Convert the reference RGB values to Lab color space.
+        ref_Lab, _, _ = sim_CIELab.convert_rgb_lab(rgb_ref)
+            
+        # For each simulation, calculate color difference, probability of 
+        #correct identification, and simulate binary responses based on the 
+        #probability.
+        for n in range(self.sim['nSims']):
+            # Convert the comparison RGB values to Lab color space.
+            lab_comp[:,n], _, _ =  sim_CIELab.convert_rgb_lab(rgb_comp[:,n])
+            # Calculate the color difference (deltaE) between the 
+            #comparison and reference stimuli.
+            deltaE[n] =  np.linalg.norm(lab_comp[:,n] - ref_Lab)
+            # Calculate the probability of correct identification using the 
+            #Weibull function.
+            probC[n] = self.WeibullFunc(deltaE[n],
+                                        self.sim['alpha'], 
+                                        self.sim['beta'], 
+                                        self.sim['guessing_rate'])
+            # Simulate binary responses (0 or 1) based on the calculated probabilities.
+            resp_binary[n] = np.random.binomial(1, probC[n])
+            
+        return lab_comp, deltaE, probC, resp_binary
+
     def run_sim(self, sim_CIELab, random_seed = None):
         """
         Runs the simulation to generate comparison stimuli, calculate color differences,
         determine the probability of correct identification, and simulate binary responses.
+        This function can be used for both 2D and 3D cases.
         
         Parameters:
         ----------
@@ -221,49 +278,46 @@ class TrialPlacementWithoutAdaptiveSampling:
         # Store the random seed in the sim dictionary for reproducibility
         self.sim['random_seed'] = random_seed
     
-        # Iterate over the grid points of the reference stimulus.
-        for i in range(self.gt_CIE_stim['nGridPts_ref']):
-            for j in range(self.gt_CIE_stim['nGridPts_ref']):
-                # Extract the reference stimulus' RGB values for the current grid point.
-                rgb_ref_ij = self.sim['ref_points'][:,i,j]
-                # Convert the reference RGB values to Lab color space.
-                ref_Lab_ij, _, _ = sim_CIELab.convert_rgb_lab(rgb_ref_ij)
-                
-                # Generate the comparison stimulus based on the sampling method.
-                rgb_comp_temp = self._generate_comparison_stimuli(rgb_ref_ij, i, j)
-                        
-                #RGB values can't exceed 1 and go below 0
-                self.sim['rgb_comp'][i,j] = np.clip(rgb_comp_temp, 0, 1)
+        if self.ndims == 2:
+            # Iterate over the grid points of the reference stimulus.
+            for i in range(self.gt_CIE_stim['nGridPts_ref']):
+                for j in range(self.gt_CIE_stim['nGridPts_ref']):
+                    # Extract the reference stimulus' RGB values for the current grid point.
+                    rgb_ref_ij = self.sim['ref_points'][:,i,j]
+                    # Convert the reference RGB values to Lab color space.
+                    ref_Lab_ij, _, _ = sim_CIELab.convert_rgb_lab(rgb_ref_ij)
                     
-                # For each simulation, calculate color difference, probability of 
-                #correct identification, and simulate binary responses based on the 
-                #probability.
-                for n in range(self.sim['nSims']):
-                    # Convert the comparison RGB values to Lab color space.
-                    self.sim['lab_comp'][i,j,:,n], _, _ = \
-                        sim_CIELab.convert_rgb_lab(self.sim['rgb_comp'][i,j,:,n])
-                    # Calculate the color difference (deltaE) between the 
-                    #comparison and reference stimuli.
-                    self.sim['deltaE'][i,j,n] = \
-                        np.linalg.norm(self.sim['lab_comp'][i,j,:,n] - ref_Lab_ij)
-                    # Calculate the probability of correct identification using the 
-                    #Weibull function.
-                    self.sim['probC'][i,j,n] = self.WeibullFunc(self.sim['deltaE'][i,j,n],
-                                                                self.sim['alpha'], 
-                                                                self.sim['beta'], 
-                                                                self.sim['guessing_rate'])
-                    # Simulate binary responses (0 or 1) based on the calculated probabilities.
-                    self.sim['resp_binary'][i,j,n] = np.random.binomial(1, self.sim['probC'][i,j,n])
-        
-    @staticmethod
-    def stretch_unit_circle(x, y, ax_length_x, ax_length_y):
-        #adjust coordinates based on the ellipsoid's semi-axis lengths
-        x_stretched = x * ax_length_x
-        y_stretched = y * ax_length_y
-        return x_stretched, y_stretched
+                    # Generate the comparison stimulus based on the sampling method.
+                    rgb_comp_temp = self._generate_comparison_stimuli(rgb_ref_ij, [i,j])
+                            
+                    #RGB values can't exceed 1 and go below 0
+                    self.sim['rgb_comp'][i,j] = np.clip(rgb_comp_temp, 0, 1)
+                        
+                    # For each simulation, calculate color difference, probability of 
+                    #correct identification, and simulate binary responses based on the 
+                    #probability.
+                    self.sim['lab_comp'][i,j], self.sim['deltaE'][i,j],\
+                    self.sim['probC'][i,j], self.sim['resp_binary'][i,j] = \
+                        self.run_sim_1ref(sim_CIELab, 
+                                          rgb_ref_ij, 
+                                          self.sim['rgb_comp'][i,j])
+        else:
+            # Generalize the code above for 3d case
+            for i in range(self.gt_CIE_stim['nGridPts_ref']):
+                for j in range(self.gt_CIE_stim['nGridPts_ref']):
+                    for k in range(self.gt_CIE_stim['nGridPts_ref']):
+                        rgb_ref_ijk = self.sim['ref_points'][i,j,k]
+                        ref_Lab_ijk, _, _ = sim_CIELab.convert_rgb_lab(rgb_ref_ijk)
+                        rgb_comp_temp = self._generate_comparison_stimuli(rgb_ref_ijk, [i, j, k])
+                        self.sim['rgb_comp'][i,j,k] = np.clip(rgb_comp_temp, 0, 1)
+                        self.sim['lab_comp'][i,j,k], self.sim['deltaE'][i,j,k],\
+                        self.sim['probC'][i,j,k], self.sim['resp_binary'][i,j,k] = \
+                            self.run_sim_1ref(sim_CIELab, 
+                                              rgb_ref_ijk, 
+                                              self.sim['rgb_comp'][i,j,k])
+                    
     
-    def sample_rgb_comp_2DNearContour(self, rgb_ref, paramEllipse, 
-                                      random_seed = None, **kwargs):
+    def sample_rgb_comp_2DNearContour(self, rgb_ref, paramEllipse, random_seed = None):
         """
         Samples RGB compositions near an isothreshold ellipsoidal contour.
         This function generates simulated RGB compositions based on a reference
@@ -293,7 +347,6 @@ class TrialPlacementWithoutAdaptiveSampling:
         """
     
         # Set the random seed if provided, otherwise generate a random seed
-        print(random_seed)
         if random_seed is not None:
             np.random.seed(random_seed)
             
@@ -312,8 +365,8 @@ class TrialPlacementWithoutAdaptiveSampling:
             self.sim['random_jitter']
         
         #adjust coordinates based on the ellipsoid's semi-axis lengths
-        randx_stretched = randx * paramEllipse[2]
-        randy_stretched = randy * paramEllipse[3]
+        randx_stretched, randy_stretched = self.stretch_unit_circle(\
+            randx, randy, paramEllipse[2], paramEllipse[3])
         
         #calculate the varying RGB dimensions, applying rotation and translation 
         #based on the reference RGB values and ellipsoid parameters
@@ -327,6 +380,8 @@ class TrialPlacementWithoutAdaptiveSampling:
         #set the fixed RGB dimension to the specificed fixed value for all simulations
         rgb_comp_sim[self.sim['slc_RGBplane'],:] = self.sim['slc_fixedVal'];
         
+        #stuff other than rgb_comp_sim are returned because we may want to plot
+        #the transformation from unit circle to simulated data
         return rgb_comp_sim, np.vstack((randx_stretched, randy_stretched)),\
             np.vstack((randx, randy)), np.vstack((randx_noNoise, randy_noNoise))
     
@@ -364,6 +419,73 @@ class TrialPlacementWithoutAdaptiveSampling:
             
         return rgb_comp_sim
 
+    def sample_rgb_comp_3DNearContour(self, rgb_ref, paramEllipsoid, random_seed = None):
+        """
+        Simulates RGB components near the surface of an ellipsoid contour. This can 
+        be used for generating test points in color space around a reference color.
+        
+        Parameters:
+        - rgb_ref: The reference RGB stimulus.
+        - radii: The radii of the ellipsoid along its principal axes.
+        - eigenVec: The eigenvectors defining the orientation of the ellipsoid.
+        - jitter: The standard deviation of the Gaussian noise added to simulate 
+            points near the surface.
+        
+        Returns:
+        - rgb_comp_sim: A 3xN matrix containing the simulated RGB components.
+        """
+        radii, eigenVec = paramEllipsoid['radii'], paramEllipsoid['evecs']
+        
+        # Set the random seed if provided, otherwise generate a random seed
+        if random_seed is not None:
+            np.random.seed(random_seed)
+        
+        #Uniformly distributed angles between 0 and 2*pi
+        randtheta = np.random.rand(1, self.sim['nSims']) * 2 * np.pi
+        
+        #Uniformly distributed angles between 0 and pi
+        randphi = np.random.rand(1, self.sim['nSims']) * np.pi
+        
+        #Generate random points on the surface of a unit sphere by converting
+        # spherical coordinates to Cartesian coordinates, then add Gaussian noise
+        # (jitter) to each coordinate to simulate points near the surface.
+        randx = np.sin(randphi) * np.cos(randtheta) + \
+            np.random.randn(1, self.sim['nSims']) * self.sim['random_jitter']
+        randy = np.sin(randphi) * np.sin(randtheta) + \
+            np.random.randn(1, self.sim['nSims']) * self.sim['random_jitter']
+        randz = np.cos(randphi) + np.random.rand(1, self.sim['nSims']) * self.sim['random_jitter']
+        
+        #Stretch the random points by the ellipsoid's semi-axes lengths to fit
+        # the ellipsoid's shape. This effectively scales the unit sphere points
+        # to the size of the ellipsoid along each principal axis.
+        randx_stretched, randy_stretched, randz_stretched =\
+            self.stretch_unit_circle(randx, randy, radii[0], radii[1], 
+                                     z = randz, ax_length_z = radii[2])
+        
+        #Combine the stretched coordinates into a single matrix. Each column
+        # represents the (x, y, z) coordinates of a point.
+        xyz = np.vstack((randx_stretched, randy_stretched, randz_stretched))
+        
+        #Rotate and translate the simulated points to their correct positions
+        #in RGB space. The rotation is defined by the ellipsoid's eigenvectors
+        #(orientation), and the translation moves the ellipsoid to be centered
+        #at the reference RGB value. This step aligns the ellipsoid with its
+        #proper orientation and position as defined by the input parameters.
+        rgb_comp_sim = eigenVec @ xyz + np.reshape(rgb_ref,(3,1))
+        
+        return rgb_comp_sim
+
+    @staticmethod
+    def stretch_unit_circle(x, y, ax_length_x, ax_length_y, z = None, ax_length_z = None):
+        #adjust coordinates based on the ellipsoid's semi-axis lengths
+        x_stretched = x * ax_length_x
+        y_stretched = y * ax_length_y
+        if z is None or ax_length_z is None:
+            return x_stretched, y_stretched
+        else:
+            z_stretched = z * ax_length_z
+            return  x_stretched, y_stretched, z_stretched
+    
     @staticmethod
     # Helper function to get user input with a default value and type conversion
     def get_input(prompt, default, input_type=str):

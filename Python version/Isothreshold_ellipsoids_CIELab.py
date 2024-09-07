@@ -51,8 +51,7 @@ try:
         #so we have to use dill for loading
         with open(full_path, 'rb') as f:
             data_load = pickled.load(f)        
-    _, stim, results, plt_specifics = data_load[0], data_load[1], \
-        data_load[2], data_load[3]
+    stim, results, plt_specifics = data_load[1], data_load[2], data_load[3]
 except:
 
     #%% DEINE STIMULUS PROPERTIES AND PLOTTING SPECIFICS

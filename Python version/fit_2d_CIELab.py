@@ -34,7 +34,7 @@ plane_2D_dict = {'GB plane': 0, 'RB plane': 1, 'RG plane': 2}
 plane_2D_idx  = plane_2D_dict[plane_2D]
 sim_jitter    = '0.3'
 nSims         = 240 #number of simulations: 240 trials for each ref stimulus
-rnd_seed      = 8
+rnd_seed      = 9
 
 baseDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
 output_figDir_fits = baseDir + 'ELPS_analysis/ModelFitting_FigFiles/Python_version/2D_oddity_task/'
@@ -109,7 +109,7 @@ W_est, iters, objhist = optim.optimize_posterior(
     W_init, data_new, model, OPT_KEY,
     opt_params,
     oddity_task.simulate_oddity, #oddity_task.simulate_oddity or oddity_task.simulate_oddity_reference
-    total_steps=500,
+    total_steps=100,
     save_every=1,
     show_progress=True
 )
