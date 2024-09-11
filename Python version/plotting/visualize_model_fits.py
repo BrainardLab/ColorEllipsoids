@@ -9,24 +9,26 @@ Created on Thu Sep  5 22:04:36 2024
 import jax
 jax.config.update("jax_enable_x64", True)
 import dill as pickled
+import pickle as pickle
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
+from shapely.geometry import Polygon
+from shapely.ops import unary_union
 
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
 from analysis.color_thres import color_thresholds
 from plotting.wishart_predictions_plotting import WishartPredictionsVisualization
-from analysis.ellipses_tools import ellParamsQ_to_covMat, UnitCircleGenerate, PointsOnEllipseQ
+from analysis.ellipses_tools import UnitCircleGenerate, find_inner_outer_contours
 
 #three variables we need to define for loading the data
 nSims     = 240
 jitter    = 0.3
+ndims     = 2
 
 base_dir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
-fileDir_fits = base_dir +'ELPS_analysis/ModelFitting_DataFiles/'
-figDir_fits = base_dir +'ELPS_analysis/ModelFitting_FigFiles/Python_version/'
-
-ndims = 2
+fileDir_fits = base_dir +f'ELPS_analysis/ModelFitting_DataFiles/{ndims}D_oddity_task/'
+figDir_fits = base_dir +f'ELPS_analysis/ModelFitting_FigFiles/Python_version/{ndims}D_oddity_task/'
 
 #%% ------------------------------------------
 # Load data simulated using CIELab
@@ -71,12 +73,12 @@ if ndims == 3:
         fig_name = fig_name) 
 
 else:
-    #%% 2D
+    #%%
     #three variables we need to define for loading the data
-    plane_2D      = 'RB plane'
+    plane_2D      = 'RG plane'
     plane_2D_dict = {'GB plane': 0, 'RB plane': 1, 'RG plane': 2}
     plane_2D_idx  = plane_2D_dict[plane_2D]
-    rnd_seed_list = list(range(9))
+    rnd_seed_list = list(range(10))
     # Create an instance of the class
     color_thres_data_2D = color_thresholds(2, base_dir + 'ELPS_analysis/', plane_2D = plane_2D)
     # Load Wishart model fits
@@ -86,37 +88,72 @@ else:
         f'jitter{jitter}'
         
     nTheta= 1000
-    ell_all = np.full((5,5,2, nTheta, len(rnd_seed_list)), np.nan)
+    num_grid_pts = 5
+    params_all = np.full((num_grid_pts, num_grid_pts,len(rnd_seed_list), 5), np.nan)
+    ell_all = np.full((num_grid_pts, num_grid_pts,2, nTheta, len(rnd_seed_list)), np.nan)
     unitC = UnitCircleGenerate(nTheta)
     for r in rnd_seed_list:
         file_name_r = file_name_2D + '_seed'+str(r) +'_bandwidth0.005_oddity.pkl'
-        full_path = f"{fileDir_fits}2D_oddity_task/{file_name_r}"
+        full_path = f"{fileDir_fits}{file_name_r}"
         with open(full_path, 'rb') as f:  vars_dict_2D = pickled.load(f)
         for var_name, var_value in vars_dict_2D.items():
             locals()[var_name] = var_value
         param_ell_r = model_pred_Wishart.params_ell
-        for i in range(5):
-            for j in range(5):
+        for i in range(num_grid_pts):
+            for j in range(num_grid_pts):
                 ref_ij = grid[i,j]
-                params_ell_ij = param_ell_r[i][j]
-                covMat_ij = ellParamsQ_to_covMat(params_ell_ij[2], params_ell_ij[3],params_ell_ij[4])
-                L = np.linalg.cholesky(covMat_ij)
-                ell_all[i,j,:,:,r] = L @ unitC + ref_ij[:,None]
-                plt.plot(ell_all[i,j,0,:,r], ell_all[i,j,1,:,r])
-                plt.scatter(ell_all[i,j,0,0,r], ell_all[i,j,1,0,r],c='r')
+                params_all[i,j,r]= param_ell_r[i][j]
     
-    fitEll_min = np.full((5,5,2,nTheta), np.nan)
-    fitEll_max = np.full((5,5,2,nTheta), np.nan)
-    for i in range(5):
-        for j in range(5):
-            ref_ij = grid[i,j]
-            ell_all_ij = ell_all[i,j]
-            vecLength_ijr = np.sqrt((ell_all_ij[0]-ref_ij[0])**2 + (ell_all_ij[1]-ref_ij[1])**2)
-            sort_idx = np.argsort(vecLength_ijr, axis = -1)
-            min_idx_ij = sort_idx[:,0]
-            max_idx_ij = sort_idx[:,-1]
-            fitEll_min[i,j] = ell_all_ij[np.arange(2)[:, None], np.arange(nTheta),min_idx_ij]
-            fitEll_max[i,j]= ell_all_ij[np.arange(2)[:, None], np.arange(nTheta),max_idx_ij]
+    fitEll_min = np.full((num_grid_pts, num_grid_pts, ndims,nTheta*2), np.nan)
+    fitEll_max = np.full((num_grid_pts, num_grid_pts, ndims,nTheta*2), np.nan)
+    for i in range(num_grid_pts):
+        for j in range(num_grid_pts):
+            params_ij = params_all[i,j]
+            xu_ij, yu_ij, xi_ij, yi_ij = find_inner_outer_contours(params_ij)
+            idx_u = xu_ij.shape[0]
+            idx_i = xi_ij.shape[0]
+            fitEll_max[i,j,0,:idx_u] = xu_ij
+            fitEll_max[i,j,1,:idx_u] = yu_ij
+            fitEll_min[i,j,0,:idx_i] = xi_ij
+            fitEll_min[i,j,1,:idx_i] = yi_ij
+            
+    #visualize
+    wishart_pred_vis_wCI = WishartPredictionsVisualization(sim_trial_by_CIE,
+                                                          model, 
+                                                          model_pred_Wishart, 
+                                                          color_thres_data_2D,
+                                                          fig_dir = figDir_fits, 
+                                                          save_fig = True)
+    fig, ax = plt.subplots(1, 1, figsize = (3.1,3.6), dpi= 256)
+    for i in range(num_grid_pts):
+        for j in range(num_grid_pts):
+            #define the color map, which is the RGB value of the reference stimulus
+            cm = color_thres_data_2D.W_unit_to_N_unit(grid[i, j])
+            # Adjust the color map based on the fixed color dimension.
+            cm = np.insert(cm, color_thres_data_2D.fixed_color_dim,
+                           color_thres_data_2D.fixed_value)
+            idx_max_nonan = ~np.isnan(fitEll_max[i, j, 0])
+            ax.fill(fitEll_max[i,j,0,idx_max_nonan], fitEll_max[i,j,1,idx_max_nonan], 
+                    color= cm)
+            idx_min_nonan = ~np.isnan(fitEll_min[i, j, 0])
+            ax.fill(fitEll_min[i,j,0,idx_min_nonan], fitEll_min[i,j,1,idx_min_nonan], 
+                    color='white')
+    wishart_pred_vis_wCI.plot_2D(
+        grid, 
+        grid,
+        gt_covMat_CIE, 
+        ax = ax,
+        visualize_samples= True,
+        visualize_gt = True,
+        visualize_model_estimatedCov = False,
+        visualize_model_pred = False,
+        samples_alpha = 0.5,
+        samples_s = 1,
+        plane_2D = plane_2D,
+        gt_lw= 1,
+        gt_lc =[0.3,0.3,0.3],
+        fig_name = file_name_r[:-31] + file_name_r[-25:-4] +'_withSamples_withCI.pdf') 
+            
 
 
 

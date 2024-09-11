@@ -24,7 +24,7 @@ base_dir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_anal
 output_figDir = base_dir+'Simulation_FigFiles/Python_version/transformation'
 output_fileDir = base_dir + 'Simulation_DataFiles/'
 # specify the seed
-rnd_seed = 10
+rnd_seed = 9
 
 #%% Load precomputed ground truth data from a pickle file
 file_name = 'Isothreshold_contour_CIELABderived_fixedVal0.5.pkl'

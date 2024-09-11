@@ -27,10 +27,10 @@ sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Pytho
 from plotting.trial_placement_nonadaptive_plotting import TrialPlacementVisualization
 from data_reorg import organize_data
 
-#three variables we need to define for loading the data
+#%% three variables we need to define for loading the data
 rnd_seed  = 0
-nSims     = 240
-jitter    = 0.1
+nSims     = 720
+jitter    = 0.3
 
 base_dir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
 output_figDir_fits = base_dir +'ELPS_analysis/ModelFitting_FigFiles/Python_version/3D_oddity_task/'
@@ -59,8 +59,11 @@ sim = data_load[0]
 #but sometimes we don't want to sample that finely. Instead, we might just pick
 #2 or 3 samples from each color dimension, and see how well the model can 
 #interpolate between samples
-#idx_trim  = [0,2,4] #list(range(5))
-idx_trim = list(range(5))
+
+##################################
+idx_trim  = [0,2,4]
+#idx_trim = list(range(5))
+##################################
 
 """
 Fitting would be easier if we first scale things up, and then scale the model 
@@ -202,22 +205,23 @@ wishart_pred_vis = WishartPredictionsVisualization(sim_trial_by_CIE,
                                                      color_thres_data,
                                                      fig_dir = output_figDir_fits, 
                                                      save_fig = True,
-                                                     save_gif = False)
+                                                     save_gif = True)
         
 wishart_pred_vis.plot_3D(
     grid_trans, 
-    grid_trans,
+    grid_trans[np.array(idx_trim)][:,np.array(idx_trim)][:,:,np.array(idx_trim)],
     gt_covMat_CIE, 
     gt_slice_2d_ellipse_CIE,
     fontsize = 12,
+    samples_alpha = 0.2,
     gt_ls = '--',
     gt_lw = 1,
-    gt_alpha = 0.85,
+    gt_alpha = 0.85,#0.85
     modelpred_alpha = 0.55,
     fig_name = fig_name) 
 
 if wishart_pred_vis.save_gif:
-    wishart_pred_vis._save_gif(fig_name, fig_name)
+    wishart_pred_vis._save_gif(fig_name, fig_name, fig_name_end = '.pdf')
 
 #%% save data
 output_file = f"Fitted{file_sim[4:-4]}_bandwidth{BANDWIDTH}{name_ext}.pkl"
