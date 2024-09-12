@@ -18,27 +18,58 @@ from analysis.ellipses_tools import ellParams_to_covMat, rotAngle_to_eigenvector
 #%%
 class ModelPerformance():
     def __init__(self, color_dimension, CIE_results, CIE_stim, varying_levels, 
-                 plane_2D = None):
+                 plane_2D = None, verbose = True):
+        """
+        Initializes the ModelPerformance object with the necessary data for 
+        evaluating model performance against ground-truth ellipses or ellipsoids.
+        
+        Parameters:
+        - color_dimension: int, dimensionality of the color space (2 for ellipses, 3 for ellipsoids).
+        - CIE_results: dict, contains the ground-truth ellipse/ellipsoid parameters.
+        - CIE_stim: dict, contains stimulus-related data (e.g., grid size).
+        - varying_levels: list, specifies the different jitter (noise level)
+        - plane_2D: str, specifies the 2D plane (optional, e.g., 'GB plane', 'RB plane').
+        - verbose: bool, if True, prints additional information during model performance evaluation.
+        """
         self.ndims       = color_dimension 
         self.CIE_results = CIE_results        
         self.CIE_stim    = CIE_stim
         self.plane_2D    = plane_2D
         self.levels      = varying_levels
         self.nLevels     = len(varying_levels)
+        self.verbose     = verbose 
+        
+        # If a 2D plane is specified, retrieve its corresponding index.
         if plane_2D is not None:
-            # Retrieve the covariance matrices at these corner points
             plane_2D_dict = {'GB plane': 0, 'RB plane': 1, 'RG plane': 2}
             self.plane_2D_idx  = plane_2D_dict[plane_2D]
+            
+        # Set up reference grid size and retrieve ground-truth ellipse/ellipsoid parameters.
         self.ref_size = self.CIE_stim['nGridPts_ref'] 
         self._retrieve_ellParams_gt()
         
     def _retrieve_ellParams_gt(self):
+        """
+        Retrieves ground-truth ellipsoid or ellipse parameters based on the color dimensionality.
+        """
         if self.ndims == 2:
+            # For 2D, select the appropriate plane's ellipses.
             self.ellParams_gt = self.CIE_results['ellParams'][self.plane_2D_idx]
         else:
+            # For 3D, retrieve the ellipsoid parameters directly.
             self.ellParams_gt = self.CIE_results['ellipsoidParams']
         
     def _initialize(self):
+        """
+        This method initializes arrays that save model performance results
+        BW_distance: Bures-Wasserstein distance between the ground-truth and model predictions
+        BW_distance_maxEigval: BW distance between the ground-truth and ellipses/ellipsoids with the largest eigenvalue
+        BW_distance_minEigval: BW distance between the ground-truth and ellipses/ellipsoids with the smallest eigenvalue
+        LU_distance: Log-Euclidean distance between the ground-truth and model predictions
+        LU_distance_maxEigval: LU distance between the ground-truth and ellipses/ellipsoids with the largest eigenvalue
+        LU_distance_minEigval: LU distance between the ground-truth and ellipses/ellipsoids with the smallest eigenvalue
+
+        """
         if self.ndims == 2:
             base_shape = (self.ref_size, self.ref_size)
         else:
@@ -51,40 +82,84 @@ class ModelPerformance():
         self.LU_distance_maxEigval = np.full(base_shape, np.nan)
         self.LU_distance_minEigval = np.full(base_shape, np.nan)
         
+        #ground truth covariance matrices and model predictions
         self.covMat_gt             = np.full(base_shape+(self.ndims, self.ndims,), np.nan)
         self.covMat_modelPred      = np.full((self.nLevels,)+base_shape+(self.ndims, self.ndims,), np.nan)
     
     def load_modelPreds_ellParams(self, data_load):
+        """
+        Loads model predictions (ellipsoid or ellipse parameters) from the Wishart model
+        and converts them to covariance matrices.
+        
+        Scales the radii by 1/2 because the Wishart model operates in the W space [-1, 1],
+        while the ground-truth ellipses/ellipsoids are in the N space [0,1].
+        """
         if self.ndims == 2:
             for l in range(self.nLevels): 
                 for ii in range(self.ref_size):
                     for jj in range(self.ref_size):
-                        eigVec_jiijj = rotAngle_to_eigenvectors(data_load[l]['model_pred_Wishart'].params_ell[ii][jj][-1])
-                        radii_jiijj = np.array(data_load[l]['model_pred_Wishart'].params_ell[ii][jj][2:4])/2
+                        # Retrieve predicted ellipse parameters.
+                        l_pred = data_load[l]['model_pred_Wishart']
+                        eigVec_jiijj = rotAngle_to_eigenvectors(l_pred.params_ell[ii][jj][-1])
+                        radii_jiijj = np.array(l_pred.params_ell[ii][jj][2:4])/2
+                        # Sort the radii and eigenvectors.
+                        radii_jiijj, eigVec_jiijj = ModelPerformance.sort_eig(radii_jiijj, eigVec_jiijj)
+                        # Convert the sorted parameters into a covariance matrix.
                         self.covMat_modelPred[l,ii,jj] = ellParams_to_covMat(radii_jiijj, eigVec_jiijj)
+                        # Print radii comparison if verbose mode is enabled.
+                        if self.verbose and l == 0:
+                            _, radii_gt = self._convert_ellParams_to_covMat(self.ellParams_gt[ii][jj])
+                            print(f"[i,j] = [{ii}, {jj}]")
+                            print(np.sort(radii_gt))
+                            print(np.sort(radii_jiijj))
         else:
             for l in range(self.nLevels):
                 for ii in range(self.ref_size):
                     for jj in range(self.ref_size):
                         for kk in range(self.ref_size):
-                            eigVec_jiijjkk = data_load[l]['model_pred_Wishart'].params_ell[ii][jj][kk]['evecs']
-                            radii_jiijjkk = data_load[l]['model_pred_Wishart'].params_ell[ii][jj][kk]['radii']/2                            
-                            self.covMat_modelPred[l,ii,jj,kk] = ellParams_to_covMat(radii_jiijjkk, eigVec_jiijjkk)
-                        
-        
+                            # Retrieve predicted ellipsoid parameters.
+                            l_pred = data_load[l]['model_pred_Wishart']
+                            eigVec_jiijjkk = l_pred.params_ell[ii][jj][kk]['evecs']
+                            radii_jiijjkk = l_pred.params_ell[ii][jj][kk]['radii']/2     
+                            radii_jiijjkk, eigVec_jiijjkk = ModelPerformance.sort_eig(radii_jiijjkk, eigVec_jiijjkk)
+                            self.covMat_modelPred[l,ii,jj,kk] = \
+                                ellParams_to_covMat(radii_jiijjkk, eigVec_jiijjkk)
+                            if self.verbose and l == 0:
+                                _, radii_gt = self._convert_ellParams_to_covMat(self.ellParams_gt[ii][jj][kk])
+                                print(f"[i,j,k] = [{ii}, {jj}, {kk}]")
+                                print(np.sort(radii_gt))
+                                print(np.sort(radii_jiijjkk))
+                                
     def _convert_ellParams_to_covMat(self, ellParams, scaler_x1 = 5):
+        """
+        Converts ellipse or ellipsoid parameters into a covariance matrix.
+        
+        Scales the radii by a specified factor (default is 5) and sorts the radii and
+        corresponding eigenvectors in descending order.
+        """
         if self.ndims == 2:
             _, _, a, b, R = ellParams
-            radii = np.array([a, b])*scaler_x1
-            eigvec = rotAngle_to_eigenvectors(R)
-            covMat = ellParams_to_covMat(radii, eigvec) 
+            radii = np.array([a, b]) * scaler_x1
+            eigvecs = rotAngle_to_eigenvectors(R)
         else:
-            radii = ellParams['radii']*scaler_x1
-            covMat = ellParams_to_covMat(radii,
-                                                ellParams['evecs'])
+            radii = ellParams['radii'] * scaler_x1
+            eigvecs = ellParams['evecs']
+        
+        # Sort radii and eigenvectors in descending order.
+        radii, eigvecs = ModelPerformance.sort_eig(radii, eigvecs)
+        
+        # Convert to covariance matrix.
+        covMat = ellParams_to_covMat(radii, eigvecs)
         return covMat, radii
                 
     def compare_with_extreme_ell(self, ell1Params, scaler_x1 = 5):  
+        """
+        Compares the ground-truth ellipse/ellipsoid to extreme cases (largest and smallest eigenvalue),
+        generating covariance matrices for bounding spheres and computing performance metrics.
+        
+        Returns covariance matrix, Bures-Wasserstein and Log-Euclidean distances for both extreme cases.
+        """
+
         # Use the eigenvalues and eigenvectors to derive the cov matrix
         covMat_gt, radii_gt = self._convert_ellParams_to_covMat(ell1Params)
             
@@ -106,15 +181,19 @@ class ModelPerformance():
         BW_distance_minEigval = self.compute_Bures_Wasserstein_distance(\
             covMat_gt,covMat_min)
             
-        LU_distance_maxEigval = self.log_operator_norm_distance(covMat_gt,
-                                                                covMat_max)       
-        LU_distance_minEigval = self.log_operator_norm_distance(covMat_gt,
-                                                                covMat_min)     
+        LU_distance_maxEigval = self.log_operator_norm_distance(covMat_gt, covMat_max)       
+        LU_distance_minEigval = self.log_operator_norm_distance(covMat_gt, covMat_min)     
         
         return covMat_gt, BW_distance_minEigval, BW_distance_maxEigval,\
             LU_distance_minEigval, LU_distance_maxEigval
     
     def compare_with_corner_ell(self, covMat_gt, covMat_corner):
+        """
+        Compares the ground-truth covariance matrix with corner ellipsoids and computes the
+        Bures-Wasserstein and Log-Euclidean distances for each corner.
+        
+        Returns arrays of distances for each corner.
+        """
         #initialize
         BW_distance_corner = np.full((self.nCorners,), np.nan)
         LU_distance_corner = np.full((self.nCorners,), np.nan)
@@ -128,9 +207,12 @@ class ModelPerformance():
         return BW_distance_corner, LU_distance_corner
         
     def compare_gt_model_pred_one_instance(self, covMat_gt, covMat_modelPred):
-        #------------ Evaluaing performance -------------
-        #The score is based on the comparison between model-predicted ellipsoids
-        #and ground truth ellipsoid
+        """
+        Compares the ground-truth covariance matrix to model predictions for each level,
+        computing Bures-Wasserstein and Log-Euclidean distances.
+        
+        Returns arrays of distances for each model level.
+        """
         BW_distance = np.full((self.nLevels,), np.nan)
         LU_distance = np.full((self.nLevels,), np.nan)
         for l in range(self.nLevels):    
@@ -141,9 +223,19 @@ class ModelPerformance():
         return BW_distance, LU_distance
 
     def evaluate_model_performance(self, model_pred_data, covMat_corner = None):
-        #initialize 
+        """
+        Evaluates the overall performance of the model by comparing the ground truth 
+        with model predictions using both Bures-Wasserstein and Log-Euclidean distances.
+        
+        Optionally compares with ellipsoids at selected corner locations.
+        """
+        # Initialize arrays for storing model performance results.
         self._initialize()
+        
+        # Load model predictions and convert them to covariance matrices.
         self.load_modelPreds_ellParams(model_pred_data)
+        
+        # If corner ellipsoids are provided, initialize arrays for storing corner distances.
         if covMat_corner is not None:
             self.nCorners = len(covMat_corner)
             self.BW_distance_corner = np.full((self.nCorners,)+ \
@@ -170,7 +262,6 @@ class ModelPerformance():
                     self.BW_distance[:,ii,jj], self.LU_distance[:,ii,jj] = \
                         self.compare_gt_model_pred_one_instance(self.covMat_gt[ii,jj], 
                                                             self.covMat_modelPred[:,ii,jj])
-                        
         else:
             for ii in range(self.ref_size):
                 for jj in range(self.ref_size):
@@ -205,6 +296,16 @@ class ModelPerformance():
                                        self.LU_distance_corner), axis = 0)
 
 #%%
+    @staticmethod
+    def sort_eig(radii, eigvecs, order='descending'):
+        # Sort radii and eigenvectors
+        sorted_indices = np.argsort(radii)
+        if order == 'descending':
+            sorted_indices = sorted_indices[::-1]  # Reverse for descending order
+        radii_sorted = radii[sorted_indices]
+        eigvecs_sorted = eigvecs[:, sorted_indices]
+        return radii_sorted, eigvecs_sorted
+    
     @staticmethod
     def compute_Bures_Wasserstein_distance(M1, M2):
         # Compute the square root of M1
