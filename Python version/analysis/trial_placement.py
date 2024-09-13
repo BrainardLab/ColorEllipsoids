@@ -6,15 +6,19 @@ Created on Sat Aug 17 15:09:10 2024
 @author: fangfang
 """
 import numpy as np
+import jax.numpy as jnp
+import matplotlib.pyplot as plt
 
 class TrialPlacementWithoutAdaptiveSampling:
-    def __init__(self, gt_CIE):
-        self.sim = self._query_simCondition()
-        self.gt_CIE_param = gt_CIE[0]
-        self.gt_CIE_stim = gt_CIE[1]
-        self.gt_CIE_results = gt_CIE[2]
-        self._extract_ref_points()
-        
+    def __init__(self, gt_CIE = None, skip_sim = False):
+        if skip_sim is False:
+            self.sim = self._query_simCondition()
+        if gt_CIE is not None:
+            self.gt_CIE_param = gt_CIE[0]
+            self.gt_CIE_stim = gt_CIE[1]
+            self.gt_CIE_results = gt_CIE[2]
+            self._extract_ref_points()
+            
     def _query_simCondition(self, default_fixed_plane = 'R', 
                             default_method = 'NearContour',
                             default_jitter = 0.1, 
@@ -316,7 +320,7 @@ class TrialPlacementWithoutAdaptiveSampling:
                                               rgb_ref_ijk, 
                                               self.sim['rgb_comp'][i,j,k])
                     
-    
+    #%%
     def sample_rgb_comp_2DNearContour(self, rgb_ref, paramEllipse, random_seed = None):
         """
         Samples RGB compositions near an isothreshold ellipsoidal contour.
@@ -510,4 +514,83 @@ class TrialPlacementWithoutAdaptiveSampling:
         """
         pCorrect = (1 - (1-guessing_rate)*np.exp(- (x/alpha)** beta))
         return pCorrect
+    
+    @staticmethod
+    def compute_radii_scaler_to_reach_targetPC(pC_target, lb = 2, ub = 3,
+                                               nsteps = 100, nz = int(1e6),
+                                               visualize = False):
+        """
+        Computes the optimal scaling factor (radii) to reach a target probability of 
+        correct classification (pC_target) between three points in a 2D bivariate 
+        Gaussian distribution. 
+        
+        Parameters:
+        - pC_target: Target probability of correct classification.
+        - lb: Lower bound of the scaler (radius) range to search over.
+        - ub: Upper bound of the scaler (radius) range to search over.
+        - nsteps: Number of steps for the scaler search range.
+        - nz: Number of samples to generate for the distribution.
+        
+        Returns:
+        - opt_scaler: The scaler that yields the probability closest to the target pC_target.
+        - probC[min_idx]: The probability of correct classification at the optimal scaler.
+        """
+
+        # Define the mean vector and covariance matrix for the bivariate Gaussian distribution
+        mean = [0, 0]   
+        cov = np.eye(2)  
+    
+        # Generate the scaling factors (radii) to be tested between lb and ub
+        z2_scaler = np.linspace(lb, ub, nsteps)
+        
+        # Initialize an array to store the probability of correct classification for each scaler
+        probC = np.full((nsteps), np.nan)
+    
+        # Loop through each scaling factor to compute the probability of correct classification
+        for idx, scaler in enumerate(z2_scaler):            
+            # Draw nz samples from the bivariate Gaussian distribution for z0 and z1 
+            #(two independent points)
+            z0 = np.random.multivariate_normal(mean, cov, nz)
+            z1 = np.random.multivariate_normal(mean, cov, nz)
+    
+            # For z2, apply a center offset based on the current scaler value
+            z2_center = np.array([0, scaler])
+            z2 = np.random.multivariate_normal(mean, cov, nz) + z2_center[np.newaxis, :]
+    
+            # Compute pairwise differences between points z0, z1, and z2
+            r01 = z0 - z1   
+            r02 = z0 - z2   
+            r12 = z1 - z2   
+    
+            # Compute squared Mahalanobis distances (a measure of the distance between points 
+            # in Gaussian space) Mahalanobis distance accounts for the covariance of the distribution.
+            z0_to_z1 = jnp.sum(r01 * jnp.linalg.solve(cov, r01.T).T, axis=1)
+            z0_to_z2 = jnp.sum(r02 * jnp.linalg.solve(cov, r02.T).T, axis=1)
+            z1_to_z2 = jnp.sum(r12 * jnp.linalg.solve(cov, r12.T).T, axis=1)
+    
+            # Compute the difference between z0-to-z1 distance and the minimum of z0-to-z2 and 
+            # z1-to-z2 distances
+            zdiff = z0_to_z1 - jnp.minimum(z0_to_z2, z1_to_z2)
+    
+            # Calculate the probability of correct classification as the fraction where zdiff < 0
+            probC[idx] = np.sum(zdiff < 0) / nz
+    
+        # Plot the computed probabilities as a function of the scaling factors
+        if visualize: plt.plot(z2_scaler, probC)
+        print(type(pC_target))  # Should be <class 'float'>
+        print(type(probC))
+        
+        # Find the index of the scaling factor closest to the target probability (pC_target)
+        min_idx = np.argmin(np.abs(pC_target - probC))
+        
+        # Retrieve the optimal scaling factor and the corresponding probability
+        opt_scaler = z2_scaler[min_idx]
+        return opt_scaler, probC[min_idx]
+    
+    
+    
+    
+    
+    
+    
     

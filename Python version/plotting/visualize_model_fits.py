@@ -23,8 +23,8 @@ from analysis.ellipses_tools import UnitCircleGenerate, find_inner_outer_contour
 
 #three variables we need to define for loading the data
 nSims     = 240
-jitter    = 0.3
-ndims     = 2
+jitter    = 0.1
+ndims     = 3
 
 base_dir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
 fileDir_fits = base_dir +f'ELPS_analysis/ModelFitting_DataFiles/{ndims}D_oddity_task/'
@@ -42,8 +42,9 @@ if ndims == 3:
     color_thres_data.load_CIE_data()  
     
     
-    file_name = 'Fitted_isothreshold_ellipsoids_sim240perCond_samplingNearContour_jitter0.1_bandwidth0.005_oddity.pkl'
-    full_path = f"{fileDir_fits}3D_oddity_task/{file_name}"
+    file_name = f'Fitted_isothreshold_ellipsoids_sim{nSims}perCond_samplingNearContour'+\
+        f'_jitter{jitter}_seed0_bandwidth0.005_oddity.pkl'
+    full_path = f"{fileDir_fits}{file_name}"
     with open(full_path, 'rb') as f:  vars_dict = pickled.load(f)
     
     for var_name, var_value in vars_dict.items():
@@ -57,7 +58,7 @@ if ndims == 3:
                                                          model_pred_Wishart, 
                                                          color_thres_data,
                                                          fig_dir = figDir_fits + '3D_oddity_task/', 
-                                                         save_fig = True,
+                                                         save_fig = False,
                                                          save_gif = False)
             
     wishart_pred_vis.plot_3D(

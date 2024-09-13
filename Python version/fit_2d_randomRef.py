@@ -14,144 +14,162 @@ import matplotlib.pyplot as plt
 import pickle
 import sys
 import numpy as np
-import os
-from scipy.linalg import sqrtm
-import imageio.v2 as imageio
 
 #load functions from other modules
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
-from core import optim, model_predictions, oddity_task
-sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/"+\
-                "Python version")
-from Simulate_probCorrectResp import sample_rgb_comp_2DNearContour
-from simulations_CIELab import plot_2D_randRef_nearContourComp
+from core import optim, oddity_task
+from core.model_predictions import wishart_model_pred
+from analysis.color_thres import color_thresholds
+from analysis.ellipses_tools import covMat_to_ellParamsQ, PointsOnEllipseQ
+from plotting.adaptive_sampling_plotting import SamplingRefCompPairVisualization
+from plotting.wishart_predictions_plotting import WishartPredictionsVisualization
+sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version/')
+from analysis.trial_placement import TrialPlacementWithoutAdaptiveSampling
+
+base_dir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
+output_figDir1 = base_dir + 'ELPS_analysis/Simulation_FigFiles/Python_version/2d_oddity_task/'
+output_figDir2 = base_dir + 'ELPS_analysis/ModelFitting_FigFiles/Python_version/2D_oddity_task/'
+output_fileDir = base_dir + 'ELPS_analysis/ModelFitting_DataFiles/2D_oddity_task/'
     
-#%% load files
-#load a file that stores the ground truth of color discrimination thresholds
-path_str1        = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                   'ELPS_analysis/Simulation_DataFiles/'
-os.chdir(path_str1)
-file_CIE         = 'Isothreshold_contour_CIELABderived_fixedVal0.5.pkl'
-full_path        = f"{path_str1}{file_CIE}"
-with open(full_path, 'rb') as f: 
-    data_load    = pickle.load(f)
-stim             = data_load[1]
-results          = data_load[2]
-
+#%% -----------------------------------------------------------
+# Load data simulated using CIELab and organize data
+# -----------------------------------------------------------
+np.random.seed(0)  # Set the seed for numpy
 #set stimulus info
-plane_2D_dict    = {'GB plane': 0, 'RB plane': 1, 'RG plane': 2}
-plane_2D         = 'RG plane' 
-plane_2D_idx     = plane_2D_dict[plane_2D]
-varying_RGBplane = [0, 1] #two indices that correspond to the varying planes
-fixedPlane_val   = 0.5 #fixed value for the fixed plane
-nSims            = 240 # Number of simulations or trials per reference stimulus.
+color_dimension = 2
+plane_2D   = 'GB plane' 
+nSims      = 240 # Number of simulations or trials per reference stimulus.
 
-#set path and load another file that stores model fits and predictions by WP
-path_str2  = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                         'ELPS_analysis/ModelFitting_DataFiles/2D_oddity_task/'  
-file_fits  = 'Fitted_isothreshold_'+plane_2D+'_sim'+str(nSims)+'perCond_'+\
-                'samplingNearContour_jitter0.1_bandwidth0.005' + '.pkl'
-full_path  = f"{path_str2}{file_fits}"
-with open(full_path, 'rb') as f:  
-    data_load2 = pickle.load(f)
-#load info we need for later
-W_est      = data_load2['W_est']
-model      = data_load2['model']
-opt_params = data_load2['opt_params']
+#file 1
+path_str   = base_dir + 'ELPS_analysis/Simulation_DataFiles/'
+# Create an instance of the class
+color_thres_data = color_thresholds(color_dimension, 
+                                    base_dir + 'ELPS_analysis/',
+                                    plane_2D = plane_2D)
+# Load Wishart model fits
+color_thres_data.load_CIE_data()
+results = color_thres_data.get_data('results2D', dataset = 'CIE_data')  
+stim = color_thres_data.get_data('stim2D', dataset = 'CIE_data')
+
+# Retrieve specific data from Wishart_data
+color_thres_data.load_model_fits()
+gt_Wishart  = color_thres_data.get_data('model_pred_Wishart', dataset = 'Wishart_data')
 
 #%% simulate data
 # Define the boundaries for the reference stimuli
-xref_bds         = [-0.85, 0.85] # Square boundary limits for the stimuli
+xref_bds         = [-0.9, 0.9] # Square boundary limits for the stimuli
 # Amount of jitter added to comparison stimulus sampling
-jitter           = 0.5
+jitter           = 0.1
 # Total number of simulations to perform
 nSims_total      = 6000 
 # Draw random reference stimuli within the specified boundary
 xrand            = np.array(np.random.rand(nSims_total,2)*(xref_bds[-1]-xref_bds[0]) + xref_bds[0])
 # Compute the covariance matrices for each reference stimulus based on a model
-Sigmas_est_grid  = model.compute_Sigmas(model.compute_U(W_est, xrand))
-# Scaler used to adjust covariance matrices to approximate 78% correct responses
-scaler_sigma     = 10.6
+Sigmas_est_grid  = gt_Wishart.model.compute_Sigmas(gt_Wishart.model.compute_U(gt_Wishart.W_est, xrand))
 
 # Initialize arrays to hold the comparison stimuli, predicted probabilities, and responses
 x1rand           = np.full(xrand.shape, jnp.nan)
 pX1              = np.full((nSims_total,), jnp.nan)
 resp             = np.full((nSims_total,), jnp.nan)
+paramEllipse_scaled = np.full((nSims_total, 5), jnp.nan)
+
+sim_trial = TrialPlacementWithoutAdaptiveSampling(skip_sim=True)
+sim_trial.sim = {'random_jitter': jitter, 
+                 'nSims': 1, 
+                 'varying_RGBplane': color_thres_data.varying_RGBplane,
+                 'slc_RGBplane': color_thres_data.fixed_color_dim,
+                 'slc_fixedVal': color_thres_data.fixed_value}
+target_pC     = 2/3
+# Scaler used to adjust covariance matrices to approximate 66.7% correct responses
+# scaler_radii, pC_approx = sim_trial.compute_radii_scaler_to_reach_targetPC(target_pC,
+#                                                                            nsteps=100,
+#                                                                            visualize= True)
+scaler_radii = 2.56
 
 # Process each randomly sampled reference stimulus
 for i in range(nSims_total):
     # Scale the estimated covariance matrix for the current stimulus
-    Sigmas_est_grid_i = scaler_sigma*Sigmas_est_grid[i]
+    Sigmas_est_grid_i = Sigmas_est_grid[i]
     # Convert the covariance matrix to ellipse parameters (semi-major axis, 
     # semi-minor axis, rotation angle)
-    _, _, ab_i, theta_i = model_predictions.covMat_to_ellParamsQ(Sigmas_est_grid_i)
+    _, _, ab_i, theta_i = covMat_to_ellParamsQ(Sigmas_est_grid_i)
+    # scale radii
+    ab_scaled_i = scaler_radii*ab_i
     # Pack the center of the ellipse with its parameters
-    paramEllipse_i = [*xrand[i], *ab_i, theta_i]
+    paramEllipse_scaled[i] = np.array([*xrand[i], *ab_scaled_i, theta_i])
     # Sample a comparison stimulus near the contour of the reference stimulus, applying jitter
-    x1rand_temp = sample_rgb_comp_2DNearContour(xrand[i], varying_RGBplane, 0,\
-                                                1, paramEllipse_i, jitter)
+    x1rand_temp,_,_,_ = sim_trial.sample_rgb_comp_2DNearContour(xrand[i],
+                                                                paramEllipse_scaled[i])
     # Reshape and clip the sampled comparison stimulus to fit within the [-1, 1] bounds        
-    x1rand_reshape = x1rand_temp[varying_RGBplane].T
+    x1rand_reshape = x1rand_temp[color_thres_data.varying_RGBplane].T
     x1rand[i] = np.clip(x1rand_reshape,-1,1)
     
 xrand  = jnp.array(xrand)
 x1rand = jnp.array(x1rand)
 # compute weighted sum of basis function at rgb_ref 
-Uref   = model.compute_U(W_est, xrand)
+Uref   = gt_Wishart.model.compute_U(gt_Wishart.W_est, xrand)
 # compute weighted sum of basis function at rgb_comp
-U1     = model.compute_U(W_est, x1rand)
+U1     = gt_Wishart.model.compute_U(gt_Wishart.W_est, x1rand)
 # Predict the probability of choosing the comparison stimulus over the reference
-pX1    = oddity_task.oddity_prediction((xrand, x1rand, Uref, U1),\
-                  jax.random.split(data_load2['OPT_KEY'], num = nSims_total),\
-                  opt_params['mc_samples'], opt_params['bandwidth'],\
-                  model.diag_term, oddity_task.simulate_oddity)
+pX1    = oddity_task.oddity_prediction((xrand, x1rand, Uref, U1),
+                  jax.random.split(gt_Wishart.opt_key, num = nSims_total),
+                  gt_Wishart.opt_params['mc_samples'], 
+                  gt_Wishart.opt_params['bandwidth'],
+                  gt_Wishart.model.diag_term, 
+                  oddity_task.simulate_oddity)
 # Simulate a response based on the predicted probability
 randNum   = np.random.rand(*pX1.shape) 
 resp      = jnp.array((randNum < pX1).astype(int))
 
 # Package the processed data into a tuple for further use
 data_rand = (resp, xrand, x1rand)
+print(np.mean(resp))
 
-#%% visualize randomly sampled data
-#specify where the figures need to be saved
-output_figDir1 = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                         'ELPS_analysis/Simulation_FigFiles/Python_version/2d_oddity_task/'
-saveFig = False
-#visualize the figure with different number of trials
-slc_datapoints_to_show = [2**i for i in range(11)]
-for n in slc_datapoints_to_show:
-    plot_2D_randRef_nearContourComp(xrand[:n], x1rand[:n], plane_2D_idx, fixedPlane_val,\
-                     xref_bds, plane_2D = plane_2D, visualize_lines = True,\
-                     saveFig = saveFig, figDir = output_figDir1, \
-                     figName = f"Sims_isothreshold_{plane_2D}_sim{n:04}total_"+\
-                        "samplingRandom_wFittedW_"+f"jitter{jitter:.1f}")
-        
-# make a gif
-gif_name = f'Sims_isothreshold_{plane_2D}_samplingRandom_wFittedW_jitter{jitter:.1f}.gif'
-if saveFig:
-    images = [img for img in os.listdir(output_figDir1) \
-              if img.endswith(f'total_samplingRandom_wFittedW_jitter{jitter:.1f}.png')]
-    images.sort()  # Sort the images by name (optional)
+#%% ------------------------------------------------
+# SECTION 3: Visualize trial placement
+# --------------------------------------------------
+sampling_vis = SamplingRefCompPairVisualization(color_dimension,
+                                                color_thres_data,
+                                                fig_dir = output_figDir1,
+                                                save_fig = True,
+                                                save_gif = False)
+
+# This array defines the opacity of markers in the plots, decreasing with more trials.
+marker_alpha = np.linspace(0.3, 1, 12)[::-1]
+# Define specific slices of data points to be visualized, ranging from very few to many.
+slc_datapoints_to_show = [2**i for i in range(12)]
+
+# Loop over the selected data points to generate and visualize each corresponding figure.
+for i,n in enumerate(slc_datapoints_to_show):
+    # Construct a filename for each figure based on the plane and number of experiments.
+    fig_name_i = f"Sims_isothreshold_{plane_2D}_im{n:04}total_samplingRandom_wFittedW_jitter{jitter}"
     
-    # Load images using imageio.v2 explicitly to avoid deprecation warnings
-    image_list = [imageio.imread(f"{output_figDir1}/{img}") for img in images]
-    
-    # Create a GIF
-    output_path = f"{output_figDir1}{gif_name}" 
-    imageio.mimsave(output_path, image_list, fps=2)  
+    _, ax_i = plt.subplots(1, 1, figsize = (3,3.5), dpi= 256)
+    if i == 5 or i == 6:
+        for j in range(n):
+            ell_i_x, ell_i_y = PointsOnEllipseQ(*paramEllipse_scaled[j][2:],
+                                                *paramEllipse_scaled[j][0:2])
+            ax_i.plot(ell_i_x, ell_i_y, c= 'k',lw=0.5,alpha = 0.5)
+    # Visualize the trials up to the nth data point with specified marker transparency.
+    sampling_vis.plot_sampling(xrand[:n],   # Reference points up to the nth data point
+                               x1rand[:n],    # Comparison points up to the nth data point
+                               linealpha = marker_alpha[i],        # Line transparency for this subset of data
+                               comp_markeralpha = marker_alpha[i], # Marker transparency for this subset of data
+                               fig_name = fig_name_i + '.pdf',              # Filename under which the figure will be saved
+                               bounds = xref_bds,
+                               ref_markersize = 10,
+                               plane_2D = plane_2D,
+                               ax = ax_i)
+    plt.show()
+
 
 #%% Fit the WP model to the randomly selected data
-# Random number generator seeds
-W_INIT_KEY   = jax.random.PRNGKey(220)  # Key to initialize `W_est`. 
-OPT_KEY      = jax.random.PRNGKey(444)  # Key passed to optimizer.
-
 # Fit model, initialized at random W
-W_init = model.sample_W_prior(W_INIT_KEY) 
+W_init = gt_Wishart.model.sample_W_prior(gt_Wishart.w_init_key) 
 
-opt_params['learning_rate'] =1e-4
 W_recover, iters, objhist = optim.optimize_posterior(
-    W_init, data_rand, model, OPT_KEY,
-    opt_params,
+    W_init, data_rand, gt_Wishart.model, gt_Wishart.opt_key,
+    gt_Wishart.opt_params,
     oddity_task.simulate_oddity,
     total_steps=1000,
     save_every=1,
@@ -167,35 +185,96 @@ fig.tight_layout()
 # Rocover covariance matrices
 # -----------------------------
 # Specify grid over stimulus space
-num_grid_pts = 5
-xgrid = jnp.stack(jnp.meshgrid(*[jnp.linspace(-0.6, 0.6, num_grid_pts) \
-                                 for _ in range(model.num_dims)]), axis=-1)
-
-Sigmas_recover_grid = model.compute_Sigmas(model.compute_U(W_recover, xgrid))
+NUM_GRID_PTS = 5
+grid_1d = jnp.linspace(-0.6, 0.6, NUM_GRID_PTS)
+grid = jnp.stack(jnp.meshgrid(*[grid_1d for _ in range(gt_Wishart.model.num_dims)]), axis=-1)
+Sigmas_recover_grid = gt_Wishart.model.compute_Sigmas(gt_Wishart.model.compute_U(W_recover, grid))
 
 # -----------------------------
 # Compute model predictions
 # -----------------------------
-target_pC               = 0.78
-ngrid_search            = 1000
-bds_scaler_gridsearch   = [0.25, 8]
-nTheta                  = 200
-scaler_x1               = 5
+model_pred_Wishart = wishart_model_pred(gt_Wishart.model, gt_Wishart.opt_params, 
+                                        NUM_GRID_PTS, gt_Wishart.mc_samples, 
+                                        gt_Wishart.bandwidth, gt_Wishart.w_init_key,
+                                        gt_Wishart.data_key, gt_Wishart.opt_key, W_init, 
+                                        W_recover, Sigmas_recover_grid, 
+                                        color_thres_data,
+                                        target_pC= target_pC,
+                                        scaler_x1 = 5,
+                                        ngrid_bruteforce = 500,
+                                        bds_bruteforce = [0.01, 0.25])
 
-recover_fitEllipse_scaled, recover_fitEllipse_unscaled,\
-    recover_rgb_comp_scaled, recover_rgb_contour_cov, params_ellipses =\
-    model_predictions.convert_Sig_2DisothresholdContour_oddity_batch(np.transpose(\
-    xgrid,(2,0,1)), varying_RGBplane, stim['grid_theta_xy'], target_pC,\
-    W_recover, model,oddity_task.simulate_oddity,\
-    results['opt_vecLen'], ngrid_bruteforce = ngrid_search,\
-    scaler_bds_bruteforce = bds_scaler_gridsearch, scaler_x1 = scaler_x1,\
-    nThetaEllipse = nTheta, mc_samples = opt_params['mc_samples'], \
-    bandwidth = opt_params['bandwidth'], opt_key = OPT_KEY)
+grid_trans = np.transpose(grid,(2,0,1))
+model_pred_Wishart.convert_Sig_Threshold_oddity_batch(grid_trans)
+
+#%%
+grid_1d_s = jnp.linspace(-0.45, 0.45, 4)
+grid_s = jnp.stack(jnp.meshgrid(*[grid_1d_s for _ in range(gt_Wishart.model.num_dims)]), axis=-1)
+Sigmas_recover_grid_s = gt_Wishart.model.compute_Sigmas(gt_Wishart.model.compute_U(W_recover, grid_s))
+
+# -----------------------------
+# Compute model predictions
+# -----------------------------
+model_pred_Wishart_s = wishart_model_pred(gt_Wishart.model, gt_Wishart.opt_params, 
+                                        4, gt_Wishart.mc_samples, 
+                                        gt_Wishart.bandwidth, gt_Wishart.w_init_key,
+                                        gt_Wishart.data_key, gt_Wishart.opt_key, W_init, 
+                                        W_recover, Sigmas_recover_grid_s, 
+                                        color_thres_data,
+                                        target_pC= target_pC,
+                                        scaler_x1 = 5,
+                                        ngrid_bruteforce = 500,
+                                        bds_bruteforce = [0.01, 0.25])
+
+grid_trans_s = np.transpose(grid_s,(2,0,1))
+model_pred_Wishart_s.convert_Sig_Threshold_oddity_batch(grid_trans_s)
+
+#%% -----------------------------
+# Visualize model predictions
+# -----------------------------
+class sim_data:
+    def __init__(self, xref_all, x1_all):
+        self.xref_all = xref_all
+        self.x1_all = x1_all
+sim_trial_by_Wishart = sim_data(xrand, x1rand)
+
+wishart_pred_vis = WishartPredictionsVisualization(sim_trial_by_Wishart,
+                                                   gt_Wishart.model, 
+                                                   model_pred_Wishart, 
+                                                   color_thres_data,
+                                                   fig_dir = output_figDir2, 
+                                                   save_fig = False)
+        
+fig, ax = wishart_pred_vis.plot_2D(
+    grid, 
+    grid,
+    gt_Wishart.fitEll_unscaled, 
+    visualize_samples= False,
+    visualize_gt = True,
+    visualize_model_estimatedCov = True,
+    samples_alpha = 1,
+    samples_s = 1,
+    plane_2D = plane_2D,
+    modelpred_ls = '-',
+    modelpred_lc = [0.3,0.3,0.3],
+    modelpred_lw = 1,
+    mdoelpred_alpha = 1,
+    gt_lw= 0.5,
+    gt_lc =[0.1,0.1,0.1]) 
+
+for i in range(4):
+    for j in range(4):
+        # Plot the model predictions as lines.
+        ax.plot(model_pred_Wishart_s.fitEll_unscaled[i,j,0], 
+                model_pred_Wishart_s.fitEll_unscaled[i,j,1],
+                c = 'm',
+                lw = 1,
+                alpha = 0.5, 
+                ls = ':')
+plt.show()
 
 #%% visualize the model predictions and compare that with the ground truth
-output_figDir2 = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                        'ELPS_analysis/ModelFitting_FigFiles/Python_version/'+\
-                        '2D_oddity_task/'
+
 gt_sigma = results['fitEllipse_scaled'][plane_2D_idx]
 gt_sigma_scaled = (gt_sigma * 2 - 1)
 model_predictions.plot_2D_modelPredictions_byWishart(
@@ -209,8 +288,6 @@ model_predictions.plot_2D_modelPredictions_byWishart(
     figName = 'Fitted'+gif_name[4:-4]+ '_nSims'+str(nSims_total)+'total')
     
 #%% save data
-output_fileDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                        'ELPS_analysis/ModelFitting_DataFiles/2D_oddity_task/'
 output_file = 'Fitted'+gif_name[4:-4] + '_nSims'+str(nSims_total)+'total.pkl'
 full_path = f"{output_fileDir}{output_file}"
 

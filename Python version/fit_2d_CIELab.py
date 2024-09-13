@@ -14,7 +14,6 @@ import jax
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-import types
 import dill as pickle
 import sys
 import numpy as np
@@ -29,13 +28,13 @@ sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Pytho
 from data_reorg import organize_data
 
 #%% three variables we need to define for loading the data
-plane_2D      = 'RG plane'
+plane_2D      = 'RB plane'
 plane_2D_dict = {'GB plane': 0, 'RB plane': 1, 'RG plane': 2}
 plane_2D_idx  = plane_2D_dict[plane_2D]
 sim_jitter    = '0.3'
-nSims         = 240 #number of simulations: 240 trials for each ref stimulus
+nSims         = 80 #number of simulations: 240 trials for each ref stimulus
 
-for rr in range(1):
+for rr in range(2,10):
     rnd_seed      = rr
     
     baseDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
@@ -111,7 +110,7 @@ for rr in range(1):
         W_init, data_new, model, OPT_KEY,
         opt_params,
         oddity_task.simulate_oddity, #oddity_task.simulate_oddity or oddity_task.simulate_oddity_reference
-        total_steps=100,#500
+        total_steps=500,
         save_every=1,
         show_progress=True
     )
@@ -166,7 +165,7 @@ for rr in range(1):
                                                          model_pred_Wishart, 
                                                          color_thres_data,
                                                          fig_dir = output_figDir_fits, 
-                                                         save_fig = True)
+                                                         save_fig = False)
             
     wishart_pred_vis.plot_2D(
         grid, 
@@ -207,25 +206,6 @@ for rr in range(1):
     variable_names = ['plane_2D', 'sim_jitter','nSims', 'data','x1_raw',
                       'xref_raw','sim_trial_by_CIE', 'grid_1d', 'grid','grid_trans',
                       'iters', 'objhist','model','model_pred_Wishart', 'gt_covMat_CIE']
-        
-    # def has_chebyshev_basis_reference(value):
-    #     """Check if the object contains a reference to chebyshev_basis."""
-    #     try:
-    #         return 'chebyshev_basis' in str(value)
-    #     except Exception:
-    #         return False
-    
-    # vars_dict = {}
-    # for i in variable_names:
-    #     try:
-    #         value = eval(i)
-    #         # Skip any function, or objects referencing 'chebyshev_basis'
-    #         if isinstance(value, types.FunctionType) or has_chebyshev_basis_reference(value):
-    #             print(f"Skipping {i} because it contains a function or references 'chebyshev_basis'")
-    #             continue
-    #         vars_dict[i] = value
-    #     except pickle.PicklingError:
-    #         print(f"Skipping {i} due to PicklingError")
     vars_dict = {}
     for i in variable_names: vars_dict[i] = eval(i)
     

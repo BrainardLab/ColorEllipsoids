@@ -10,11 +10,9 @@ import jax
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-import types
 import dill as pickle
 import sys
 import numpy as np
-import os
 
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
 from core import oddity_task, model_predictions, optim
@@ -28,8 +26,8 @@ from plotting.trial_placement_nonadaptive_plotting import TrialPlacementVisualiz
 from data_reorg import organize_data
 
 #%% three variables we need to define for loading the data
-rnd_seed  = 0
-nSims     = 720
+rnd_seed  = 2
+nSims     = 240
 jitter    = 0.3
 
 base_dir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
@@ -61,8 +59,8 @@ sim = data_load[0]
 #interpolate between samples
 
 ##################################
-idx_trim  = [0,2,4]
-#idx_trim = list(range(5))
+#idx_trim  = [0,2,4]
+idx_trim = list(range(5))
 ##################################
 
 """
@@ -133,7 +131,7 @@ W_est, iters, objhist = optim.optimize_posterior(
     W_init, data_new, model, OPT_KEY,
     opt_params,
     oddity_task.simulate_oddity,
-    total_steps=1000,
+    total_steps=1200,
     save_every=1,
     show_progress=True
 )
@@ -204,8 +202,8 @@ wishart_pred_vis = WishartPredictionsVisualization(sim_trial_by_CIE,
                                                      model_pred_Wishart, 
                                                      color_thres_data,
                                                      fig_dir = output_figDir_fits, 
-                                                     save_fig = True,
-                                                     save_gif = True)
+                                                     save_fig = False,
+                                                     save_gif = False)
         
 wishart_pred_vis.plot_3D(
     grid_trans, 
@@ -224,13 +222,13 @@ if wishart_pred_vis.save_gif:
     wishart_pred_vis._save_gif(fig_name, fig_name, fig_name_end = '.pdf')
 
 #%% save data
-output_file = f"Fitted{file_sim[4:-4]}_bandwidth{BANDWIDTH}{name_ext}.pkl"
+output_file = f"Fitted{file_sim[4:-4]}_bandwidth{BANDWIDTH}{name_ext}_oddity.pkl"
 #    '_maxDeg' + str(model.degree)+'.pkl'
 full_path4 = f"{output_fileDir}{output_file}"
 
-variable_names = ['data', 'x1_raw', 'xref_raw','sim_trial_by_CIE',
-                  'grid_1d', 'grid','grid_trans','model','model_pred_Wishart', 
-                  'gt_covMat_CIE','gt_slice_2d_ellipse_CIE']
+variable_names = ['data', 'x1_raw', 'xref_raw','sim_trial_by_CIE', 'grid_1d',
+                  'grid','grid_trans','iters', 'objhist', 'model',
+                  'model_pred_Wishart','gt_covMat_CIE','gt_slice_2d_ellipse_CIE']
 vars_dict = {}
 for i in variable_names: vars_dict[i] = eval(i)
 
