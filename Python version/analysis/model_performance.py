@@ -99,7 +99,10 @@ class ModelPerformance():
                 for ii in range(self.ref_size):
                     for jj in range(self.ref_size):
                         # Retrieve predicted ellipse parameters.
-                        l_pred = data_load[l]['model_pred_Wishart']
+                        try:
+                            l_pred = data_load[l]['model_pred_Wishart']
+                        except:
+                            l_pred = data_load[l]['model_pred_Wishart_wRandx']
                         eigVec_jiijj = rotAngle_to_eigenvectors(l_pred.params_ell[ii][jj][-1])
                         radii_jiijj = np.array(l_pred.params_ell[ii][jj][2:4])/2
                         # Sort the radii and eigenvectors.
@@ -314,8 +317,17 @@ class ModelPerformance():
         product = sqrt_M1 @ M2 @ sqrt_M1
         # Compute the square root of the product
         sqrt_product = sqrtm(product)
+        # Ensure the result is real
+        if np.iscomplexobj(sqrt_product):
+            sqrt_product = np.real(sqrt_product)
+            print(M1)
+            print(M2)
+            
         # Calculate the Bures-Wasserstein distance
-        BW_distance = np.sqrt(np.trace(M1) + np.trace(M2) - 2 * np.trace(sqrt_product))
+        trace_diff = np.trace(M1) + np.trace(M2) - 2 * np.trace(sqrt_product)
+        trace_diff = max(0, trace_diff)  # Avoid negative values under sqrt
+        
+        BW_distance = np.sqrt(trace_diff)        
         return BW_distance
             
     @staticmethod

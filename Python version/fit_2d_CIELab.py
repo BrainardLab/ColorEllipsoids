@@ -28,20 +28,20 @@ sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Pytho
 from data_reorg import organize_data
 
 #%% three variables we need to define for loading the data
-plane_2D      = 'RB plane'
+plane_2D      = 'RG plane'
 plane_2D_dict = {'GB plane': 0, 'RB plane': 1, 'RG plane': 2}
 plane_2D_idx  = plane_2D_dict[plane_2D]
 sim_jitter    = '0.3'
 nSims         = 80 #number of simulations: 240 trials for each ref stimulus
 
-for rr in range(2,10):
+for rr in range(10):
     rnd_seed      = rr
     
     baseDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
     output_figDir_fits = baseDir + 'ELPS_analysis/ModelFitting_FigFiles/Python_version/2D_oddity_task/'
     output_fileDir = baseDir + 'ELPS_analysis/ModelFitting_DataFiles/2D_oddity_task/'
     
-    #%%
+    #%
     # -----------------------------------------------------------
     # Load data simulated using CIELab and organize data
     # -----------------------------------------------------------
@@ -73,7 +73,7 @@ for rr in range(2,10):
     y_jnp, xref_jnp, x0_jnp, x1_jnp = data 
     data_new = (y_jnp, xref_jnp, x1_jnp)
     
-    #%% -------------------------------
+    #% -------------------------------
     # Constants describing simulation
     # -------------------------------
     model = WishartProcessModel(
@@ -119,7 +119,7 @@ for rr in range(2,10):
     ax.plot(iters, objhist)
     fig.tight_layout()
     
-    #%%
+    #%
     # -----------------------------
     # Rocover covariance matrices
     # -----------------------------
@@ -145,7 +145,7 @@ for rr in range(2,10):
     model_pred_Wishart.convert_Sig_Threshold_oddity_batch(grid_trans)
     
             
-    #%%
+    #%
     # -----------------------------
     # Visualize model predictions
     # -----------------------------
@@ -199,7 +199,7 @@ for rr in range(2,10):
         fig_name = fig_name_part1 + '.pdf') 
     
             
-    #%% save data
+    #% save data
     output_file = fig_name_part1 + "_oddity.pkl"
     full_path = f"{output_fileDir}{output_file}"
     

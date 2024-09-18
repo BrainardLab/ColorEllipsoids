@@ -30,7 +30,7 @@ jitter = [0.1, 0.3, 0.5]   # Different noise levels (jitter)
 nLevels = len(jitter)      # Number of noise levels
 nSims = 240                # Number of simulations per condition
 saveFig = False            # Whether to save the figures
-color_dimension = 2        # Dimensionality of the color space (2D or 3D)
+color_dimension = 3        # Dimensionality of the color space (2D or 3D)
 
 # Path to the directory containing the simulation data files
 path_str1 = base_dir + f'ELPS_analysis/ModelFitting_DataFiles/{color_dimension}D_oddity_task/' 
@@ -97,8 +97,10 @@ if color_dimension == 2:
         covMat_corner.append(covMat_corner_ij)
 else:
     # For 3D, select corner points in the 3D space
-    idx_corner = [[0,0,0],[4,0,0],[0,4,0],[0,0,4],
-                  [4,4,0],[0,4,4],[4,0,4],[4,4,4]]
+    # idx_corner = [[0,0,0],[4,0,0],[0,4,0],[0,0,4],
+    #               [4,4,0],[0,4,4],[4,0,4],[4,4,4]]
+    indices = [0, 4]
+    idx_corner = [[i, j, k] for i in indices for j in indices for k in indices]
 
     # Retrieve covariance matrices at these corner points
     covMat_corner = [ellParams_to_covMat(CIE_results['ellipsoidParams'][i][j][k]['radii']*scaler_x1,\
@@ -129,20 +131,20 @@ if color_dimension == 2:
     x_ub_LU = 3.5      # Upper bound for x-axis (Log-Euclidean distance)
     nBins_curves = 11   # Number of bins for curves
     nBins_hist = 33     # Number of bins for histograms
-    fig_size = (3.2, 2.5)  # Figure size
+    fig_size = (2.5, 3.2)  # Figure size
     nyticks = 6
 else:
     # 3D case: get colors for the corner points from the reference grid
     for c in range(len(idx_corner)):
         cmap_BW[c + 2] = [CIE_stim['grid_ref'][m] for m in idx_corner[c]]
-    y_ub = 80
+    y_ub = 100
     x_ub_BW = 0.18
     x_ub_LU = 4
     nBins_curves = 11
-    nBins_hist = 44
-    fig_size = (8.2, 2.8)
+    nBins_hist = 33
+    fig_size = (2.5, 3.2)
     nyticks = 5
-saveFig = False    
+saveFig = True 
 
 # %% ------------------------------------------
 # Plot Bures-Wasserstein distance
@@ -162,9 +164,9 @@ model_perf.plot_similarity_metric_scores(ax1, model_perf.BW_distance, BW_bins2,
                                          y_ub = y_ub, cmap = cmap_t, alpha = 0.6,
                                          legend_labels = legend_str)
 
-ax1.set_xlabel('The Bures-Wasserstein distance')
+ax1.set_xlabel('Bures-Wasserstein distance')
 ax1.set_ylabel('Frequency')
-ax1.set_xticks(np.around(BW_bins[::2],2))
+ax1.set_xticks(np.around(BW_bins[::3],2))
 ax1.set_yticks(np.linspace(0, y_ub, nyticks))
 ax1.set_xlim([0, x_ub_BW])
 ax1.set_ylim([0, y_ub])

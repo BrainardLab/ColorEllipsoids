@@ -23,12 +23,12 @@ from analysis.ellipses_tools import UnitCircleGenerate, find_inner_outer_contour
 
 #three variables we need to define for loading the data
 nSims     = 240
-jitter    = 0.1
-ndims     = 3
+jitter    = 0.3
+ndims     = 2
 
 base_dir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
-fileDir_fits = base_dir +f'ELPS_analysis/ModelFitting_DataFiles/{ndims}D_oddity_task/'
-figDir_fits = base_dir +f'ELPS_analysis/ModelFitting_FigFiles/Python_version/{ndims}D_oddity_task/'
+fileDir_fits = base_dir +f'ELPS_analysis/ModelFitting_DataFiles/{ndims}D_oddity_task/random_ref/'
+figDir_fits = base_dir +f'ELPS_analysis/ModelFitting_FigFiles/Python_version/{ndims}D_oddity_task/random_ref/'
 
 #%% ------------------------------------------
 # Load data simulated using CIELab
@@ -76,7 +76,7 @@ if ndims == 3:
 else:
     #%%
     #three variables we need to define for loading the data
-    plane_2D      = 'RG plane'
+    plane_2D      = 'GB plane'
     plane_2D_dict = {'GB plane': 0, 'RB plane': 1, 'RG plane': 2}
     plane_2D_idx  = plane_2D_dict[plane_2D]
     rnd_seed_list = list(range(10))
@@ -85,7 +85,7 @@ else:
     # Load Wishart model fits
     color_thres_data_2D.load_CIE_data()  
     
-    file_name_2D = f'Fitted_isothreshold_{plane_2D}_sim{nSims}perCond_samplingNearContour_'+\
+    file_name_2D = f'Fitted_isothreshold_{plane_2D}_sim{nSims}perCond_samplingNearContour_'+'noFixedRef_'+\
         f'jitter{jitter}'
         
     nTheta= 1000

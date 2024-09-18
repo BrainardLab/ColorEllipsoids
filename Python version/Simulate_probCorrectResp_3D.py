@@ -22,7 +22,7 @@ base_dir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
 output_figDir = base_dir+'ELPS_analysis/Simulation_FigFiles/Python_version/transformation'
 output_fileDir = base_dir + 'ELPS_analysis/Simulation_DataFiles/'
 # specify the seed
-rnd_seed = 0
+rnd_seed = 9
 
 #%%
 file_name = 'Isothreshold_ellipsoid_CIELABderived.pkl'

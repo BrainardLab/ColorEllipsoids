@@ -26,7 +26,7 @@ from plotting.trial_placement_nonadaptive_plotting import TrialPlacementVisualiz
 from data_reorg import organize_data
 
 #%% three variables we need to define for loading the data
-rnd_seed  = 2
+rnd_seed  = 4
 nSims     = 240
 jitter    = 0.3
 
