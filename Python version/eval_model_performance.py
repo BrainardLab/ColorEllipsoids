@@ -26,11 +26,11 @@ fig_outputDir = base_dir+'ELPS_analysis/ModelPerformance_FigFiles/'
 #%% ------------------------------------------
 # Load data simulated using CIELab
 # ------------------------------------------
-jitter = [0.1, 0.3, 0.5]   # Different noise levels (jitter)
+jitter  = [0.1, 0.3, 0.5]   # Different noise levels (jitter)
 nLevels = len(jitter)      # Number of noise levels
-nSims = 240                # Number of simulations per condition
+nSims   = 240                # Number of simulations per condition
 saveFig = False            # Whether to save the figures
-color_dimension = 3        # Dimensionality of the color space (2D or 3D)
+color_dimension = 2        # Dimensionality of the color space (2D or 3D)
 
 # Path to the directory containing the simulation data files
 path_str1 = base_dir + f'ELPS_analysis/ModelFitting_DataFiles/{color_dimension}D_oddity_task/' 
@@ -41,7 +41,7 @@ data_load = []
 # Loop through each jitter level and load corresponding simulation data
 for j in jitter:
     if color_dimension == 2: 
-        plane_2D = 'RG plane'  # For 2D simulations, select a specific plane (e.g., GB plane)
+        plane_2D = 'GB plane'  # For 2D simulations, select a specific plane (e.g., GB plane)
         s_ell = plane_2D       # Label used for file naming
     else:
         s_ell = 'ellipsoids'   # For 3D simulations, no specific plane
@@ -85,7 +85,7 @@ model_perf = ModelPerformance(color_dimension,
 # Select specific points (corners) in the 2D or 3D space for comparison
 if color_dimension == 2:
     # For 2D, select specific corner points in the plane
-    indices = [0, 2, 4]
+    indices = [0, 4]
     idx_corner = [[i, j] for i in indices for j in indices]
     ellParams_slc = CIE_results['ellParams'][model_perf.plane_2D_idx]
     covMat_corner = []
@@ -126,13 +126,13 @@ if color_dimension == 2:
     # 2D case: get colors for the corner points from the reference stimulus
     cmap_BW[2:] = np.vstack([CIE_stim['ref_points'][model_perf.plane_2D_idx][:, m, n] 
                              for m, n in idx_corner])
-    y_ub = 25          # Upper bound for y-axis
+    y_ub = 16          # Upper bound for y-axis
     x_ub_BW = 0.1      # Upper bound for x-axis (Bures-Wasserstein distance)
     x_ub_LU = 3.5      # Upper bound for x-axis (Log-Euclidean distance)
     nBins_curves = 11   # Number of bins for curves
     nBins_hist = 33     # Number of bins for histograms
     fig_size = (2.5, 3.2)  # Figure size
-    nyticks = 6
+    nyticks = 5
 else:
     # 3D case: get colors for the corner points from the reference grid
     for c in range(len(idx_corner)):
@@ -144,7 +144,7 @@ else:
     nBins_hist = 33
     fig_size = (2.5, 3.2)
     nyticks = 5
-saveFig = True 
+saveFig = True
 
 # %% ------------------------------------------
 # Plot Bures-Wasserstein distance
@@ -157,9 +157,9 @@ plt.rcParams.update({'font.size': 10})
 
 fig1, ax1 = plt.subplots(1,1, figsize = fig_size, dpi = 256)
 model_perf.plot_benchmark_similarity(ax1, model_perf.BW_benchmark, BW_bins,
-                                     jitter = np.linspace(-0.002,0.002, len(idx_corner)+2),
                                      linestyle = [':','--']+['-']*len(idx_corner), 
                                      lw = 1, cmap = cmap_BW)
+#jitter = np.linspace(-0.002,0.002, len(idx_corner)+2),
 model_perf.plot_similarity_metric_scores(ax1, model_perf.BW_distance, BW_bins2,
                                          y_ub = y_ub, cmap = cmap_t, alpha = 0.6,
                                          legend_labels = legend_str)
@@ -190,8 +190,8 @@ model_perf.plot_similarity_metric_scores(ax2, model_perf.LU_distance, LU_bins2,
                               legend_labels = legend_str)
 model_perf.plot_benchmark_similarity(ax2, model_perf.LU_benchmark, 
                                      LU_bins,cmap = cmap_BW, lw = 1,
-                                     linestyle = [':','--']+['-']*len(idx_corner), 
-                                     jitter = np.linspace(-0.02,0.02, len(idx_corner)+2))
+                                     linestyle = [':','--']+['-']*len(idx_corner)) 
+#jitter = np.linspace(-0.02,0.02, len(idx_corner)+2)
 ax2.set_xlabel('Log Euclidean distance')
 ax2.set_ylabel('Frequency')
 ax2.set_xticks(np.around(LU_bins[::2],3))
