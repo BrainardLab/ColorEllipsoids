@@ -9,12 +9,9 @@ Created on Thu Sep  5 22:04:36 2024
 import jax
 jax.config.update("jax_enable_x64", True)
 import dill as pickled
-import pickle as pickle
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
-from shapely.geometry import Polygon
-from shapely.ops import unary_union
 
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
 from analysis.color_thres import color_thresholds
@@ -112,7 +109,8 @@ if ndims == 3:
         visualize_model_pred = False,
         visualize_modelpred_CI = True,
         visualize_model_estimatedCov = False,
-        modelpred_CI = [np.transpose(fitEll_min,(1,0,2,3,4,5)), np.transpose(fitEll_max,(1,0,2,3,4,5))],
+        modelpred_CI = [np.transpose(fitEll_min,(1,0,2,3,4,5)),
+                        np.transpose(fitEll_max,(1,0,2,3,4,5))],
         fontsize = 12,
         gt_ls = '--',
         gt_lc = 'r',

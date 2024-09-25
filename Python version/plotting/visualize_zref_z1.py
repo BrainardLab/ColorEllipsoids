@@ -8,16 +8,14 @@ Created on Thu Sep 19 21:16:16 2024
 #%% import modules
 import jax
 jax.config.update("jax_enable_x64", True)
-
 import jax.numpy as jnp
 import dill as pickled
 import sys
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.patches import Polygon
 
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
 from analysis.ellipses_tools import covMat_to_ellParamsQ, PointsOnEllipseQ
+sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version')
 from plotting.zref_z0_z1 import ZrefZ1Visualization
 
 base_dir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
@@ -42,10 +40,11 @@ idx2 = 4
 flag_use_gt = False
 #chromatic directions
 nTheta = 16 
+skip_steps = 10
 #finer grid for the chromatic directions
-nTheta_finer = nTheta*10
+nTheta_finer = nTheta* skip_steps
 #three different seeds pre-selected 
-seed = 7
+seed = 0
 
 if seed == 0:
     scaler_W_prior = 1
@@ -81,26 +80,26 @@ for i in range(num_grid_pts1):
     for j in range(num_grid_pts2): 
         _, _, ab_gt, theta_gt = covMat_to_ellParamsQ(D['model_pred_Wishart'].Sigmas_recover_grid[i,j])
         ab_scaled_gt = ab_gt*scaler_radii
-        contours_W_est_finer[i,j,0], contours_W_est_finer[i,j,1] = \
-            PointsOnEllipseQ(*ab_scaled_gt, 
+        s1, s2 = PointsOnEllipseQ(*ab_scaled_gt, 
                              theta_gt, 
                              *D['grid'][i,j], 
-                             nTheta = nTheta_finer)       
-            
-        contours_W_est[i,j,0], contours_W_est[i,j,1] = \
-            PointsOnEllipseQ(*ab_scaled_gt, 
-                             theta_gt,
-                             *D['grid'][i,j], 
-                             nTheta=nTheta)
+                             nTheta = nTheta_finer+1)  
+        contours_W_est_finer[i,j,0], contours_W_est_finer[i,j,1] = s1[:nTheta_finer], s2[:nTheta_finer]     
+        
+        t1, t2 = PointsOnEllipseQ(*ab_scaled_gt, 
+                                     theta_gt,
+                                     *D['grid'][i,j], 
+                                     nTheta=nTheta+1)
+        contours_W_est[i,j,0], contours_W_est[i,j,1] = t1[:nTheta], t2[:nTheta]
 
 # Plot sampled data using custom plotting function.
-slc_cDir = 0
+slc_cDir = np.array(list(range(nTheta)))#11
 rgb_comp_pts = contours_W_est[idx1, idx2]
 rgb_comp_contour = contours_W_est_finer[idx1, idx2]
 zref_z1_vis = ZrefZ1Visualization(W_init,
                                   D['model'], 
                                   rgb_ref_s, 
-                                  rgb_comp_pts,
+                                  rgb_comp_pts[:, slc_cDir],#[:,np.newaxis]
                                   rgb_comp_contour,
                                   fig_dir= fig_outputDir,
                                   save_fig = True)
@@ -113,7 +112,7 @@ Zref_all, Z0_all, Z1_all, Z0_to_zref_all, Z1_to_zref_all, Zdiff_all, pC = \
 #%% visualization
 # Construct strings for RGB reference values for use in filenames.
 x_str, y_str = str(np.round(rgb_ref_s[0], 2)), str(np.round(rgb_ref_s[1], 2)) 
-zref_z1_vis.plot_sampled_comp(gt = contours_W_est_finer[idx1, idx2],
+zref_z1_vis.plot_sampled_comp(gt = contours_W_est_finer[idx1, idx2], 
                               figName = f'Comp_{plane_2D}_x{x_str[0:4]}_y{y_str[0:4]}')
 
 #plot the probability of correct
@@ -121,6 +120,7 @@ zref_z1_vis.plot_probC(pC, figName = f'pC_{plane_2D}_x{x_str[0:4]}_y{y_str[0:4]}
 
 #lgd = [str(np.round(items,2)) for items in np.rad2deg(grid_theta)]
 
+#%%
 contours_W_cand = np.full((num_grid_pts1, num_grid_pts2, 2, 200), np.nan)
 for i in range(num_grid_pts1):
     for j in range(num_grid_pts2):
@@ -129,14 +129,19 @@ for i in range(num_grid_pts1):
         x_ij, y_ij = PointsOnEllipseQ(*ab_scaled, theta, *D['grid'][i,j])
         contours_W_cand[i,j,0] = x_ij
         contours_W_cand[i,j,1] = y_ij
-        
-zref_z1_vis.plot_sampled_zref_z1(Zref_all[slc_cDir][np.newaxis,:,:],
-                     Z0_all[slc_cDir][np.newaxis,:,:],
-                     Z1_all[slc_cDir][np.newaxis,:,:], 
-                     gt = D['model_pred_Wishart'].fitEll_unscaled[idx1, idx2],
-                     sim = contours_W_cand[idx1, idx2],
+
+slc_cDir_finer = slc_cDir*10#int(skip_steps * (slc_cDir+1) - 3)
+zref_z1_vis.plot_sampled_zref_z1(Zref_all[slc_cDir_finer], #[np.newaxis,:,:]
+                     Z0_all[slc_cDir_finer], #[np.newaxis,:,:]
+                     Z1_all[slc_cDir_finer], #[np.newaxis,:,:] 
+                     #gt = D['model_pred_Wishart'].fitEll_unscaled[idx1, idx2], 
+                     #sim = contours_W_cand[idx1, idx2],
+                     #color_comp = np.array([0.64705882, 0.31764706, 0.58039216,  1.]),
                      max_dots = 100, 
-                     figName = f'sampled_zref_z1_{plane_2D}_x{x_str[0:4]}_y{y_str[0:4]}_Wseed{seed}')
+                     markersize = 15,
+                     alpha = 0.5,
+                     edgecolor = None,
+                     figName = f'sampled_zref_z1_{plane_2D}_x{x_str[0:4]}_y{y_str[0:4]}_Wseed{seed}_pC{np.mean(pC):.3f}_allDirs')
 
 #%% Define histogram bin edges
 slc_cDir_list = np.array(list(range(0,nTheta_finer,10)))
@@ -163,4 +168,9 @@ nLL_target_pC_avg, nLL_target_pC_lb, nLL_target_pC_ub = zref_z1_vis.nLL_avg_95CI
 zref_z1_vis.plot_nLL(nLL_avg, nLL_lb, nLL_ub, nLL_target_pC_avg,
              nLL_target_pC_lb, nLL_target_pC_ub, x_err_plt = x_err_plt,
              figName = f'{fig_outputDir}nLL_{plane_2D}_x{x_str[0:4]}_y{y_str[0:4]}_Wseed{seed}')
+
+
+
+
+
 

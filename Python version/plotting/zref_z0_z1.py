@@ -165,7 +165,7 @@ class ZrefZ1Visualization(WishartModelBasicsVisualization):
             ax.plot(gt[0], gt[1], c = 'gray', alpha = self.pltP['line_alpha'],lw=2)
         ax.scatter(self.rgb_ref[0], self.rgb_ref[1], c = 'k',
                     marker = '+', s = self.pltP['markersize'],lw=2)
-        for i in range(self.nTheta-1):
+        for i in range(self.nTheta):
             ax.scatter(self.rgb_comp_pts[0,i], self.rgb_comp_pts[1,i],
                        marker = self.pltP['marker'], c = colors_array[i],
                        s = self.pltP['markersize'],lw=1)
@@ -253,6 +253,8 @@ class ZrefZ1Visualization(WishartModelBasicsVisualization):
             'alpha':0.5,
             'markersize':30,
             'max_dots':Z1.shape[1],
+            'edgecolor':'white',
+            'color_comp':None,
             'legends':None,   # List of legends for each chromatic direction
             'figName':'SanityCheck_sampled_zref_z1'}  # Default figure name
         # Update plot parameters with method-specific settings and external configurations.
@@ -262,10 +264,13 @@ class ZrefZ1Visualization(WishartModelBasicsVisualization):
         plt.rcParams.update({'font.size': 10})
         
         # Define color map and color assignments for plots
-        default_cmap = plt.get_cmap('tab20b') 
         numDirPts    = Z1.shape[0]
-        values       = np.linspace(0, 1, 16)
-        colors_array = default_cmap(np.append(values[3:], values[:3]))
+        if self.pltP['color_comp'] is None:
+            default_cmap = plt.get_cmap('tab20b') 
+            values       = np.linspace(0, 1, 16)
+            colors_array = default_cmap(np.append(values[3:], values[:3]))
+        else:
+            colors_array = np.tile(self.pltP['color_comp'], (numDirPts,1))
         colors_ref   = np.array([0.5,0.5,0.5])
                 
         # Create a new figure and axes if not provided.
@@ -282,7 +287,7 @@ class ZrefZ1Visualization(WishartModelBasicsVisualization):
             ax.scatter(Z1[i,:self.pltP['max_dots'],0],Z1[i,:self.pltP['max_dots'],1],
                         c = colors_array[i],s = self.pltP['markersize'], 
                         alpha = self.pltP['alpha'],
-                        edgecolor = [1,1,1], label = lgd)
+                        edgecolor = self.pltP['edgecolor'], label = lgd)
             ax.scatter(self.rgb_comp_pts[0,i], self.rgb_comp_pts[1,i], 
                        c = colors_array[i], marker = '+',
                        s = self.pltP['markersize']*3, lw = 3)
@@ -299,10 +304,10 @@ class ZrefZ1Visualization(WishartModelBasicsVisualization):
                                np.max(np.abs(Z1[i,:,1] - self.rgb_ref[1]))])        
         ax.scatter(Zref[0,:self.pltP['max_dots'],0], Zref[0,:self.pltP['max_dots'],1],
                     c=colors_ref,s = self.pltP['markersize'],
-                    alpha = self.pltP['alpha'], edgecolor = [1,1,1])
+                    alpha = self.pltP['alpha'], edgecolor = self.pltP['edgecolor'])
         ax.scatter(Z0[0,:self.pltP['max_dots'],0], Z0[0,:self.pltP['max_dots'],1],
                     c=colors_ref*0,s = self.pltP['markersize'], marker = '^',
-                    alpha = self.pltP['alpha'], edgecolor = [1,1,1])
+                    alpha = self.pltP['alpha'], edgecolor = self.pltP['edgecolor'])
         if gt is not None:
             ax.plot(gt[0], gt[1], c = colors_ref, alpha = self.pltP['alpha'])
         if sim is not None:
