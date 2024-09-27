@@ -36,7 +36,7 @@ rng_seed = 0
 np.random.seed(rng_seed)  
 #set stimulus info
 color_dimension = 2
-plane_2D        = 'GB plane' 
+plane_2D        = 'RG plane' 
 #chromatic direction 
 nTheta          = 8
 # sample theta from 0 to 2pi uniformaly; get rid of the last one, which is the same as the first one
@@ -46,7 +46,7 @@ cDir_xy         = np.vstack((np.cos(theta), np.sin(theta)))
 # number of vector lengths
 nLevels         = 8
 # evenly sample vector length from a range
-vecLength       = np.linspace(0.01, 0.35, nLevels)
+vecLength       = np.linspace(0.01, 0.3, nLevels)
 #number of trials per chromatic direction and vector length
 nSims_l         = 10
 # Number of simulations or trials per reference stimulus

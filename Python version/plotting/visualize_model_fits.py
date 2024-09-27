@@ -22,7 +22,7 @@ from analysis.ellipses_tools import UnitCircleGenerate, find_inner_outer_contour
 nSims     = 240
 jitter    = 0.3
 ndims     = 3
-nTheta= 1000
+nTheta    = 1000
 num_grid_pts = 5
 rnd_seed_list = list(range(10))
 base_dir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'

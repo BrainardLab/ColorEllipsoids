@@ -41,7 +41,7 @@ for rng_seed in range(10):
     #set stimulus info
     color_dimension = 2
     plane_2D        = 'RG plane' 
-    nSims           = 80 # Number of simulations or trials per reference stimulus.
+    nSims           = 60 # Number of simulations or trials per reference stimulus.
     
     #file 1
     path_str   = base_dir + 'ELPS_analysis/Simulation_DataFiles/'

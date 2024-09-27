@@ -30,7 +30,7 @@ jitter  = [0.1, 0.3, 0.5]   # Different noise levels (jitter)
 nLevels = len(jitter)      # Number of noise levels
 nSims   = 240                # Number of simulations per condition
 saveFig = False            # Whether to save the figures
-color_dimension = 2        # Dimensionality of the color space (2D or 3D)
+color_dimension = 3        # Dimensionality of the color space (2D or 3D)
 
 # Path to the directory containing the simulation data files
 path_str1 = base_dir + f'ELPS_analysis/ModelFitting_DataFiles/{color_dimension}D_oddity_task/' 
@@ -194,7 +194,7 @@ model_perf.plot_benchmark_similarity(ax2, model_perf.LU_benchmark,
 #jitter = np.linspace(-0.02,0.02, len(idx_corner)+2)
 ax2.set_xlabel('Log Euclidean distance')
 ax2.set_ylabel('Frequency')
-ax2.set_xticks(np.around(LU_bins[::2],3))
+ax2.set_xticks(np.around(LU_bins[::3],3))
 ax2.set_yticks(np.linspace(0, y_ub, nyticks))
 ax2.set_ylim([0, y_ub])
 ax2.set_xlim([0, x_ub_LU])

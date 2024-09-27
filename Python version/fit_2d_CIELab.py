@@ -28,11 +28,11 @@ sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Pytho
 from data_reorg import organize_data
 
 #%% three variables we need to define for loading the data
-plane_2D      = 'RG plane'
+plane_2D      = 'GB plane'
 plane_2D_dict = {'GB plane': 0, 'RB plane': 1, 'RG plane': 2}
 plane_2D_idx  = plane_2D_dict[plane_2D]
 sim_jitter    = '0.3'
-nSims         = 80 #number of simulations: 240 trials for each ref stimulus
+nSims         = 60 #number of simulations: 240 trials for each ref stimulus
 
 for rr in range(10):
     rnd_seed      = rr

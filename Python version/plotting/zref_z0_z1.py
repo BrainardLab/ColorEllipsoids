@@ -178,8 +178,7 @@ class ZrefZ1Visualization(WishartModelBasicsVisualization):
         if len(self.fig_dir) !=0 and self.save_fig:
             self._save_figure(fig, self.pltP['figName']+'.pdf')
         return fig, ax
-            
-    
+             
     def plot_probC(self, pC, skipping_step = 10, ax = None, **kwargs):
         """
         This method plots the simulated probability of correct responses as a
@@ -199,7 +198,7 @@ class ZrefZ1Visualization(WishartModelBasicsVisualization):
         
         # Create a new figure and axes if not provided.
         if ax is None:
-            fig, ax = plt.subplots(1, 1, figsize = (4,2.2), dpi= self.pltP['dpi'])
+            fig, ax = plt.subplots(1, 1, figsize = (4.2,2.2), dpi= self.pltP['dpi'])
         else:
             fig = ax.figure
         
@@ -209,9 +208,12 @@ class ZrefZ1Visualization(WishartModelBasicsVisualization):
         #pC = np.sort(pC)
         ax.plot(np.array(list(range(self.nTheta_finer))), pC, 
                 color = 'gray', lw = 2)
+        pC_slc = pC[::skipping_step]
+        cDir_slc = list(range(self.nTheta_finer))[::skipping_step]
+        print(pC_slc)
+        print(cDir_slc)
         for i in range(self.nTheta):
-            idx = np.max([0, int(i*skipping_step)-1])
-            ax.scatter(idx, pC[idx], c = colors_array[i], s = self.pltP['markersize'])
+            ax.scatter(cDir_slc[i], pC_slc[i], c = colors_array[i], s = self.pltP['markersize'])
         ax.set_ylim([self.pltP['lb_pC'], self.pltP['ub_pC']+0.05])
         ax.set_yticks(np.round([self.pltP['lb_pC'], self.pltP['target_pC'],
                                 self.pltP['ub_pC']],3))
@@ -226,7 +228,6 @@ class ZrefZ1Visualization(WishartModelBasicsVisualization):
             self._save_figure(fig, self.pltP['figName']+'.pdf')
         return fig, ax
         
-    
     def plot_sampled_zref_z1(self, Zref, Z0, Z1, gt = None, sim = None, ax = None, **kwargs):
         """
         Plots sampled Z1 data for various chromatic directions and one set of 
@@ -279,11 +280,11 @@ class ZrefZ1Visualization(WishartModelBasicsVisualization):
         else:
             fig = ax.figure
             
-        z1_x_bds = 0 # Initialize the boundary for plot limits
         # Plot each set of Z1 samples
         for i in range(numDirPts):
             if self.pltP['legends'] is not None: lgd = self.pltP['legends'][i]; 
             else: lgd = None
+            #sampled measurements for each comparison stimulus
             ax.scatter(Z1[i,:self.pltP['max_dots'],0],Z1[i,:self.pltP['max_dots'],1],
                         c = colors_array[i],s = self.pltP['markersize'], 
                         alpha = self.pltP['alpha'],
@@ -291,6 +292,7 @@ class ZrefZ1Visualization(WishartModelBasicsVisualization):
             ax.scatter(self.rgb_comp_pts[0,i], self.rgb_comp_pts[1,i], 
                        c = colors_array[i], marker = '+',
                        s = self.pltP['markersize']*3, lw = 3)
+            #cov matrix for each comparison stimulus
             if gt is not None:
                 ax.plot(gt[0]+self.rgb_comp_pts[0,i]-self.rgb_ref[0],
                          gt[1]+self.rgb_comp_pts[1,i]-self.rgb_ref[1],
@@ -298,16 +300,15 @@ class ZrefZ1Visualization(WishartModelBasicsVisualization):
             if sim is not None:
                 ax.plot(sim[0]+self.rgb_comp_pts[0,i]-self.rgb_ref[0],
                          sim[1]+self.rgb_comp_pts[1,i]-self.rgb_ref[1], ls = '--', 
-                         c = colors_array[i], alpha = self.pltP['alpha'])
-            # Update the maximum boundary for plot limits based on Z1 data
-            z1_x_bds = np.max([z1_x_bds, np.max(np.abs(Z1[i,:,0] - self.rgb_ref[0])),
-                               np.max(np.abs(Z1[i,:,1] - self.rgb_ref[1]))])        
+                         c = colors_array[i], alpha = self.pltP['alpha'])      
+        #sampled measurements for the reference stimulus
         ax.scatter(Zref[0,:self.pltP['max_dots'],0], Zref[0,:self.pltP['max_dots'],1],
                     c=colors_ref,s = self.pltP['markersize'],
                     alpha = self.pltP['alpha'], edgecolor = self.pltP['edgecolor'])
         ax.scatter(Z0[0,:self.pltP['max_dots'],0], Z0[0,:self.pltP['max_dots'],1],
                     c=colors_ref*0,s = self.pltP['markersize'], marker = '^',
                     alpha = self.pltP['alpha'], edgecolor = self.pltP['edgecolor'])
+        #cov matrix for the reference stimulus
         if gt is not None:
             ax.plot(gt[0], gt[1], c = colors_ref, alpha = self.pltP['alpha'])
         if sim is not None:
@@ -506,7 +507,8 @@ class ZrefZ1Visualization(WishartModelBasicsVisualization):
         ax.plot([0,4], nLL_target_pC_avg*np.ones((2)),c = 'k')
         # Add the rectangle to the axis
         ax.add_patch(rectangle)
-        ax.errorbar(self.pltP['x_err_plt'], nLL_avg, 
+        if nLL_avg is not None:
+            ax.errorbar(self.pltP['x_err_plt'], nLL_avg, 
                     yerr = [[nLL_ub - nLL_avg], [nLL_avg - nLL_lb]],
                     marker = 'o', c = 'k') 
         ax.set_xlim([0,4])
