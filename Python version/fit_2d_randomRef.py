@@ -36,11 +36,11 @@ output_fileDir = base_dir + 'ELPS_analysis/ModelFitting_DataFiles/2D_oddity_task
 # Load data simulated using CIELab and organize data
 # -----------------------------------------------------------
 #rng_seed = 0
-for rng_seed in range(10):
+for rng_seed in range(1):
     np.random.seed(rng_seed)  # Set the seed for numpy
     #set stimulus info
     color_dimension = 2
-    plane_2D        = 'RG plane' 
+    plane_2D        = 'GB plane' 
     nSims           = 60 # Number of simulations or trials per reference stimulus.
     
     #file 1
@@ -137,7 +137,7 @@ for rng_seed in range(10):
     # This array defines the opacity of markers in the plots, decreasing with more trials.
     marker_alpha = np.linspace(0.3, 1, 12)[::-1]
     # Define specific slices of data points to be visualized, ranging from very few to many.
-    slc_datapoints_to_show = [2**i for i in range(12)]
+    slc_datapoints_to_show = np.clip([2**i for i in range(12)],0,nSims_total)
     
     # Loop over the selected data points to generate and visualize each corresponding figure.
     for i,n in enumerate(slc_datapoints_to_show):

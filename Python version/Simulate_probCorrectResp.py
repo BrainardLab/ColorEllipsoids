@@ -23,10 +23,10 @@ from analysis.ellipses_tools import PointsOnEllipseQ, UnitCircleGenerate
 base_dir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_analysis/'
 output_figDir = base_dir+'Simulation_FigFiles/Python_version/transformation'
 output_fileDir = base_dir + 'Simulation_DataFiles/'
-# specify the seed
-rnd_seed = 0
+#%% specify the seed
+rnd_seed = 9
 
-#%% Load precomputed ground truth data from a pickle file
+#% Load precomputed ground truth data from a pickle file
 file_name = 'Isothreshold_contour_CIELABderived_fixedVal0.5.pkl'
 full_path = f"{output_fileDir}{file_name}"
 #os.chdir(output_fileDir)
@@ -36,7 +36,7 @@ with open(full_path, 'rb') as f:
     # Load the object from the file
     gt_CIE = pickle.load(f)
     
-#%% 
+#%
 # Initialize the SimThresCIELab object with a path to necessary files and background RGB value
 path_str2 = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/"+\
                 "FilesFromPsychtoolbox/"
@@ -50,7 +50,7 @@ sim_CIELab = SimThresCIELab(path_str2, background_RGB)
 # QUESTION 4: Ask how many simulation trials
 sim_trial = TrialPlacementWithoutAdaptiveSampling(gt_CIE)
 
-#%% Define the Weibull psychometric function with specified parameters
+#% Define the Weibull psychometric function with specified parameters
 # Calculate the probability of correct response given alpha and beta.
 sim_trial.setup_WeibullFunc(alpha = 1.17, beta = 2.33, guessing_rate = 1/3)
 # Print the target probability based on the Weibull function for the given delta E
@@ -64,14 +64,14 @@ sim_trial_2D_vis = TrialPlacementVisualization(sim_trial,
 x_PMF = np.linspace(0,3,100)
 sim_trial_2D_vis.plot_WeibullPMF(x_PMF)
 
-#%% specify the seed
+#% specify the seed
 # Run the simulation with the specified random seed
 sim_trial.run_sim(sim_CIELab, random_seed = rnd_seed)
 
-#%% Visualize the sampled data from the simulation
+#% Visualize the sampled data from the simulation
 sim_trial_2D_vis.plot_2D_sampledComp()  
 
-#%% If the sampling method is 'NearContour', visualize the entire transformation process
+#% If the sampling method is 'NearContour', visualize the entire transformation process
 if sim_trial.sim['method_sampling'] == 'NearContour':
     # Select a reference stimulus location (e.g., row 4, column 4)
     row_eg = 4
@@ -120,7 +120,7 @@ if sim_trial.sim['method_sampling'] == 'NearContour':
                                          #         [-0.03224849,  0.03247935], [ 0.77258853,  0.82782443]],
 
 
-#%%save to pkl
+#%save to pkl
 file_name_firsthalf = f"Sims_isothreshold_{sim_trial.sim['plane_2D']}_sim"+\
     f"{sim_trial.sim['nSims']}perCond_sampling{sim_trial.sim['method_sampling']}"
 if sim_trial.sim['method_sampling'] == 'NearContour':

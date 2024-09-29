@@ -9,16 +9,25 @@ Created on Tue Sep 17 22:04:13 2024
 import jax
 jax.config.update("jax_enable_x64", True)
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 import sys
 import os
-import dill as pickle
+import dill as pickled
+#import jax._src.interpreters.pxla
+#dill._dill._reverse_typemap['shard_arg'] = jax._src.interpreters.pxla.shard_arg_handlers
 import numpy as np
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
 from analysis.ellipses_tools import ellParams_to_covMat, rotAngle_to_eigenvectors
 from analysis.color_thres import color_thresholds
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version')
 from analysis.model_performance import ModelPerformance
+
+##this new part below is needed since I updated jax
+class CustomUnpickler(pickled.Unpickler):
+    def find_class(self, module, name):
+        # Skip shard_arg by returning a dummy function
+        if name == 'shard_arg':
+            return lambda *args, **kwargs: None  # Return a dummy function or None
+        return super().find_class(module, name)
         
 # Define base directory and figure output directory
 base_dir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
@@ -27,12 +36,12 @@ fig_outputDir = base_dir+'ELPS_analysis/ModelPerformance_FigFiles/'
 #%% ------------------------------------------
 # Load data simulated using CIELab
 # ------------------------------------------
-plane_2D = 'GB plane'
+plane_2D = 'RB plane'
 jitter = 0.3
 seed_list = list(range(10))
-nSims = [6000, 4000, 2000]     # Number of simulations in total
+nSims = [6000, 1500, 1250]     # Number of simulations in total
 nLevels = len(nSims)
-saveFig = True            # Whether to save the figures
+saveFig = False            # Whether to save the figures
 
 # Path to the directory containing the simulation data files
 path_str1 = base_dir + 'ELPS_analysis/ModelFitting_DataFiles/2D_oddity_task/' 
@@ -52,7 +61,7 @@ for k in nSims:
         # Change directory and load the simulation data using pickle
         os.chdir(path_str1+'random_ref/')
         with open(full_path_j, 'rb') as f:
-            data_load_l = pickle.load(f)
+            data_load_l = CustomUnpickler(f).load()
             data_load_noFixedRef_k.append(data_load_l) # Append the loaded data to the list
             
         # Construct the file name based on the jitter level and other parameters
@@ -63,7 +72,7 @@ for k in nSims:
         # Change directory and load the simulation data using pickle
         os.chdir(path_str1)
         with open(full_path_jj, 'rb') as f:
-            data_load_ll = pickle.load(f)
+            data_load_ll = CustomUnpickler(f).load()
             data_load_fixedRef_k.append(data_load_ll) # Append the loaded data to the list
     data_load_noFixedRef.append(data_load_noFixedRef_k) 
     data_load_fixedRef.append(data_load_fixedRef_k)
@@ -88,7 +97,7 @@ model_perf = ModelPerformance(2,
                               plane_2D = plane_2D,
                               verbose = True)
 
-indices = [0, 2, 4]
+indices = [0, 4]
 idx_corner = [[i, j] for i in indices for j in indices]
 ellParams_slc = CIE_results['ellParams'][model_perf.plane_2D_idx]
 covMat_corner = []
@@ -141,30 +150,29 @@ BW_distance_corner_median = np.median(model_perf.BW_distance_corner, axis = (1,2
 #                               np.min(model_perf.BW_distance_minEigval),
 #                           linewidth=2, edgecolor=[0.9,0.9,0.9], facecolor=[0.9,0.9,0.9])
 
-fig1, ax1 = plt.subplots(1,1, figsize = (3,1.5), dpi = 256)
+fig1, ax1 = plt.subplots(1,1, figsize = (3.8, 2.8), dpi = 256)
 x_left= np.linspace(0,1,nLevels)
 x_right = np.linspace(2,3,nLevels)
+ax1.plot([-1, nLevels*2], [BW_distance_circle_median, BW_distance_circle_median],
+         c = 'k',ls = '-',lw = 2, alpha = 0.8)
+for i in range(len(covMat_corner)):
+    ax1.plot([-1, nLevels*2], np.array([1,1])*BW_distance_corner_median[i],
+             c = cmap_BW[i],ls = '-',lw = 2, alpha = 0.8)
 for i in range(nLevels):
     ax1.errorbar(x_left[i], BW_distance_output_median_noFixedRef[i], yerr=yerr_noFixedRef[:, i].reshape(2, 1),
-                fmt='o', capsize=5, c = np.array([0,0,0])+i*0.3, marker = 's', markersize = 5)
+                fmt='o', capsize=0, c = np.array([0,0,0])+i*0.3, 
+                marker = 's', markersize = 8, lw = 2)
     ax1.errorbar(x_right[i], BW_distance_output_median_fixedRef[i], yerr=yerr_fixedRef[:,i].reshape(2, 1),
-                fmt='o', capsize=5, c = np.array([0,0,0])+i*0.3, marker = 'o', markersize = 6)
-# xx = np.linspace(0,1,nLevels)
-# for i in range(nLevels):
-#     ax1.scatter(xx[i] + np.random.randn(10*25)*0.02, BW_distance_output_fixedRef[i].flatten(), 
-#                 facecolor = [0.5,0.5,0.5],
-#                 edgecolor = 'none', alpha = 0.5, s = 1)
-ax1.plot([-1, nLevels*2], [BW_distance_circle_median, BW_distance_circle_median],c = 'k',ls = '--',lw = 0.5)
-# Add the square to the plot
-#ax1.add_patch(square)
-
-for i in range(len(covMat_corner)):
-    ax1.plot([-1, nLevels*2], np.array([1,1])*BW_distance_corner_median[i],c = cmap_BW[i],ls = '--',lw = 0.5)
-ax1.set_xticks([1.5])
-ax1.set_xticklabels([plane_2D])
+                fmt='o', capsize=0, c = np.array([0,0,0])+i*0.3, 
+                marker = 'o', markersize = 8, lw = 2)
+ax1.plot([1.5,1.5],[0,0.08],ls = '--', lw=0.5, c = 'k')
+ax1.set_xticks(np.hstack([x_left, x_right]))
+ax1.set_xticklabels(['6000','1500', '1250','6000','1500', '1250'], rotation= 45)
+ax1.set_xlabel('Total number of trial')
+ax1.set_title(plane_2D)
 ax1.set_xlim([-1,4])
-ax1.set_yticks([0,0.03, 0.06])
-ax1.set_ylim([0,0.06])
+ax1.set_yticks([0,0.04, 0.08])
+ax1.set_ylim([0,0.08])
 ax1.set_ylabel('BW distance')
 plt.tight_layout()
 figName1 = f"ModelPerformance_BuresWassersteinDistance_2D{plane_2D}_"+\

@@ -14,6 +14,7 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
+from scipy.stats import norm
 
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
 from analysis.ellipses_tools import covMat_to_ellParamsQ, PointsOnEllipseQ
@@ -38,7 +39,7 @@ vis = {
     'idx1': 4,            # Index for the selected row of the reference stimulus
     'idx2': 4,            # Index for the selected column of the reference stimulus
     'flag_use_gt': True, # Flag to indicate whether to use ground truth W for computations
-    'flag_fit_Weifull':False, #this is only applicable if flag_use_gt is set to True, 
+    'flag_fit_PMF':False, #this is only applicable if flag_use_gt is set to True, 
     #then we can look at whether Weibull function is a good fit to simulated percent correct
     'nTheta': 16,         # Number of chromatic directions for comparison stimulus
     'skip_steps': 10      # Step size for refining the chromatic direction grid
@@ -311,37 +312,80 @@ if vis['flag_use_gt']:
                                                color_comp = cmap_slc_cDir,
                                                figName = f'sampled_zref_z1_{fig_name_ext1}_Wseed{seed}{fig_name_ext2}')
     
-    #%%
-    if vis['flag_fit_Weifull']:
-        lb_opt = np.array([0.5,0.5])
-        ub_opt = np.array([4,4])
-        pC_weibull = lambda d: (1 - target_pC*np.exp(- (scaler_radii_list/d[0])** d[1]))
-        nLL_weibull = lambda d: -np.sum(pC_list*np.log(pC_weibull(d)) + (1-pC_list)*np.log(1-pC_weibull(d)))
-                
-        # Generate initial points for the optimization algorithm within the bounds.
-        init = np.random.rand(2) * (ub_opt - lb_opt) + lb_opt
+    #%% fit psychometric functions 
+    # Check if the Weibull fitting flag is set
+    if vis['flag_fit_PMF']:
+        # Scale the radii for model fitting
+        radii_scaled = scaler_radii_list
+        # Set lower and upper bounds for optimization
+        lb_opt = np.array([0.1,0.1])
+        ub_opt = np.array([5,5])
+        # Define guess rate and a small epsilon to avoid log(0) errors
+        guess_rate = 1/3
+        epsilon = 1e-6  # Small value to avoid log(0) issues
+
+        # Define the psychometric functions for sigmoid, normcdf, and Weibull
+        pC_sigmoid = lambda d: guess_rate + (1 - guess_rate)/(1 + np.exp(-d[0]*(scaler_radii_list-d[1])))
+        pC_normcdf = lambda d: guess_rate + (1-guess_rate)*norm.cdf(scaler_radii_list, d[0], d[1])
+        pC_weibull = lambda d: (1 - (1-guess_rate)*np.exp(- (scaler_radii_list/d[0])** d[1]))
+        
+        # Store all the psychometric functions in a list
+        PMF_list = [pC_sigmoid, pC_normcdf, pC_weibull]
+        
+        # Define the negative log-likelihood function with safeguards to avoid log(0)
+        def nLL_PMF(d, pC_func, scaler_radii_list, pC_list):
+            pC = pC_func(d)  # Compute the predicted probabilities
+            pC = np.clip(pC, epsilon, 1 - epsilon)  # Ensure pC is between epsilon and 1-epsilon
+            return -np.sum(pC_list * np.log(pC) + (1 - pC_list) * np.log(1 - pC))
+
         # Set the options for the optimization algorithm.
         options = {'maxiter': 1e5, 'disp': False}
-        res = minimize(nLL_weibull, init,method='SLSQP',
-                       bounds=[(lb_opt[0], ub_opt[0]), (lb_opt[1], ub_opt[1])], options=options)
-        # Store the result of each optimization run.
-        print(res.x)
-        pC_weibull_pred = pC_weibull(res.x)
         
-    #%% plot the probability of correct responses as a function of vector length
-    fig, ax = plt.subplots(1, 1, figsize = (4,1.6), dpi= 256)
-    ax.plot(scaler_radii_list, pC_list, c= 'k', lw = 2)
-    if vis['flag_fit_Weibull']:
-        ax.plot(scaler_radii_list, pC_weibull_pred, c='r',alpha = 0.5)
-    ax.scatter(scaler_radii_list[scaler_radii_list_plt_idx],
-               pC_list[scaler_radii_list_plt_idx],
-               c = 'k', edgecolor = 'white')
-    ax.set_xticks([])
-    ax.set_xlabel('Vector length along a chromatic direction')
-    ax.set_yticks(np.around([1/3, 2/3, 1],3))
-    ax.set_ylim([0.3,1.03])
-    ax.set_ylabel('p(correct)')
-    ax.grid(True)
-    # plt.tight_layout()
-    # plt.savefig(f'{fig_outputDir}pC_wIncreasingVecLength_wFixedChromaticDir.pdf')
+        # Initialize arrays to store results
+        minNLL = np.full((len(PMF_list)), 1e5)  # Array to store minimum NLL for each PMF
+        est_val = np.full((len(PMF_list), 2), np.nan)  # Array to store best-fit parameters
+        pC_pred = np.full((len(PMF_list), nRadiiScaler), np.nan)  # Array to store predicted probabilities
+
+        # Loop over each psychometric function in PMF_list
+        for idx, func in enumerate(PMF_list):        
+            # Perform optimization with 20 different initializations to avoid local minima
+            for _ in range(20):
+                # Generate a random initial guess within the bounds
+                init = np.random.rand(2) * (ub_opt - lb_opt) + lb_opt
+                # Optimize the negative log-likelihood function for the current psychometric function
+                est_val_ = minimize(nLL_PMF, init,method='SLSQP',
+                                   args=(func, scaler_radii_list, pC_list),  
+                                   bounds=[(lb_opt[0], ub_opt[0]), 
+                                           (lb_opt[1], ub_opt[1])],
+                                   options=options)
+                # Store the result of each optimization run.
+                print(est_val_.x)
+                if est_val_.fun < minNLL[idx]: 
+                    est_val[idx] = est_val_.x
+                    minNLL[idx] = est_val_.fun
+                    pC_pred[idx] = func(est_val_.x)
+            
+      
+        #%plot the probability of correct responses as a function of vector length
+        lbl = ['sigmoid', 'normcdf', 'weibull']
+        cmap = ['b','g','r']
+        if vis['flag_fit_Weibull']:
+            for f in range(len(PMF_list)):
+                fig, ax = plt.subplots(1, 1, figsize = (4,1.6), dpi= 256)
+                ax.plot(scaler_radii_list, pC_list, c= 'k', lw = 2)
+                ax.plot(scaler_radii_list, pC_pred[f], alpha = 0.5, c = cmap[f],
+                        label = lbl[f])
+            
+                ax.scatter(scaler_radii_list[scaler_radii_list_plt_idx],
+                           pC_list[scaler_radii_list_plt_idx],
+                           c = 'k', edgecolor = 'white')
+                ax.legend()
+                ax.set_xticks([])
+                ax.set_xlabel('Vector length along a chromatic direction')
+                ax.set_yticks(np.around([1/3, 2/3, 1],3))
+                ax.set_ylim([0.2,1.03])
+                ax.set_ylabel('p(correct)')
+                ax.grid(True)
+                # plt.tight_layout()
+                # plt.savefig(f'{fig_outputDir}pC_wIncreasingVecLength_wFixedChromaticDir.pdf')
 
