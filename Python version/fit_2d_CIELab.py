@@ -180,7 +180,7 @@ for rr in range(10):
         modelpred_ls = '-',
         modelpred_lc = [0.3,0.3,0.3],
         modelpred_lw = 2,
-        mdoelpred_alpha = 1,
+        modelpred_alpha = 1,
         gt_lw= 0.5,
         gt_lc =[0.1,0.1,0.1],
         fig_name = fig_name_part1+'_withSamples.pdf') 
