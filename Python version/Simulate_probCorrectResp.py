@@ -20,7 +20,7 @@ sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids
 from analysis.ellipses_tools import PointsOnEllipseQ, UnitCircleGenerate
 
 # Define base directories for saving figure and data files
-base_dir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_analysis/'
+base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_analysis/'
 output_figDir = base_dir+'Simulation_FigFiles/Python_version/transformation'
 output_fileDir = base_dir + 'Simulation_DataFiles/'
 #%% specify the seed

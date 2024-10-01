@@ -102,7 +102,10 @@ class ModelPerformance():
                         try:
                             l_pred = data_load[l]['model_pred_Wishart']
                         except:
-                            l_pred = data_load[l]['model_pred_Wishart_wRandx']
+                            try:
+                                l_pred = data_load[l]['model_pred_Wishart_wRandx']
+                            except:
+                                l_pred = data_load[l]['model_pred_indvEll']
                         eigVec_jiijj = rotAngle_to_eigenvectors(l_pred.params_ell[ii][jj][-1])
                         radii_jiijj = np.array(l_pred.params_ell[ii][jj][2:4])/2
                         # Sort the radii and eigenvectors.
