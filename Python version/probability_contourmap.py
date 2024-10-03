@@ -20,6 +20,8 @@ sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Pytho
 import simulations_CIELab 
 from sanityChecks_zref_z1 import simulate_zref_z0_z1
 
+base_dir = '/Volumes/T9/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
+
 #%% plotting function
 def plot_contour_pChoosingX1(ref_grids, ref_grids_X, 
                              ref_grids_Y, P_X1, **kwargs):
@@ -81,21 +83,20 @@ def compute_probC1_contour(plane_2D, sim_jitter, nSims, bandwidth, scaler_x1,
     # Load data simulated using CIELab and organize data
     # -----------------------------------------------------------
     #file 1
-    path_str      = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                    'ELPS_analysis/Simulation_DataFiles/'
+    path_str      = base_dir + 'ELPS_analysis/Simulation_DataFiles/'
     os.chdir(path_str)
     plane_2D_dict = {'GB plane': 0, 'RB plane': 1, 'RG plane': 2}
     plane_2D_idx  = plane_2D_dict[plane_2D]
-    file_sim      = 'Sims_isothreshold_'+plane_2D+'_sim'+str(nSims)+'perCond_'+\
-                    'samplingNearContour_jitter'+sim_jitter+'.pkl'
+    file_sim      = f'Sims_isothreshold_{plane_2D}_sim{nSims}perCond_'+\
+                    f'samplingNearContour_jitter{sim_jitter}_seed0.pkl'
+                    
     full_path     = f"{path_str}{file_sim}"   
     with open(full_path, 'rb') as f:  data_load = pickle.load(f)
     sim = data_load[0]
     
     #file 2: model fits
-    path_str2     = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                             'ELPS_analysis/ModelFitting_DataFiles/'  
-    file_fits     = 'Fitted' + file_sim[4:-4] + '_bandwidth' + str(bandwidth) + '.pkl'
+    path_str2     = base_dir + 'ELPS_analysis/ModelFitting_DataFiles/2D_oddity_task/'  
+    file_fits     = f'Fitted{file_sim[4:-4]}_bandwidth{bandwidth}_oddity.pkl'
     full_path2    = f"{path_str2}{file_fits}"
     with open(full_path2, 'rb') as f:  data_load2 = pickle.load(f)
     D = data_load2
@@ -214,8 +215,7 @@ nGrid_x    = 40
 nGrid_y    = 50
 width      = 0.25
 
-fig_outputDir2 = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-                 'ELPS_analysis/ModelFitting_FigFiles/'
+fig_outputDir2 = base_dir + 'ELPS_analysis/ModelFitting_FigFiles/'
 sim, rgb_comp_dim1_grid, rgb_comp_dim2_grid, pChoosingX1_grid_allRef,\
     pC_weibull_allRef, deltaE_allRef, rgb_comp_varying_grid = compute_probC1_contour(\
     plane_2D, sim_jitter, nSims, BANDWIDTH, scaler_x1, nGrid_x, nGrid_y, width)
@@ -227,7 +227,7 @@ pltP = {
     'cmap_nLevels': 20,
     'cmap_contour':'white',
     'title':"",
-    'saveFig':True,
+    'saveFig':False,
     'figDir': fig_outputDir2} 
 
 #visualize 
