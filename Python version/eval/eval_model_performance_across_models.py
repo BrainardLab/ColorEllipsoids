@@ -150,10 +150,10 @@ BW_distance_circle_median =np.median(model_perf.BW_distance_minEigval)
 BW_distance_corner_median = np.median(model_perf.BW_distance_corner, axis = (1,2))
 
 #plotting
-fig1, ax1 = plt.subplots(1,1, figsize = (3.8, 2.8), dpi = 256)
+fig1, ax1 = plt.subplots(1,1, figsize = (3.5, 2.8), dpi = 256) #; figsize = (2, 3.8)
 x_left= 0
 x_right = np.linspace(2,nLevels, nLevels)
-y_ub = 0.1
+y_ub = 0.12
 ax1.plot([-1, nLevels+2], [BW_distance_circle_median, BW_distance_circle_median],
          c = 'k',ls = '-',lw = 2, alpha = 0.8)
 for i in range(len(covMat_corner)):

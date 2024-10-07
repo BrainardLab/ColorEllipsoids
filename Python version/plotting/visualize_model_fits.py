@@ -27,7 +27,7 @@ class CustomUnpickler(pickled.Unpickler):
         return super().find_class(module, name)
 
 #three variables we need to define for loading the data
-nSims     = 240
+nSims     = 320
 jitter    = 0.3
 ndims     = 3
 nTheta    = 1000
@@ -165,11 +165,11 @@ if ndims == 3:
 else:
     #%%
     #three variables we need to define for loading the data
-    plane_2D      = 'RB plane'
+    plane_2D      = 'GB plane'
     plane_2D_dict = {'GB plane': 0, 'RB plane': 1, 'RG plane': 2}
     plane_2D_idx  = plane_2D_dict[plane_2D]
     # Create an instance of the class
-    color_thres_data_2D = color_thresholds(2, base_dir + 'ELPS_analysis/', plane_2D = plane_2D)
+    color_thres_data_2D = color_thresholds(2, base_dir, plane_2D = plane_2D)
     # Load Wishart model fits
     color_thres_data_2D.load_CIE_data()  
     
@@ -229,7 +229,7 @@ else:
                            color_thres_data_2D.fixed_value)
             idx_max_nonan = ~np.isnan(fitEll_max[i, j, 0])
             ax.fill(fitEll_max[i,j,0,idx_max_nonan], fitEll_max[i,j,1,idx_max_nonan], 
-                    color= cm)
+                    color= cm, alpha = 0.7)
             idx_min_nonan = ~np.isnan(fitEll_min[i, j, 0])
             ax.fill(fitEll_min[i,j,0,idx_min_nonan], fitEll_min[i,j,1,idx_min_nonan], 
                     color='white')

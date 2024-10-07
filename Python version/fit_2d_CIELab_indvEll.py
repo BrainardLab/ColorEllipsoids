@@ -30,7 +30,7 @@ plane_2D      = 'GB plane'
 plane_2D_dict = {'GB plane': 0, 'RB plane': 1, 'RG plane': 2}
 plane_2D_idx  = plane_2D_dict[plane_2D]
 sim_jitter    = '0.3'
-nSims         = 320 #number of simulations: 240 trials for each ref stimulus
+nSims         = 480 #number of simulations: 240 trials for each ref stimulus
 
 for rr in range(10):
     rnd_seed = rr
