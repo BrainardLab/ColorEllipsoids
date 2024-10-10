@@ -20,25 +20,50 @@ import sys
 
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
 from core import viz
+from analysis.color_thres import color_thresholds
+from plotting.wishart_predictions_plotting import WishartPredictionsVisualization
+from analysis.ellipses_tools import UnitCircleGenerate
 
 #%% load file
-base_dir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
-fileDir_fits = base_dir +f'META_analysis/ModelFitting_DataFiles/2dTask/pilot/'
-figDir_fits = base_dir +f'META_analysis/ModelFitting_FigFiles/2dTask/pilot/'
+base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
 
-subj = 1
-plane_2D = 'GB plane'
-file_name = f'Fitted_isothreshold_{plane_2D}_sim360perRef_25refs_AEPsychSampling_'+\
-            f'bandwidth0.005_pilot_sub{subj}.pkl'
-full_path = f"{fileDir_fits}{file_name}"
-with open(full_path, 'rb') as f: vars_dict = pickled.load(f)
-#for var_name, var_value in vars_dict.items():
-#    locals()[var_name] = var_value
+flag_load_pilot = False
+if flag_load_pilot:
+    fileDir_fits = base_dir +f'META_analysis/ModelFitting_DataFiles/2dTask/pilot/'
+    figDir_fits = base_dir +f'META_analysis/ModelFitting_FigFiles/2dTask/pilot/'
+    subj = 1
+    plane_2D = 'GB plane'
+    file_name = f'Fitted_isothreshold_{plane_2D}_sim360perRef_25refs_AEPsychSampling_'+\
+                f'bandwidth0.005_pilot_sub{subj}.pkl'
+    full_path = f"{fileDir_fits}{file_name}"
+    with open(full_path, 'rb') as f: vars_dict = pickled.load(f)
+    #for var_name, var_value in vars_dict.items():
+    #    locals()[var_name] = var_value
+    
+    model_pred_Wishart = vars_dict['model_pred_Wishart']
+    model = model_pred_Wishart.model
+    num_grid_pts = 10#model_pred_Wishart.num_grid_pts
+    W_est = model_pred_Wishart.W_est
+else:
+    figDir_fits = base_dir + 'ELPS_analysis/ModelFitting_FigFiles/Python_version/2D_oddity_task/'
 
-model_pred_Wishart = vars_dict['model_pred_Wishart']
-model = model_pred_Wishart.model
-num_grid_pts = 10#model_pred_Wishart.num_grid_pts
-W_est = model_pred_Wishart.W_est
+    #file 1
+    path_str   = base_dir + 'ELPS_analysis/Simulation_DataFiles/'
+    # Create an instance of the class
+    color_thres_data = color_thresholds(2, 
+                                        base_dir + 'ELPS_analysis/',
+                                        plane_2D = plane_2D)
+    # Retrieve specific data from Wishart_data
+    color_thres_data.load_model_fits()
+    model_pred_Wishart  = color_thres_data.get_data('model_pred_Wishart', dataset = 'Wishart_data')
+    model = model_pred_Wishart.model
+    W_est = model_pred_Wishart.W_est
+    grid_trans = color_thres_data.get_data('grid_trans', dataset = 'Wishart_data')
+    grid = color_thres_data.get_data('grid', dataset = 'Wishart_data')
+    sim_trial_by_CIE = color_thres_data.get_data('sim_trial_by_CIE', dataset = 'Wishart_data')
+    num_grid_pts = 5#model_pred_Wishart.num_grid_pts
+    color_thres_data.load_CIE_data()
+    results = color_thres_data.get_data('results2D', dataset ='CIE_data')
 
 #%% -------------------------------
 # Functions to Compute Geodesics
@@ -86,11 +111,6 @@ odesolver = Dopri5()
 # -------------------------
 # Sample ground truth model
 # -------------------------
-grid = jnp.stack(
-    jnp.meshgrid(
-        *[jnp.linspace(-1, 1, num_grid_pts + 2)[1:-1] for _ in range(model.num_dims)]
-    ), axis=-1
-)
 U_grid = model.compute_U(W_est, grid)
 Sigmas_grid = model.compute_Sigmas(U_grid)
 
@@ -99,17 +119,59 @@ Sigmas_grid = model.compute_Sigmas(U_grid)
 # ---------------------------
 
 # Define initial position and velocity
-x0 = jnp.array([-0.75, -0.75])
-v0 = jnp.array([1, 0])#jnp.array([2.4, 1.44])
+x0 = jnp.array([0, 0])
+nStarts = 40
+v0 = 3*jnp.array(UnitCircleGenerate(nStarts))
 
+#initialize
+geo_path = []
 # Compute geodesic and determine final location
-geo_path = exponential_map(x0, v0, odeterm, odesolver)
-x1 = geo_path[-1]
+for i in range(nStarts):
+    geo_path_i = exponential_map(x0, v0[:,i], odeterm, odesolver)
+    geo_path.append(geo_path_i)
+    #x1 = geo_path[-1]
+    
+    # # Euclidean shortest path for comparison
+    # euc_path = jnp.column_stack(
+    #     [jnp.linspace(x0[0], x1[0]), jnp.linspace(x0[1], x1[1])]
+    # )
 
-# Euclidean shortest path for comparison
-euc_path = jnp.column_stack(
-    [jnp.linspace(x0[0], x1[0]), jnp.linspace(x0[1], x1[1])]
-)
+#%%
+wishart_pred_vis = WishartPredictionsVisualization(sim_trial_by_CIE,
+                                                   model, 
+                                                   model_pred_Wishart, 
+                                                   color_thres_data,
+                                                   fig_dir = figDir_fits, 
+                                                   save_fig = True)
+
+fig, ax = plt.subplots(1, 1, figsize = (3.1,3.6), dpi= 256)
+
+for i in range(nStarts):
+    #ax.plot(euc_path[:, 0], euc_path[:, 1], lw=1, color="k")
+    ax.plot(geo_path[i][:, 0], geo_path[i][:, 1], lw=1, color="gray")
+
+#ground truth ellipses
+gt_covMat_CIE = color_thres_data.N_unit_to_W_unit(results['fitEllipse_scaled'][color_thres_data.fixed_color_dim])
+wishart_pred_vis.plot_2D(
+    grid, 
+    grid,
+    gt_covMat_CIE, 
+    ax = ax,
+    visualize_samples= False,
+    visualize_gt = False,
+    visualize_model_estimatedCov = False,
+    samples_alpha = 1,
+    samples_s = 1,
+    plane_2D = plane_2D,
+    modelpred_ls = '-',
+    modelpred_lw = 2.5,
+    modelpred_lc = None,
+    modelpred_alpha = 0.8,
+    gt_lw= 0.5,
+    gt_lc =[0.1,0.1,0.1],
+    fontsize = 8.5,
+    fig_name = "Geodesics_CIE.pdf") 
+        
 
 #%% ---------------
 # Plot the Result
@@ -119,7 +181,7 @@ for i in range(num_grid_pts):
     for j in range(num_grid_pts):
         viz.plot_ellipse(
             ax, grid[i, j], 2.56 * Sigmas_grid[i, j], color="k", alpha=.5, lw=2)
-ax.plot(euc_path[:, 0], euc_path[:, 1], lw=2, color="b")
+#ax.plot(euc_path[:, 0], euc_path[:, 1], lw=2, color="b")
 ax.plot(geo_path[:, 0], geo_path[:, 1], lw=1, color="r")
 ax.set_aspect('equal', adjustable='box')
 ax.set_xticks(np.linspace(-0.75, 0.75,5))

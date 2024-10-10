@@ -21,10 +21,10 @@ from plotting.trial_placement_nonadaptive_plotting import TrialPlacementVisualiz
 base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
 output_figDir = base_dir+'ELPS_analysis/Simulation_FigFiles/Python_version/transformation'
 output_fileDir = base_dir + 'ELPS_analysis/Simulation_DataFiles/'
-# specify the seed
-rnd_seed = 0
 
 #%%
+# specify the seed
+rnd_seed = 9
 file_name = 'Isothreshold_ellipsoid_CIELABderived.pkl'
 path_str =  base_dir + 'ELPS_analysis/Simulation_DataFiles/'
 full_path = f"{path_str}{file_name}"
@@ -47,7 +47,7 @@ sim_CIELab = SimThresCIELab(path_str2, background_RGB)
 # QUESTION 4: Ask how many simulation trials
 sim_trial = TrialPlacementWithoutAdaptiveSampling(gt_CIE)
 
-#%% Define the Weibull psychometric function with specified parameters
+#% Define the Weibull psychometric function with specified parameters
 # Calculate the probability of correct response given alpha and beta.
 sim_trial.setup_WeibullFunc(alpha = 1.17, beta = 2.33, guessing_rate = 1/3)
 # Print the target probability based on the Weibull function for the given delta E
@@ -62,11 +62,11 @@ sim_trial_vis = TrialPlacementVisualization(sim_trial,
 x_PMF = np.linspace(0,3,100)
 sim_trial_vis.plot_WeibullPMF(x_PMF)
 
-#%% specify the seed
+#% specify the seed
 # Run the simulation with the specified random seed
 sim_trial.run_sim(sim_CIELab, random_seed = rnd_seed)
 
-#%% plotting and saving data
+#% plotting and saving data
 sim = sim_trial.sim
 for test in 'RGB':
     ttl = 'RGB plane'

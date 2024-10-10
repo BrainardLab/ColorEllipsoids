@@ -37,7 +37,7 @@ nSims         = 50 #number of simulations: 240 trials for each ref stimulus
 for rr in range(10):
     rnd_seed      = rr
     
-    baseDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
+    baseDir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
     output_figDir_fits = baseDir + 'ELPS_analysis/ModelFitting_FigFiles/Python_version/2D_oddity_task/'
     output_fileDir = baseDir + 'ELPS_analysis/ModelFitting_DataFiles/2D_oddity_task/'
     

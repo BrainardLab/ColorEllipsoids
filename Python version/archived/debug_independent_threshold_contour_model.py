@@ -24,12 +24,12 @@ from analysis.ellipses_tools import PointsOnEllipseQ
 
 # Initialize an instance of IndividualProbSurfaceModel
 model_indv = IndividualProbSurfaceModel(2, 
-                                        [1e-6,4],  # Bounds for radii
+                                        [1e-6,3],  # Bounds for radii
                                         [0, 2*jnp.pi],  # Bounds for angle in radians
                                         [0.5, 5],  # Bounds for Weibull parameter 'a'
                                         [0.1, 5])  # Bounds for Weibull parameter 'b'
                                         
-KEY = jax.random.PRNGKey(225)  # Initialize random key for reproducibility
+KEY = jax.random.PRNGKey(222)  # Initialize random key for reproducibility
 init_params = model_indv.sample_params_prior(KEY)  # Sample initial parameters for the model
 
 # Define reference points (xy_ref) where the ellipses are located
@@ -40,13 +40,11 @@ xy_ref = jnp.array([[0,0],
 nRefs = xy_ref.shape[0]  # Number of reference points (4 in this case)
 
 # Define ellipse parameters: large radius (r1), small radius (r2), angle (in radians)
-par_all = jnp.array([[1.5,  0.5, 0.7],  # Params for ellipse 1
-                     [  1,    1,   2],  # Params for ellipse 2 (circle)
-                     [1.6, 0.25, 1.6],  # Params for ellipse 3
-                     [2.5,    2, 0.3]]) # Params for ellipse 4
+par_all = model_indv.sample_params_prior(jax.random.PRNGKey(0))
+par_all = par_all[:,0:3]
 
 nTrials = 10000  # Number of trials (or points) to generate for each ellipse
-jitter = 0.1  # Amount of random jitter to add to the sampled points
+jitter = 0.3  # Amount of random jitter to add to the sampled points
 xy_comp = np.full((nRefs, nTrials, 2), np.nan)  # Initialize array for comparison points (elliptical points)
 
 # Loop over reference points and generate points on ellipses using the provided parameters
@@ -71,7 +69,7 @@ xy_transformed = unrotate_unstretch(par_all,
 # Plot the transformed (unrotated and unstretched) points
 fig2, ax2 = plt.subplots(1, 4, figsize=(8, 2))  # 4 subplots, one for each ellipse
 for i in range(4):
-    ax2[i].scatter(xy_transformed[i,:,0], xy_transformed[i,:,1], s=2, c='gray')  # Plot transformed points
+    ax2[i].scatter(xy_transformed[i,:,0], xy_transformed[i,:,1], s=2, c='gray', alpha = 0.2)  # Plot transformed points
     ax2[i].scatter(0, 0, c='r', marker='+')  # Plot the center (reference point)
     ax2[i].set_aspect('equal', 'box')  # Ensure square aspect ratio for each plot
 
@@ -125,13 +123,13 @@ fig3.tight_layout()
 fig, ax = plt.subplots(1, 4, figsize=(8, 2))  # 4 subplots, one for each ellipse
 for i in range(4):
     # Plot original (ground truth) ellipses in red
-    ax[i].plot(xy_comp[i,:,0], xy_comp[i,:,1], c='r', lw=3)
+    ax[i].plot(xy_comp[i,:,0], xy_comp[i,:,1], c='r', lw=3, label = 'ground truth')
     
     # Scatter plot of jittered comparison points
-    ax[i].scatter(xy_jitter[i,:,0], xy_jitter[i,:,1], s=2, c='gray', alpha=0.1)
+    ax[i].scatter(xy_jitter[i,:,0], xy_jitter[i,:,1], s=2, c='gray', alpha=0.1, label = 'sim data')
     
     # Plot the reference point (center of the ellipse)
-    ax[i].scatter(xy_ref[i][0], xy_ref[i][1], c='r', marker='+')
+    ax[i].scatter(xy_ref[i][0], xy_ref[i][1], c='r', marker='+', label = 'ref stimulus')
     ax[i].set_aspect('equal', 'box')  # Ensure square aspect ratio for each plot
 
 # Recover ellipses from the optimized parameters
@@ -145,7 +143,7 @@ for i in range(nRefs):
     xy_recover[i] = jnp.vstack((x_recover, y_recover)).T  # Store recovered ellipse points
 
     # Plot recovered ellipses in green on top of the original plot
-    ax[i].plot(x_recover, y_recover, c='g')
+    ax[i].plot(x_recover, y_recover, c='g', label = 'model fits')
     
-    
+ax[-1].legend(loc='upper right', fontsize = 8, bbox_to_anchor=(2, 1))
 
