@@ -123,8 +123,14 @@ class ModelPerformance():
                 for ii in range(self.ref_size):
                     for jj in range(self.ref_size):
                         for kk in range(self.ref_size):
-                            # Retrieve predicted ellipsoid parameters.
-                            l_pred = data_load[l]['model_pred_Wishart']
+                            # Retrieve predicted ellipse parameters.
+                            try:
+                                l_pred = data_load[l]['model_pred_Wishart']
+                            except:
+                                try:
+                                    l_pred = data_load[l]['model_pred_Wishart_wRandx']
+                                except:
+                                    l_pred = data_load[l]['model_pred_indvEll']
                             eigVec_jiijjkk = l_pred.params_ell[ii][jj][kk]['evecs']
                             radii_jiijjkk = l_pred.params_ell[ii][jj][kk]['radii']/2     
                             radii_jiijjkk, eigVec_jiijjkk = ModelPerformance.sort_eig(radii_jiijjkk, eigVec_jiijjkk)

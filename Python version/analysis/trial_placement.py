@@ -423,7 +423,8 @@ class TrialPlacementWithoutAdaptiveSampling:
             
         return rgb_comp_sim
 
-    def sample_rgb_comp_3DNearContour(self, rgb_ref, paramEllipsoid, random_seed = None):
+    def sample_rgb_comp_3DNearContour(self, rgb_ref, paramEllipsoid, 
+                                      random_seed = None, uniform_inv_phi = True):
         """
         Simulates RGB components near the surface of an ellipsoid contour. This can 
         be used for generating test points in color space around a reference color.
@@ -447,8 +448,22 @@ class TrialPlacementWithoutAdaptiveSampling:
         #Uniformly distributed angles between 0 and 2*pi
         randtheta = np.random.rand(1, self.sim['nSims']) * 2 * np.pi
         
-        #Uniformly distributed angles between 0 and pi
-        randphi = np.random.rand(1, self.sim['nSims']) * np.pi
+        #If you were to sample theta uniformly, you'd place too many points near 
+        #the poles and too few points near the equator, because the surface area 
+        #decreases near the poles. To correct for this, we uniformly sample 
+        #cos(theta). This ensures that points are spaced evenly across the sphere's
+        #surface because the cosine of theta (which ranges from -1 to 1) accounts 
+        #for the different sizes of latitude bands as you move from pole to pole.
+        if uniform_inv_phi:
+            #Uniformly sampled from [-1, 1] ensures uniform distribution along
+            #the z-axis
+            randphi_temp = np.random.uniform(-1, 1, self.sim['nSims'])    # cos(theta) for polar angle
+    
+            # Converted from costheta using the inverse cosine function to get the angle.
+            randphi = np.arccos(randphi_temp)
+        else:
+            #Uniformly distributed angles between 0 and pi
+            randphi = np.random.rand(1, self.sim['nSims']) * np.pi
         
         #Generate random points on the surface of a unit sphere by converting
         # spherical coordinates to Cartesian coordinates, then add Gaussian noise

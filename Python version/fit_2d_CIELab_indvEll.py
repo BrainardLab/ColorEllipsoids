@@ -26,7 +26,7 @@ from data_reorg import organize_data
 
 
 #%% three variables we need to define for loading the data
-plane_2D      = 'GB plane'
+plane_2D      = 'RG plane'
 plane_2D_dict = {'GB plane': 0, 'RB plane': 1, 'RG plane': 2}
 plane_2D_idx  = plane_2D_dict[plane_2D]
 sim_jitter    = '0.3'
@@ -92,7 +92,7 @@ for rr in range(10):
     weibull_params = jnp.array([sim['alpha'], sim['beta']])  # Store Weibull parameters in an array
     #a = 1.17; b = 2.33    
     
-    nReps = 20
+    nReps = 10
     KEY_list = list(range(nReps))  
     objhist = np.full((20000,), 1)
     for k in KEY_list:    

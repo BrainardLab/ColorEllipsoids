@@ -20,20 +20,24 @@ sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Pytho
 from analysis.model_performance import ModelPerformance
         
 # Define base directory and figure output directory
-base_dir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
+base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
 fig_outputDir = base_dir+'ELPS_analysis/ModelPerformance_FigFiles/'
 
 #%% ------------------------------------------
 # Load data simulated using CIELab
 # ------------------------------------------
-jitter  = [0.1, 0.3, 0.5]   # Different noise levels (jitter)
+jitter  = [0.3]#[0.1, 0.3, 0.5]   # Different noise levels (jitter)
 nLevels = len(jitter)      # Number of noise levels
-nSims   = 240                # Number of simulations per condition
+nSims   = 200                # Number of simulations per condition
 saveFig = False            # Whether to save the figures
 color_dimension = 3        # Dimensionality of the color space (2D or 3D)
-
+fitting_method = 'indvEll'#'indvEll'
+if fitting_method == 'indvEll':
+    str_ext = '_indvEll'
+else:
+    str_ext = ''
 # Path to the directory containing the simulation data files
-path_str1 = base_dir + f'ELPS_analysis/ModelFitting_DataFiles/{color_dimension}D_oddity_task/' 
+path_str1 = base_dir + f'ELPS_analysis/ModelFitting_DataFiles/{color_dimension}D_oddity_task{str_ext}/' 
 
 # List to store loaded simulation data
 data_load = []
@@ -48,8 +52,12 @@ for j in jitter:
         plane_2D = None
     
     # Construct the file name based on the jitter level and other parameters
-    file_name_j = f'Fitted_isothreshold_{s_ell}_sim{nSims}perCond_samplingNearContour_' +\
-                  f'jitter{j:01}_seed0_bandwidth0.005_oddity.pkl'
+    if fitting_method != 'indvEll':
+        file_name_j = f'Fitted_isothreshold_{s_ell}_sim{nSims}perCond_samplingNearContour_' +\
+                      f'jitter{j:01}_seed0_bandwidth0.005_oddity.pkl'
+    else:
+        file_name_j = f'Fitted_isothreshold_{s_ell}_sim{nSims}perCond_samplingNearContour'+\
+            f'_jitter{j:01}_seed1_oddity{str_ext}.pkl'
     full_path_j = f"{path_str1}{file_name_j}"
     
     # Change directory and load the simulation data using pickle
@@ -144,7 +152,7 @@ else:
     nBins_hist = 33
     fig_size = (2.5, 3.2)
     nyticks = 5
-saveFig = True
+saveFig = False
 
 # %% ------------------------------------------
 # Plot Bures-Wasserstein distance

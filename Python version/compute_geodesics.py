@@ -26,13 +26,12 @@ from analysis.ellipses_tools import UnitCircleGenerate
 
 #%% load file
 base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
-
+plane_2D = 'GB plane'
 flag_load_pilot = False
 if flag_load_pilot:
     fileDir_fits = base_dir +f'META_analysis/ModelFitting_DataFiles/2dTask/pilot/'
     figDir_fits = base_dir +f'META_analysis/ModelFitting_FigFiles/2dTask/pilot/'
     subj = 1
-    plane_2D = 'GB plane'
     file_name = f'Fitted_isothreshold_{plane_2D}_sim360perRef_25refs_AEPsychSampling_'+\
                 f'bandwidth0.005_pilot_sub{subj}.pkl'
     full_path = f"{fileDir_fits}{file_name}"
@@ -145,10 +144,14 @@ wishart_pred_vis = WishartPredictionsVisualization(sim_trial_by_CIE,
                                                    save_fig = True)
 
 fig, ax = plt.subplots(1, 1, figsize = (3.1,3.6), dpi= 256)
-
+geo_bds =[-0.9, 0.9]
 for i in range(nStarts):
     #ax.plot(euc_path[:, 0], euc_path[:, 1], lw=1, color="k")
-    ax.plot(geo_path[i][:, 0], geo_path[i][:, 1], lw=1, color="gray")
+    geo_path_i = geo_path[i]
+    rows_slc = (geo_path_i[:, 0] > geo_bds[0]) & (geo_path_i[:, 0] < geo_bds[1]) & \
+        (geo_path_i[:, 1] > geo_bds[0]) & (geo_path_i[:, 1] < geo_bds[1])
+    geo_path_i_trim = geo_path_i[rows_slc]
+    ax.plot(geo_path_i_trim[:, 0], geo_path_i_trim[:, 1], lw=1, color="gray", alpha = 0.75)
 
 #ground truth ellipses
 gt_covMat_CIE = color_thres_data.N_unit_to_W_unit(results['fitEllipse_scaled'][color_thres_data.fixed_color_dim])
@@ -164,7 +167,7 @@ wishart_pred_vis.plot_2D(
     samples_s = 1,
     plane_2D = plane_2D,
     modelpred_ls = '-',
-    modelpred_lw = 2.5,
+    modelpred_lw = 2,
     modelpred_lc = None,
     modelpred_alpha = 0.8,
     gt_lw= 0.5,

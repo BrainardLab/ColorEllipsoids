@@ -27,7 +27,7 @@ from plotting.wishart_predictions_plotting import WishartPredictionsVisualizatio
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version/')
 from analysis.trial_placement import TrialPlacementWithoutAdaptiveSampling
 
-base_dir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
+base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
 output_figDir1 = base_dir + 'ELPS_analysis/Simulation_FigFiles/Python_version/2d_oddity_task/'
 output_figDir2 = base_dir + 'ELPS_analysis/ModelFitting_FigFiles/Python_version/2D_oddity_task/random_ref/'
 output_fileDir = base_dir + 'ELPS_analysis/ModelFitting_DataFiles/2D_oddity_task/random_ref/'
@@ -187,7 +187,7 @@ for rng_seed in range(1):
     # Fit W by maximizing posterior
     # -----------------------------
     # Fit model, initialized at random W
-    W_init = 1e-1*model_test.sample_W_prior(W_INIT_KEY) 
+    W_init = model_test.sample_W_prior(W_INIT_KEY) #1e-1*
     
     opt_params = {
         "learning_rate": 1e-4,
@@ -271,7 +271,7 @@ for rng_seed in range(1):
                                                        model_pred_Wishart_wRandx, 
                                                        color_thres_data,
                                                        fig_dir = output_figDir2, 
-                                                       save_fig = False)
+                                                       save_fig = True)
     
     fig, ax = plt.subplots(1, 1, figsize = (3.1,3.6), dpi= 256)
     for i in range(NUM_GRID_PTS+1):
@@ -305,7 +305,7 @@ for rng_seed in range(1):
         gt_lw= 0.5,
         gt_lc =[0.1,0.1,0.1],
         fontsize = 8.5,
-        fig_name = fig_name_fits + ".pdf") 
+        fig_name = fig_name_fits + "_initialized.pdf") 
         
     #% save data
     output_file = fig_name_fits+'_oddity.pkl'

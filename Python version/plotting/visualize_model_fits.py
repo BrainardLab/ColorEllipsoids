@@ -27,20 +27,22 @@ class CustomUnpickler(pickled.Unpickler):
         return super().find_class(module, name)
 
 #three variables we need to define for loading the data
-nSims     = 320
+nSims     = 200
 jitter    = 0.3
 ndims     = 3
 nTheta    = 1000
 num_grid_pts = 5
 rnd_seed_list = list(range(10))
-fitting_method = ''#'indvEll'
+fitting_method = 'indvEll'#'indvEll'
 if fitting_method == 'indvEll':
     str_ext = '_indvEll'
 else:
     str_ext = ''
+    
+sampling_method = '' #'random_ref/'
 base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_analysis/'
-fileDir_fits = base_dir +f'ModelFitting_DataFiles/{ndims}D_oddity_task{str_ext}/'
-figDir_fits = base_dir +f'ModelFitting_FigFiles/Python_version/{ndims}D_oddity_task{str_ext}/'
+fileDir_fits = base_dir +f'ModelFitting_DataFiles/{ndims}D_oddity_task{str_ext}/{sampling_method}'
+figDir_fits = base_dir +f'ModelFitting_FigFiles/Python_version/{ndims}D_oddity_task{str_ext}/{sampling_method}'
 
 #%% ------------------------------------------
 # Load data simulated using CIELab
@@ -63,15 +65,24 @@ if ndims == 3:
     covMat_slice_all = np.full(covMat_proj_all.shape, np.nan)
     params_slice_all = np.full(params_proj_all.shape, np.nan)
     for r in rnd_seed_list:
-        file_name = f'Fitted_isothreshold_ellipsoids_sim{nSims}perCond_samplingNearContour'+\
-            f'_jitter{jitter}_seed{r}_bandwidth0.005_oddity.pkl'
+        if fitting_method != 'indvEll':
+            file_name = f'Fitted_isothreshold_ellipsoids_sim{nSims}perCond_samplingNearContour'+\
+                f'_jitter{jitter}_seed{r}_bandwidth0.005_oddity{str_ext}.pkl'
+        else:
+            file_name = f'Fitted_isothreshold_ellipsoids_sim{nSims}perCond_samplingNearContour'+\
+                f'_jitter{jitter}_seed{r}_oddity{str_ext}.pkl'
         full_path = f"{fileDir_fits}{file_name}"
         with open(full_path, 'rb') as f: 
             vars_dict = CustomUnpickler(f).load()
             #vars_dict = pickled.load(f)
         for var_name, var_value in vars_dict.items():
             locals()[var_name] = var_value
-        params_ell_r = model_pred_Wishart.params_ell
+        if fitting_method != 'indvEll':
+            model_pred = model_pred_Wishart
+        else:
+            #model = model_indvEll
+            model_pred = model_pred_indvEll
+        params_ell_r = model_pred.params_ell
         for i in range(num_grid_pts):
             for j in range(num_grid_pts):
                 for k in range(num_grid_pts):
@@ -85,8 +96,7 @@ if ndims == 3:
                     covMat_ijk = ellParams_to_covMat(radii_ijk, evecs_ijk)
                     covMat_all[r,i,j,k] = covMat_ijk
                     #retrieve 2D slices
-                    covMat_slice_all[r,i,j,k] = model_pred_Wishart.pred_slice_2d_ellipse[j,i,k]
-                    
+                    covMat_slice_all[r,i,j,k] = model_pred.pred_slice_2d_ellipse[j,i,k]
                     #convert to 2D projections
                     for l in range(ndims):
                         slc_dims = list(range(ndims))
@@ -130,8 +140,8 @@ if ndims == 3:
     #%%
     fig_name = f'Fitted{file_name[4:-4]}_wCI'
     wishart_pred_vis = WishartPredictionsVisualization(sim_trial_by_CIE,
-                                                        model, 
-                                                        model_pred_Wishart, 
+                                                        None, 
+                                                        model_pred, 
                                                         color_thres_data,
                                                         fig_dir = figDir_fits + 'wCI/', 
                                                         save_fig = True,
@@ -141,6 +151,7 @@ if ndims == 3:
         grid_trans,
         gt_covMat_CIE, 
         gt_slice_2d_ellipse_CIE,
+        visualize_samples = True,
         visualize_model_pred = False,
         visualize_modelpred_CI = True,
         visualize_model_estimatedCov = False,
@@ -157,15 +168,15 @@ if ndims == 3:
         gt_3Dproj_lc = [0.3,0.3,0.3],
         gt_3Dproj_lw = 1,
         gt_3Dproj_ls = '--',
-        modelpred_alpha = 0.55,
-        samples_alpha = 0.2,
+        modelpred_alpha = 0.35,
+        samples_alpha = 0.01,
         axes_samples = [0,1],
         fig_name = fig_name) 
 
 else:
     #%%
     #three variables we need to define for loading the data
-    plane_2D      = 'GB plane'
+    plane_2D      = 'RB plane'
     plane_2D_dict = {'GB plane': 0, 'RB plane': 1, 'RG plane': 2}
     plane_2D_idx  = plane_2D_dict[plane_2D]
     # Create an instance of the class
@@ -173,17 +184,21 @@ else:
     # Load Wishart model fits
     color_thres_data_2D.load_CIE_data()  
     
-    #file_name_2D = f'Fitted_isothreshold_{plane_2D}_sim{nSims}perCond_samplingNearContour_'+\
-    #    f'noFixedRef_jitter{jitter}'
-    file_name_2D = f'Fitted_isothreshold_{plane_2D}_sim{nSims}perCond_samplingNearContour_'+\
-        f'jitter{jitter}'
+    if sampling_method == 'random_ref/':
+        file_name_2D = f'Fitted_isothreshold_{plane_2D}_sim{nSims*25}total_samplingNearContour_'+\
+            f'noFixedRef_jitter{jitter}'
+    else:
+        file_name_2D = f'Fitted_isothreshold_{plane_2D}_sim{nSims}perCond_samplingNearContour_'+\
+            f'jitter{jitter}'
         
     params_all = np.full((num_grid_pts, num_grid_pts,len(rnd_seed_list), 5), np.nan)
     ell_all = np.full((num_grid_pts, num_grid_pts,2, nTheta, len(rnd_seed_list)), np.nan)
     unitC = UnitCircleGenerate(nTheta)
     for r in rnd_seed_list:
-        file_name_r = file_name_2D + '_seed'+str(r) +'_oddity_indvEll.pkl'
-        #file_name_r = file_name_2D + '_seed'+str(r) +'_bandwidth0.005_oddity.pkl'
+        if fitting_method == 'indvEll':
+            file_name_r = file_name_2D + '_seed'+str(r) +'_oddity_indvEll.pkl'
+        else:
+            file_name_r = file_name_2D + '_seed'+str(r) +'_bandwidth0.005_oddity.pkl'
         full_path = f"{fileDir_fits}{file_name_r}"
         with open(full_path, 'rb') as f:  vars_dict_2D = pickled.load(f)
         for var_name, var_value in vars_dict_2D.items():
@@ -192,9 +207,20 @@ else:
             model = model_indvEll
             model_pred = model_pred_indvEll
             param_ell_r = model_pred_indvEll.params_ell
+            sim_trial = sim_trial_by_CIE
+            gt_covMat = gt_covMat_CIE
         else:
-            model_pred = model_pred_Wishart
-            param_ell_r = model_pred_Wishart.params_ell
+            if sampling_method == 'random_ref/':
+                model_pred = model_pred_Wishart_wRandx
+                param_ell_r = model_pred_Wishart_wRandx.params_ell
+                sim_trial = sim_trial_by_Wishart
+                model = model_test
+                gt_covMat = gt_Wishart.fitEll_unscaled
+            else:
+                model_pred = model_pred_Wishart
+                param_ell_r = model_pred_Wishart.params_ell
+                sim_trial = sim_trial_by_CIE
+                gt_covMat = gt_covMat_CIE
         for i in range(num_grid_pts):
             for j in range(num_grid_pts):
                 params_all[i,j,r]= param_ell_r[i][j]
@@ -213,7 +239,7 @@ else:
             fitEll_min[i,j,1,:idx_i] = yi_ij
             
     #visualize
-    wishart_pred_vis_wCI = WishartPredictionsVisualization(sim_trial_by_CIE,
+    wishart_pred_vis_wCI = WishartPredictionsVisualization(sim_trial,
                                                           model, 
                                                           model_pred, 
                                                           color_thres_data_2D,
@@ -233,20 +259,34 @@ else:
             idx_min_nonan = ~np.isnan(fitEll_min[i, j, 0])
             ax.fill(fitEll_min[i,j,0,idx_min_nonan], fitEll_min[i,j,1,idx_min_nonan], 
                     color='white')
+            
+    if sampling_method == 'random_ref/':
+        for i in range(6):
+           for j in range(6):
+               c_ij = np.array(color_thres_data.W_unit_to_N_unit(grid_trans_s[:,i,j]))
+               c_ij = np.insert(c_ij, color_thres_data.fixed_color_dim, color_thres_data.fixed_value)
+               # Plot the model predictions as lines.
+               ax.plot(model_pred_Wishart_wRandx_s.fitEll_unscaled[i,j,0], 
+                       model_pred_Wishart_wRandx_s.fitEll_unscaled[i,j,1],
+                       c = c_ij,
+                       lw =1,
+                       alpha = 0.5, 
+                       ls = '-')
+
     # Removing 'seed9' and '.pkl'
     fig_name = file_name_r
     fig_name = fig_name.replace('_seed9', '').replace('.pkl', '')
     wishart_pred_vis_wCI.plot_2D(
         grid, 
         grid,
-        gt_covMat_CIE, 
+        gt_covMat, 
         ax = ax,
         visualize_samples= True,
-        visualize_gt = True,
+        visualize_gt = False,
         visualize_model_estimatedCov = False,
         visualize_model_pred = False,
-        samples_alpha = 0.5,
-        samples_s = 1,
+        samples_alpha = 1,
+        samples_s = 0.5,
         plane_2D = plane_2D,
         gt_lw= 1,
         gt_lc =[0.3,0.3,0.3],
