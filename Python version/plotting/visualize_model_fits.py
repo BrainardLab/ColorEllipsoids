@@ -27,7 +27,7 @@ class CustomUnpickler(pickled.Unpickler):
         return super().find_class(module, name)
 
 #three variables we need to define for loading the data
-nSims     = 200
+nSims     = 2400
 jitter    = 0.3
 ndims     = 3
 nTheta    = 1000
@@ -151,7 +151,7 @@ if ndims == 3:
         grid_trans,
         gt_covMat_CIE, 
         gt_slice_2d_ellipse_CIE,
-        visualize_samples = True,
+        visualize_samples = False,
         visualize_model_pred = False,
         visualize_modelpred_CI = True,
         visualize_model_estimatedCov = False,

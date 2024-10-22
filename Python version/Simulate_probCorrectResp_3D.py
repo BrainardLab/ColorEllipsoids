@@ -24,7 +24,7 @@ output_fileDir = base_dir + 'ELPS_analysis/Simulation_DataFiles/'
 
 #%%
 # specify the seed
-rnd_seed = 9
+rnd_seed = 1
 file_name = 'Isothreshold_ellipsoid_CIELABderived.pkl'
 path_str =  base_dir + 'ELPS_analysis/Simulation_DataFiles/'
 full_path = f"{path_str}{file_name}"

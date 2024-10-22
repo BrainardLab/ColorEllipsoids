@@ -29,9 +29,9 @@ from data_reorg import organize_data
 from plotting.trial_placement_nonadaptive_plotting import TrialPlacementVisualization
 
 #%% three variables we need to define for loading the data
-for rr in range(9,10):
+for rr in range(10):
     rnd_seed  = rr
-    nSims     = 4800
+    nSims     = 9600
     jitter    = 0.3
     
     base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
@@ -98,7 +98,7 @@ for rr in range(9,10):
     NUM_GRID_PTS = len(idx_trim)
     # Initialize an instance of IndividualProbSurfaceModel
     model_indvEll = IndividualProbSurfaceModel(NUM_GRID_PTS,  # grid points
-                                            [1e-2,0.3],       # Bounds for radii
+                                            [1e-2,0.4],       # Bounds for radii
                                             [0, 2*jnp.pi],    # Bounds for angle in radians
                                             [0.5, 5],         # Bounds for Weibull parameter 'a'
                                             [0.1, 5],         # Bounds for Weibull parameter 'b'

@@ -47,7 +47,7 @@ else:
     slc_color = 'ellipsoids'
     jitter    = 0.3
     seed_list = list(range(10))
-    nSims     = [4800, 1280, 800, 200]     # Number of simulations per reference
+    nSims     = [4800, 2400,800, 200]     # Number of simulations per reference,1280, 800
     nRefs     = 125
 nSims_total = np.array(nSims)*nRefs
 nLevels   = len(nSims)
