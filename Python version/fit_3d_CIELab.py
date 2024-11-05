@@ -28,7 +28,7 @@ from data_reorg import organize_data
 #%% three variables we need to define for loading the data
 for rr in range(10):
     rnd_seed  = rr
-    nSims     = 120
+    nSims     = 240
     jitter    = 0.3
     
     base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
@@ -228,7 +228,7 @@ for rr in range(10):
     full_path4 = f"{output_fileDir}{output_file}"
     
     variable_names = ['data', 'x1_raw', 'xref_raw','sim_trial_by_CIE', 'grid_1d',
-                      'grid','grid_trans','iters', 'objhist', 'model',
+                      'grid','grid_trans','iters', 'objhist', 'model','opt_params',
                       'model_pred_Wishart','gt_covMat_CIE','gt_slice_2d_ellipse_CIE']
     vars_dict = {}
     for i in variable_names: vars_dict[i] = eval(i)

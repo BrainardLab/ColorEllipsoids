@@ -38,7 +38,7 @@ fig_outputDir = base_dir+'ELPS_analysis/ModelComparison_FigFiles/2D_oddity_task/
 # ------------------------------------------
 ndims = 3
 if ndims == 2:
-    slc_color  = 'RG plane'
+    slc_color  = 'GB plane'
     jitter    = 0.3
     seed_list = list(range(10))
     nSims     = [480, 320, 160, 80]     # Number of simulations per reference
@@ -47,7 +47,7 @@ else:
     slc_color = 'ellipsoids'
     jitter    = 0.3
     seed_list = list(range(10))
-    nSims     = [4800, 2400,800, 200]     # Number of simulations per reference,1280, 800
+    nSims     = [4800, 1280, 800, 200]     # Number of simulations per reference,1280, 800
     nRefs     = 125
 nSims_total = np.array(nSims)*nRefs
 nLevels   = len(nSims)
@@ -174,7 +174,7 @@ BW_distance_circle_median = np.median(model_perf.BW_distance_minEigval)
 BW_distance_corner_median = np.median(model_perf.BW_distance_corner, axis = axis1_merge[:-1])
 
 #%%plotting
-fig1, ax1 = plt.subplots(1,1, figsize = (3.2, 2.35), dpi = 256) #; format 1: (3.5, 2.2); format 2:  (3.2, 2.2)
+fig1, ax1 = plt.subplots(1,1, figsize = (2.5, 3.75), dpi = 256) #; format 1: (3.5, 2.2); format 2:  (3.2, 2.2)
 x_left= 0
 x_right = np.linspace(2,nLevels, nLevels)
 y_ub = 0.14#0.12
@@ -197,13 +197,14 @@ ax1.plot([1,1],[0,y_ub],ls = '--', lw=0.5, c = 'k')
 ax1.set_xticks(np.hstack([x_left, x_right]))
 ax1.set_xticklabels([f'{nSims_total_Wishart}'] + [str(s) for s in nSims_total], rotation= 45)
 ax1.set_xlabel('Total number of trial')
-ax1.set_title(slc_color)
+#ax1.set_title(slc_color)
+ax1.set_title('RGB cube')
 ax1.set_xlim([-1, nLevels + 1])
 ax1.set_yticks(np.linspace(0,y_ub,3))
 ax1.set_ylim([0,y_ub])
 ax1.set_ylabel('BW distance')
 plt.tight_layout()
 figName1 = f"ModelPerformance_BuresWassersteinDistance_{ndims}D{slc_color}_"+\
-    f"wbenchmark_jitter{jitter}_Wishart_vs_IndvEll.pdf"
+    f"wbenchmark_jitter{jitter}_Wishart_vs_IndvEll_format2.pdf"
 full_path1 = os.path.join(fig_outputDir, figName1)
 if saveFig: fig1.savefig(full_path1)   
