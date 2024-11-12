@@ -5,10 +5,10 @@
 % of it that is within the gamut of a monitor.
 
 %% Initialize
-clear; close all;
+clear all; close all;
 
 %% Retrieve the correct calibration file
-whichCalFile = 'DELL_11092024_withoutGammaCorrection.mat';
+whichCalFile = 'DELL_11072024_withoutGammaCorrection.mat';
 whichCalNumber = 1;
 nDeviceBits = 14; %doesn't have to be the true color depth; we can go higher
 whichCones = 'ss2';
@@ -404,7 +404,7 @@ if (numCorners == 4)
     set(ax_W, 'YTick', -0.6:0.3:0.6); grid on; box on;
     set(ax_W,'FontSize',12);
     set(fig_W, 'PaperSize', [10, 10]);
-    pdf_filename1 = fullfile(cal_path, 'W_space.pdf');
+    pdf_filename1 = fullfile([cal_path, '/Plots'], sprintf('W_space_%s.pdf',whichCalFile(1:end-4)));
     saveas(fig_W, pdf_filename1);
     %print(fig_W, pdf_filename1, '-dpdf', '-opengl', '-bestfit');
     
@@ -423,7 +423,7 @@ if (numCorners == 4)
         'Location','northoutside', 'Orientation', 'vertical');
     set(ax_dkl,'FontSize',12);
     set(fig_dkl, 'PaperSize', [10, 10]);
-    pdf_filename2 = fullfile(cal_path, 'dkl_space.pdf');
+    pdf_filename2 = fullfile([cal_path, '/Plots'], sprintf('dkl_space_%s.pdf',whichCalFile(1:end-4)));
     %print(fig_dkl, pdf_filename2, '-dpdf', '-opengl', '-bestfit');
     saveas(fig_dkl, pdf_filename2);
     
@@ -445,46 +445,80 @@ if (numCorners == 4)
     set(ax_rgb,'FontSize',12);
     set(fig_rgb, 'PaperSize', [10, 10]);
     % Try forcing MATLAB to save as a vector PDF
-    pdf_filename3 = fullfile(cal_path, 'rgb_space.pdf');
+    pdf_filename3 = fullfile([cal_path, '/Plots'], sprintf('rgb_space_%s.pdf',whichCalFile(1:end-4)));
     %print(fig_rgb, pdf_filename3, '-dpdf', '-opengl', '-bestfit');
-    saveas(fig_rgb, pdf_filename3);
 end
 
-%% sanity check
+%% sanity checks
 % if the RGB dots are really from the isoluminant plane, then we should get
 % the same luminance value by doing the calculation below
 lum_check = NaN(1,size(ref_rgb, 2));
 for i = 1:size(ref_rgb, 2)
     lum_check(i) = T_Y * (calObjXYZ.cal.P_device * ref_rgb(:,i));
 end
-assert(min(abs(lum_check - mean(lum_check))) < 1e-6, 'The dots are not on an isoluminant plane!')
+assert(min(abs(lum_check - mean(lum_check))) < 1e-6,...
+    'The dots are not on an isoluminant plane!')
 
-%% save file
+%compute a matrix that converts W to RGB space without going through
+%all the details above
+M_2DWToRGB = ref_rgb * pinv(ref_W_ext);
+M_RGBTo2DW = inv(M_2DWToRGB);
+ref_rgb_check = M_2DWToRGB * ref_W_ext;
+ref_W_ext_check = M_RGBTo2DW * ref_rgb;
+assert(min(min(abs(ref_rgb_check - ref_rgb))) < 1e-6,...
+    'The matrix that is supposed to take us from W to RGB is not computed correctly!')
+assert(min(min(abs(ref_W_ext_check - ref_W_ext))) < 1e-6,...
+    'The matrix that is supposed to take us from W to RGB is not computed correctly!')
+
+scatter3(ax_rgb,ref_rgb_check(1,:), ref_rgb_check(2,:), ref_rgb_check(3,:), 'k+')
+saveas(fig_rgb, pdf_filename3);
+
+%% save almost all the variables for housekeeping purpose
 % Get a list of all variables in the current workspace
 vars = who;
+% Initialize the struct with the specified name
+eval([whichCalFile(1:end-4), ' = struct();'])
+struct_temp = struct();
 % Open a MAT-file to save the variables
-matfileName = 'W_from_PlanarGamut.mat';
-outputName = fullfile('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox/',matfileName);
+matfileName = 'Transformation_btw_color_spaces.mat';
+outputName = fullfile(cal_path,matfileName);
 % Check if the file already exists
 fileExists = isfile(outputName);
 
 for i = 1:length(vars)
     % Get the variable name
     varName = vars{i};
-    % Skip variables that start with 'calObj'
-    if ismember(varName, {'fig_dkl', 'fig_rgb','fig_W','ax_dkl', 'ax_rgb','ax_W',...
-            'f_dkl_1','f_dkl_2','f_dkl_3','f_dkl_4',...
-            'f_rgb_1','f_rgb_2','f_rgb_3','f_rgb_4','f_W_1','f_W_2','f_W_3'})
+    % Skip the following variables
+    if ismember(varName, {'fig_dkl', 'fig_rgb','fig_W',...
+                          'ax_dkl', 'ax_rgb','ax_W',...
+                          'f_dkl_1','f_dkl_2','f_dkl_3','f_dkl_4',...
+                          'f_rgb_1','f_rgb_2','f_rgb_3','f_rgb_4',...
+                          'f_W_1','f_W_2','f_W_3',...
+                          'ldg_dkl','lgd_rgb', 'lgd_W'})
         continue;
     end
-    % Use dynamic field referencing to access the variable
-    varValue = eval(varName);
-    if fileExists
-        save(outputName, varName, '-append');
-    else
-        save(outputName, varName);
-        fileExists = true; % Set flag to true after creating the file
-    end
+    % Use dynamic field referencing to add the variable to the struct
+    struct_temp.(varName) = eval(varName);
 end
+eval([whichCalFile(1:end-4), ' = struct_temp;']);
+
+% Save or append the struct to the MAT file
+if fileExists
+    % Append if file already exists
+    save(outputName, whichCalFile(1:end-4), '-append');
+else
+    % Save as new file if it does not exist
+    save(outputName, whichCalFile(1:end-4));
+end
+
+%% save the two transformation matrix to .xlsx files
+% Specify the filename
+filename1 = 'M_2DWToRGB.xlsx';
+outputName1 = fullfile(cal_path,filename1);
+filename2 = 'M_RGBTo2DW.xlsx';
+outputName2 = fullfile(cal_path,filename2);
+% Save the matrix to a CSV file
+writematrix(M_2DWToRGB, outputName1, 'Sheet', whichCalFile(1:13));
+writematrix(M_RGBTo2DW, outputName2, 'Sheet', whichCalFile(1:13));
 
 
