@@ -8,11 +8,12 @@
 clear; close all;
 
 %% Retrieve the correct calibration file
-whichCalFile = 'NEC_08092024.mat';
+whichCalFile = 'DELL_11092024_withoutGammaCorrection.mat';
 whichCalNumber = 1;
 nDeviceBits = 14; %doesn't have to be the true color depth; we can go higher
 whichCones = 'ss2';
-cal = LoadCalFile(whichCalFile,whichCalNumber,getpref('BrainardLabToolbox','CalDataFolder'));
+cal_path = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_materials/Calibration/';
+cal = LoadCalFile(whichCalFile,whichCalNumber,cal_path);
 
 %% Cone cal object
 calObjCones = ObjectToHandleCalOrCalStruct(cal);
@@ -75,7 +76,7 @@ ambientXYZ = SettingsToSensor(calObjXYZ,[0 0 0']');
 
 %% Compute the background, taking quantization into account
 % The calculations here account for display quantization.
-SPECIFIEDBG = true;
+SPECIFIEDBG = false;
 if (SPECIFIEDBG)
     bgxyYTarget = [0.31, 0.31, 100]';
     bgXYZTarget = xyYToXYZ(bgxyYTarget);
@@ -195,7 +196,8 @@ fill3(ax_rgb,[1,1,1,1],[1,0,0,1],[0,0,1,1],'k','FaceAlpha',0.05);
 %real plots
 f_rgb_1 = scatter3(ax_rgb,bgPrimary(1),bgPrimary(2),bgPrimary(3),200,'g+','lineWidth',2);  
 f_rgb_2 = scatter3(ax_rgb,gamut_bg_primary(1,:), gamut_bg_primary(2,:), ...
-    gamut_bg_primary(3,:), 20, 'k', 'filled', 'MarkerEdgeColor','g'); 
+    gamut_bg_primary(3,:), 5, 'k', 'filled'); 
+    % gamut_bg_primary(3,:), 20, 'k', 'filled', 'MarkerEdgeColor','g'); 
 fill3(ax_rgb, gamut_bg_primary(1,:), gamut_bg_primary(2,:), ...
     gamut_bg_primary(3,:), 'k','FaceColor','k','FaceAlpha',0.3);
 for aa = 1:25:nAngles
@@ -212,7 +214,7 @@ surf(ax_dkl, X, Y, Z,'FaceColor', 'k', 'FaceAlpha', 0.01,'EdgeColor',...
     [0.8,0.8,0.8]); hold on
 f_dkl_1 = fill3(ax_dkl, X(ceil(n_contour/2),:),Y(ceil(n_contour/2),:),...
     Z(ceil(n_contour/2),:), 'k','FaceAlpha',0.1,'EdgeColor','none'); 
-f_dkl_2 = fill3(ax_dkl, gamutDKL(2,:),gamutDKL(3,:),zeros(nAngles),...
+f_dkl_2 = fill3(ax_dkl, gamutDKLPlane(1,:),gamutDKLPlane(2,:),zeros(nAngles),...
     'k','FaceColor','k', 'FaceAlpha',0.4);
 xticks(-1:1:1); yticks(-1:1:1);zticks(-1:1:1);
 xlabel('DKL L/(L+M)'); ylabel('DKL S'); zlabel('DKL lum');
@@ -360,7 +362,7 @@ if (numCorners == 4)
     f_W_2 = plot(ax_W, targetCorners(1,:), targetCorners(2,:),'bo','MarkerFaceColor','b','MarkerSize',14);
     f_W_3 = plot(ax_W, cornerPoints2DW(1,:),cornerPoints2DW(2,:),'ro','MarkerFaceColor','r','MarkerSize',10);
     xlim([-1.2 1.2]);  ylim([-1.2 1.2]); axis('square');
-    xlabel('W space dim 1'); ylabel('W space dim 2');
+    xlabel('Wishart space dim 1'); ylabel('Wishart space dim 2');
 
     %% select 9 reference locations
     num_grid_pts = 5;
@@ -376,7 +378,7 @@ if (numCorners == 4)
     ref_dkl = M_2DWToDLKPlane*ref_W_ext;
     %Divide the first two columns by the third column to get the final Nx2 transformed points.
     %also add zeros to the last row because we 
-    ref_dkl_norm = vertcat(ref_dkl(1:2,:)./ref_dkl(3,:));
+    ref_dkl_norm = ref_dkl(1:2,:)./ref_dkl(3,:);
     ref_dkl_ext = vertcat(bgDKL(1).*ones(1,nRef),ref_dkl_norm);
     %convert it back to RGB space
     ref_theLMSExcitations = arrayfun(@(idx) ContrastToExcitation(M_ConeIncToConeContrast*...
@@ -389,30 +391,73 @@ if (numCorners == 4)
     
     scatter(ax_W, ref_W_x(:), ref_W_y(:),100, colors_W,...
         'filled','MarkerEdgeColor','k','Marker','o','lineWidth',2);
-    legend(ax_W, [f_W_1, f_W_2, f_W_3], ...
+    % legend(ax_W, [f_W_1, f_W_2, f_W_3], ...
+    %     {'The monitor''s gamut', ...
+    %     'Target corners (pre-specified)',...
+    %     sprintf('Target corners (multiplying transformation matrix\n and source corners in DKL space)')},...
+    %     'Location','north');
+    lgd_W = legend(ax_W, [f_W_1, f_W_2], ...
         {'The monitor''s gamut', ...
-        'Target corners (pre-specified)',...
-        'Target corners (multiplying transformation matrix and source corners in DKL space)'},...
-        'Location','north');
+        'Corners'},...
+        'Location','northoutside', 'Orientation', 'vertical');
+    set(ax_W, 'XTick', -0.6:0.3:0.6);
+    set(ax_W, 'YTick', -0.6:0.3:0.6); grid on; box on;
+    set(ax_W,'FontSize',12);
+    set(fig_W, 'PaperSize', [10, 10]);
+    pdf_filename1 = fullfile(cal_path, 'W_space.pdf');
+    saveas(fig_W, pdf_filename1);
+    %print(fig_W, pdf_filename1, '-dpdf', '-opengl', '-bestfit');
     
     scatter3(ax_dkl, ref_dkl_norm(1,:), ref_dkl_norm(2,:), bgDKL(1).*ones(1, nRef),100,colors_W,...
         'filled', 'MarkerEdgeColor','k','Marker','o','lineWidth',2);
-    legend(ax_dkl,[f_dkl_1, f_dkl_2(1), f_dkl_3, f_dkl_4], ...
+    % legend(ax_dkl,[f_dkl_1, f_dkl_2(1), f_dkl_3, f_dkl_4], ...
+    %     {'Isoluminant plane in DKL space', ...
+    %     'The monitor''s gamut',...
+    %     'Corner points computed using method 1',...
+    %     'Corner points computed using method 2'},...
+    %     'Location','north');
+    lgd_dkl = legend(ax_dkl,[f_dkl_1, f_dkl_2(1), f_dkl_3], ...
         {'Isoluminant plane in DKL space', ...
         'The monitor''s gamut',...
-        'Corner points computed using method 1',...
-        'Corner points computed using method 2'},...
-        'Location','north');
+        'Corners'},...
+        'Location','northoutside', 'Orientation', 'vertical');
+    set(ax_dkl,'FontSize',12);
+    set(fig_dkl, 'PaperSize', [10, 10]);
+    pdf_filename2 = fullfile(cal_path, 'dkl_space.pdf');
+    %print(fig_dkl, pdf_filename2, '-dpdf', '-opengl', '-bestfit');
+    saveas(fig_dkl, pdf_filename2);
     
     scatter3(ax_rgb, ref_rgb(1,:), ref_rgb(2,:), ref_rgb(3,:),100,colors_W,...
         'filled', 'MarkerEdgeColor','k','Marker','o','lineWidth',2);
-    legend(ax_rgb,[f_rgb_1, f_rgb_2, f_rgb_3, f_rgb_4], ...
+    % legend(ax_rgb,[f_rgb_1, f_rgb_2, f_rgb_3, f_rgb_4], ...
+    %     {'Background primary',...
+    %     'The monitor''s gamut',...
+    %     'Corner points computed using angle indices corresponding to corner points',...
+    %     'Corner points computed using the transformation matrix from LMS to RGB'},...
+    %     'Location','north');
+    lgd_rgb = legend(ax_rgb,[f_rgb_1, f_rgb_2, f_rgb_3], ...
         {'Background primary',...
         'The monitor''s gamut',...
-        'Corner points computed using angle indices corresponding to corner points',...
-        'Corner points computed using the transformation matrix from LMS to RGB'},...
-        'Location','north');
+        'Corners'},...
+        'Location','northoutside', 'Orientation', 'vertical');
+    set(ax_rgb, 'XTick', 0.2:0.15:0.8);
+    set(ax_rgb, 'YTick', 0.2:0.15:0.8); 
+    set(ax_rgb,'FontSize',12);
+    set(fig_rgb, 'PaperSize', [10, 10]);
+    % Try forcing MATLAB to save as a vector PDF
+    pdf_filename3 = fullfile(cal_path, 'rgb_space.pdf');
+    %print(fig_rgb, pdf_filename3, '-dpdf', '-opengl', '-bestfit');
+    saveas(fig_rgb, pdf_filename3);
 end
+
+%% sanity check
+% if the RGB dots are really from the isoluminant plane, then we should get
+% the same luminance value by doing the calculation below
+lum_check = NaN(1,size(ref_rgb, 2));
+for i = 1:size(ref_rgb, 2)
+    lum_check(i) = T_Y * (calObjXYZ.cal.P_device * ref_rgb(:,i));
+end
+assert(min(abs(lum_check - mean(lum_check))) < 1e-6, 'The dots are not on an isoluminant plane!')
 
 %% save file
 % Get a list of all variables in the current workspace
