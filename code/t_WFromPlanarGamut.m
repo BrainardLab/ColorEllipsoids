@@ -5,7 +5,9 @@
 % of it that is within the gamut of a monitor.
 
 %% Initialize
-clear all; close all;
+clear all; close all; clc
+flag_save_figures = false; 
+flag_save_data = false;
 
 %% Retrieve the correct calibration file
 whichCalFile = 'DELL_11072024_withoutGammaCorrection.mat';
@@ -54,7 +56,7 @@ calObjXYZ = ObjectToHandleCalOrCalStruct(cal);
 CalibrateFitGamma(calObjXYZ, nDeviceLevels);
 SetGammaMethod(calObjXYZ,gammaMode);
 
-%% XYZ
+% XYZ
 USE1931XYZ = false;
 if (USE1931XYZ)
     load T_xyz1931.mat
@@ -66,11 +68,11 @@ end
 T_Y = T_xyz(2,:);
 SetSensorColorSpace(calObjXYZ,T_xyz,Scolor);
 
-%% LMS <-> RGB
+% LMS <-> RGB
 M_RGBToLMS = T_cones*calObjXYZ.cal.P_device;
 M_LMSTORGB = inv(M_RGBToLMS);
 
-%% Compute ambient
+% Compute ambient
 ambientLMS = SettingsToSensor(calObjCones,[0 0 0]');
 ambientXYZ = SettingsToSensor(calObjXYZ,[0 0 0']');
 
@@ -195,15 +197,15 @@ fill3(ax_rgb,[1,0,0,1],[1,1,1,1],[0,0,1,1],'k','FaceAlpha',0.05);
 fill3(ax_rgb,[1,1,1,1],[1,0,0,1],[0,0,1,1],'k','FaceAlpha',0.05); 
 %real plots
 f_rgb_1 = scatter3(ax_rgb,bgPrimary(1),bgPrimary(2),bgPrimary(3),200,'g+','lineWidth',2);  
-f_rgb_2 = scatter3(ax_rgb,gamut_bg_primary(1,:), gamut_bg_primary(2,:), ...
-    gamut_bg_primary(3,:), 5, 'k', 'filled'); 
+scatter3(ax_rgb,gamut_bg_primary(1,:), gamut_bg_primary(2,:), ...
+    gamut_bg_primary(3,:), 2, 'k.', 'filled'); 
     % gamut_bg_primary(3,:), 20, 'k', 'filled', 'MarkerEdgeColor','g'); 
-fill3(ax_rgb, gamut_bg_primary(1,:), gamut_bg_primary(2,:), ...
+f_rgb_2 = fill3(ax_rgb, gamut_bg_primary(1,:), gamut_bg_primary(2,:), ...
     gamut_bg_primary(3,:), 'k','FaceColor','k','FaceAlpha',0.3);
-for aa = 1:25:nAngles
-    vec_aa = horzcat(bgPrimary, gamut_bg_primary(:,aa));
-    plot3(ax_rgb, vec_aa(1,:), vec_aa(2,:), vec_aa(3,:),'k-.');
-end
+% for aa = 1:25:nAngles
+%     vec_aa = horzcat(bgPrimary, gamut_bg_primary(:,aa));
+%     plot3(ax_rgb, vec_aa(1,:), vec_aa(2,:), vec_aa(3,:),'k-.');
+% end
 xlim([0,1]); ylim([0,1]); zlim([0,1]); xlabel('R'); ylabel('G'); zlabel('B')
 axis square; grid on
 
@@ -274,10 +276,13 @@ for ll = 1:numLineSeg
     intersectingPoints1(:,ll) = lineSegmentBase + lineSegmentFactor(ll)*lineSegmentDelta;
     if (lineSegmentFactor(ll) >= 0 && lineSegmentFactor(ll) <= 1)
         corner(ll) = true;
-        f_dkl_3 = plot3(ax_dkl, intersectingPoints(2,ll),intersectingPoints(3,ll), bgDKL(1),...
-            'bo','MarkerFaceColor','b','MarkerSize',14);
-        f_dkl_4 = plot3(ax_dkl, intersectingPoints1(2,ll),intersectingPoints1(3,ll),bgDKL(1),...
-            'ro','MarkerFaceColor','r','MarkerSize',10);
+        %NOTE THAT the matrix for DKL follows this order: 1. lum, 2. L/(L+M), 3. S
+        %But when plotting, x-axis: L/(L+M), y-axis: S, z-axis: lum
+
+        % f_dkl_3 = plot3(ax_dkl, intersectingPoints(2,ll),intersectingPoints(3,ll), bgDKL(1),...
+        %     'bo','MarkerFaceColor','b','MarkerSize',14);
+        f_dkl_3 = plot3(ax_dkl, intersectingPoints1(2,ll),intersectingPoints1(3,ll),bgDKL(1),...
+            'ro','MarkerFaceColor','r','MarkerEdgeColor','b','lineWidth',2,'MarkerSize',10);
     else
         corner(ll) = false;
     end
@@ -295,8 +300,8 @@ angleIndices = arrayfun(@(idx) find(DKL_diff_val{idx} == min(DKL_diff_val{idx}),
     1:length(cornerIndices));
 %retrieve the corner points in the RGB space
 cornerPointsRGB = gamut_bg_primary(:, angleIndices);
-f_rgb_3 = plot3(ax_rgb, cornerPointsRGB(1,:), cornerPointsRGB(2,:),...
-    cornerPointsRGB(3,:), 'bo','MarkerFaceColor','b','MarkerSize',14); 
+% f_rgb_3 = plot3(ax_rgb, cornerPointsRGB(1,:), cornerPointsRGB(2,:),...
+%     cornerPointsRGB(3,:), 'bo','MarkerFaceColor','b','MarkerSize',14); 
 
 %2: go through all the color spaces from DKL to RGB
 corner_DKLDir = vertcat(zeros(1,numCorners),cornerPointsDKLPlane)';
@@ -306,11 +311,13 @@ corner_theLMSExcitations = cell2mat(corner_theLMSExcitations_temp);
 % we the LMS cone excitations, we can them multiply the transformation
 % matrix M_LMSTORGB. Note that we have to subtract the amblient LMS here
 corner_PointsRGB = M_LMSTORGB*(corner_theLMSExcitations - ambientLMS);
-f_rgb_4 = plot3(ax_rgb, corner_PointsRGB(1,:), corner_PointsRGB(2,:),...
-    corner_PointsRGB(3,:), 'ro','MarkerFaceColor','r','MarkerSize',10); 
+f_rgb_3 = plot3(ax_rgb, corner_PointsRGB(1,:), corner_PointsRGB(2,:),...
+    corner_PointsRGB(3,:), 'o','MarkerFaceColor','r',...
+    'MarkerEdgeColor','b','lineWidth',2,'MarkerSize',10); 
 
 %% transformations trom DKL to W space, and RGB space
-bgDKLPlane = [bgDKL(2:3)]; %1st dim: lum; 2nd dim: L/(L+M); 3rd dim: S
+%1st dim: lum; 2nd dim: L/(L+M); 3rd dim: S
+bgDKLPlane = [bgDKL(2:3)]; 
 numCor = length(cornerIndices);
 use_builtInTrans = true;
 
@@ -353,15 +360,19 @@ if (numCorners == 4)
     cornerPoints2DW = cornerPoints2DW_temp(1:2,:) ./ cornerPoints2DW_temp(3,:);
 
     %repeat the same for all the points along the monitor's gamut
+
+    %****Note that when converting DKL to W, we need to add a row of 1's to
+    %make the size match
     gamut2DW_temp = M_DKLPlaneTo2DW*vertcat(gamutDKLPlane-bgDKLPlane,ones(1,nAngles));
     gamut2DW = gamut2DW_temp(1:2,:)./gamut2DW_temp(3,:);
     
     % Make a plot of the gamut in the DKL isoluminantplane
     fig_W = figure; ax_W = axes(fig_W); hold on;
     f_W_1 = plot(ax_W, gamut2DW(1,:),gamut2DW(2,:),'k','LineWidth',2);
-    f_W_2 = plot(ax_W, targetCorners(1,:), targetCorners(2,:),'bo','MarkerFaceColor','b','MarkerSize',14);
-    f_W_3 = plot(ax_W, cornerPoints2DW(1,:),cornerPoints2DW(2,:),'ro','MarkerFaceColor','r','MarkerSize',10);
-    xlim([-1.2 1.2]);  ylim([-1.2 1.2]); axis('square');
+    % f_W_2 = plot(ax_W, targetCorners(1,:), targetCorners(2,:),'bo','MarkerFaceColor','b','MarkerSize',14);
+    f_W_2 = plot(ax_W, cornerPoints2DW(1,:),cornerPoints2DW(2,:),...
+        'o','MarkerFaceColor','r','MarkerEdgeColor','b','lineWidth',2,'MarkerSize',10);
+    xlim([-1.1 1.1]);  ylim([-1.1 1.1]); axis('square');
     xlabel('Wishart space dim 1'); ylabel('Wishart space dim 2');
 
     %% select 9 reference locations
@@ -385,68 +396,32 @@ if (numCorners == 4)
         M_DKLToConeInc*ref_dkl_ext(:,idx),bgLMS), 1:nRef,'UniformOutput', false); %loop through the four corners
     ref_rgb = M_LMSTORGB*(cell2mat(ref_theLMSExcitations) - ambientLMS);
     
-    %% add ref to the plots
+    % add ref to the plots
     cmap = colormap('parula');
     colors_W = cmap(round(linspace(1, size(cmap, 1), nRef)), :);
     
     scatter(ax_W, ref_W_x(:), ref_W_y(:),100, colors_W,...
         'filled','MarkerEdgeColor','k','Marker','o','lineWidth',2);
-    % legend(ax_W, [f_W_1, f_W_2, f_W_3], ...
-    %     {'The monitor''s gamut', ...
-    %     'Target corners (pre-specified)',...
-    %     sprintf('Target corners (multiplying transformation matrix\n and source corners in DKL space)')},...
-    %     'Location','north');
-    lgd_W = legend(ax_W, [f_W_1, f_W_2], ...
-        {'The monitor''s gamut', ...
-        'Corners'},...
-        'Location','northoutside', 'Orientation', 'vertical');
-    set(ax_W, 'XTick', -0.6:0.3:0.6);
-    set(ax_W, 'YTick', -0.6:0.3:0.6); grid on; box on;
+    set(ax_W, 'XTick', [-1,-0.6:0.3:0.6,1]);
+    set(ax_W, 'YTick', [-1,-0.6:0.3:0.6,1]); grid on; box on;
     set(ax_W,'FontSize',12);
     set(fig_W, 'PaperSize', [10, 10]);
-    pdf_filename1 = fullfile([cal_path, '/Plots'], sprintf('W_space_%s.pdf',whichCalFile(1:end-4)));
-    saveas(fig_W, pdf_filename1);
-    %print(fig_W, pdf_filename1, '-dpdf', '-opengl', '-bestfit');
     
-    scatter3(ax_dkl, ref_dkl_norm(1,:), ref_dkl_norm(2,:), bgDKL(1).*ones(1, nRef),100,colors_W,...
+    %NOTE THAT the matrix for DKL follows this order: 1. lum, 2. L/(L+M), 3. S
+    %But when plotting, x-axis: L/(L+M), y-axis: S, z-axis: lum
+    scatter3(ax_dkl, ref_dkl_ext(2,:), ref_dkl_ext(3,:), ref_dkl_ext(1,:), 100, colors_W,...
         'filled', 'MarkerEdgeColor','k','Marker','o','lineWidth',2);
-    % legend(ax_dkl,[f_dkl_1, f_dkl_2(1), f_dkl_3, f_dkl_4], ...
-    %     {'Isoluminant plane in DKL space', ...
-    %     'The monitor''s gamut',...
-    %     'Corner points computed using method 1',...
-    %     'Corner points computed using method 2'},...
-    %     'Location','north');
-    lgd_dkl = legend(ax_dkl,[f_dkl_1, f_dkl_2(1), f_dkl_3], ...
-        {'Isoluminant plane in DKL space', ...
-        'The monitor''s gamut',...
-        'Corners'},...
-        'Location','northoutside', 'Orientation', 'vertical');
     set(ax_dkl,'FontSize',12);
     set(fig_dkl, 'PaperSize', [10, 10]);
-    pdf_filename2 = fullfile([cal_path, '/Plots'], sprintf('dkl_space_%s.pdf',whichCalFile(1:end-4)));
-    %print(fig_dkl, pdf_filename2, '-dpdf', '-opengl', '-bestfit');
-    saveas(fig_dkl, pdf_filename2);
     
     scatter3(ax_rgb, ref_rgb(1,:), ref_rgb(2,:), ref_rgb(3,:),100,colors_W,...
         'filled', 'MarkerEdgeColor','k','Marker','o','lineWidth',2);
-    % legend(ax_rgb,[f_rgb_1, f_rgb_2, f_rgb_3, f_rgb_4], ...
-    %     {'Background primary',...
-    %     'The monitor''s gamut',...
-    %     'Corner points computed using angle indices corresponding to corner points',...
-    %     'Corner points computed using the transformation matrix from LMS to RGB'},...
-    %     'Location','north');
-    lgd_rgb = legend(ax_rgb,[f_rgb_1, f_rgb_2, f_rgb_3], ...
-        {'Background primary',...
-        'The monitor''s gamut',...
-        'Corners'},...
-        'Location','northoutside', 'Orientation', 'vertical');
-    set(ax_rgb, 'XTick', 0.2:0.15:0.8);
-    set(ax_rgb, 'YTick', 0.2:0.15:0.8); 
+    set(ax_rgb, 'XTick', [0, 0.2:0.15:0.8, 1]);
+    set(ax_rgb, 'YTick', [0, 0.2:0.15:0.8, 1]); 
+    set(ax_rgb, 'ZTick', [0, 0.2:0.15:0.8, 1]); 
     set(ax_rgb,'FontSize',12);
     set(fig_rgb, 'PaperSize', [10, 10]);
     % Try forcing MATLAB to save as a vector PDF
-    pdf_filename3 = fullfile([cal_path, '/Plots'], sprintf('rgb_space_%s.pdf',whichCalFile(1:end-4)));
-    %print(fig_rgb, pdf_filename3, '-dpdf', '-opengl', '-bestfit');
 end
 
 %% sanity checks
@@ -469,56 +444,175 @@ assert(min(min(abs(ref_rgb_check - ref_rgb))) < 1e-6,...
     'The matrix that is supposed to take us from W to RGB is not computed correctly!')
 assert(min(min(abs(ref_W_ext_check - ref_W_ext))) < 1e-6,...
     'The matrix that is supposed to take us from W to RGB is not computed correctly!')
+%add it to the rgb plot
+% scatter3(ax_rgb,ref_rgb_check(1,:), ref_rgb_check(2,:), ref_rgb_check(3,:), 'k+')
 
-scatter3(ax_rgb,ref_rgb_check(1,:), ref_rgb_check(2,:), ref_rgb_check(3,:), 'k+')
-saveas(fig_rgb, pdf_filename3);
+%% determine MOCS trials
+nSets_MOCS = 4;
+nLevels_MOCS = 12;
+ref_2DW_MOCS = vertcat([-0.6, 0.6; 0, 0; 0.45, 0.45; -0.15, -0.45]', ones(1, nSets_MOCS));
+
+nChromaDir = 2;
+chromaDir_scaler_2DW = 0.3;
+chromaDir1_2DW = M_DKLPlaneTo2DW * [1,0,1]'; %1st dim: L/(L+M), 2nd dim: S, 3rd dim: filler row (just add 1)
+chromaDir1_2DW(1:2,:) = chromaDir1_2DW(1:2,:)./norm(chromaDir1_2DW(1:2,:)).*chromaDir_scaler_2DW;
+
+chromaDir2_2DW = M_DKLPlaneTo2DW * [0,1,1]'; %1st dim: L/(L+M), 2nd dim: S, 3rd dim: filler row (just add 1)
+chromaDir2_2DW(1:2,:) = chromaDir2_2DW(1:2,:)./norm(chromaDir2_2DW(1:2,:)).*chromaDir_scaler_2DW;
+chromaDir_2DW = horzcat(chromaDir1_2DW, chromaDir2_2DW);
+
+%store all the MOCS sets
+[MOCS_comp_DKL, MOCS_comp_RGB, MOCS_comp_2DW] = deal(NaN(nSets_MOCS, nChromaDir, nLevels_MOCS, 3));
+for s = 1:nSets_MOCS    
+    for d = 1:nChromaDir
+        MOCS_comp_2DW_temp = [linspace(ref_2DW_MOCS(1,s), ref_2DW_MOCS(1,s) + chromaDir_2DW(1,d), nLevels_MOCS); ...
+                              linspace(ref_2DW_MOCS(2,s), ref_2DW_MOCS(2,s) + chromaDir_2DW(2,d), nLevels_MOCS); ...
+                              ones(1, nLevels_MOCS)];%add 1s to the useless third dimension
+        %2D W space
+        MOCS_comp_2DW(s, d, :, :) = MOCS_comp_2DW_temp';
+
+        % convert it from W space to DKL and RGB space
+        MOCS_comp_DKL_temp = (M_2DWToDLKPlane * MOCS_comp_2DW_temp);
+        MOCS_comp_DKL_temp = MOCS_comp_DKL_temp(1:2,:)./MOCS_comp_DKL_temp(3,:);
+        MOCS_comp_DKL(s, d, :, :) = (vertcat(bgDKL(1).*ones(1,nLevels_MOCS), MOCS_comp_DKL_temp))';
+        MOCS_comp_RGB(s, d, :, :) = (M_2DWToRGB * MOCS_comp_2DW_temp)';
+
+        % emphasize the easy trial
+        scatter(ax_W, MOCS_comp_2DW_temp(1,end), MOCS_comp_2DW_temp(2,end), 'ro'); 
+        scatter3(ax_rgb, squeeze(MOCS_comp_RGB(s, d, end, 1)), squeeze(MOCS_comp_RGB(s, d, end, 2)),...
+            squeeze(MOCS_comp_RGB(s, d, end, 3)),'ro');
+        %NOTE THAT the matrix for DKL follows this order: 1. lum, 2. L/(L+M), 3. S
+        %But when plotting, x-axis: L/(L+M), y-axis: S, z-axis: lum
+        scatter3(ax_dkl, squeeze(MOCS_comp_DKL(s, d, end, 2)), squeeze(MOCS_comp_DKL(s, d, end, 3)),...
+            squeeze(MOCS_comp_DKL(s, d, end, 1)),'ro');
+        
+        %add vectors to the plot
+        scatter(ax_W, MOCS_comp_2DW_temp(1,:), MOCS_comp_2DW_temp(2,:), 'k.'); 
+        scatter3(ax_rgb, squeeze(MOCS_comp_RGB(s, d, :, 1)), squeeze(MOCS_comp_RGB(s, d, :, 2)),...
+            squeeze(MOCS_comp_RGB(s, d, :, 3)),'k.');
+        scatter3(ax_dkl, squeeze(MOCS_comp_DKL(s, d, :, 2)), squeeze(MOCS_comp_DKL(s, d, :, 3)),...
+            squeeze(MOCS_comp_DKL(s, d, :, 1)),'k.');
+    end
+end
+
+legend(ax_W, [f_W_1, f_W_2], ...
+    {'The monitor''s gamut', ...
+    'Corners'},...
+    'Location','northoutside', 'Orientation', 'vertical');
+
+legend(ax_dkl,[f_dkl_1, f_dkl_2(1), f_dkl_3], ...
+    {'Isoluminant plane in DKL space', ...
+    'The monitor''s gamut',...
+    'Corners'},...
+    'Location','northoutside', 'Orientation', 'vertical');
+
+legend(ax_rgb,[f_rgb_1, f_rgb_2, f_rgb_3], ...
+    {'Background primary',...
+    'The monitor''s gamut',...
+    'Corners'},...
+    'Location','northoutside', 'Orientation', 'vertical');
+
+if flag_save_figures
+    % legend(ax_W, [f_W_1, f_W_2, f_W_3], ...
+    %     {'The monitor''s gamut', ...
+    %     'Target corners (pre-specified)',...
+    %     sprintf('Target corners (multiplying transformation matrix\n and source corners in DKL space)')},...
+    %     'Location','north');
+
+    % legend(ax_dkl,[f_dkl_1, f_dkl_2(1), f_dkl_3, f_dkl_4], ...
+    %     {'Isoluminant plane in DKL space', ...
+    %     'The monitor''s gamut',...
+    %     'Corner points computed using method 1',...
+    %     'Corner points computed using method 2'},...
+    %     'Location','north');
+
+    % legend(ax_rgb,[f_rgb_1, f_rgb_2, f_rgb_3, f_rgb_4], ...
+    %     {'Background primary',...
+    %     'The monitor''s gamut',...
+    %     'Corner points computed using angle indices corresponding to corner points',...
+    %     'Corner points computed using the transformation matrix from LMS to RGB'},...
+    %     'Location','north');
+
+    pdf_filename1 = fullfile([cal_path, '/Plots'], sprintf('W_space_%s.pdf',whichCalFile(1:end-4)));
+    pdf_filename2 = fullfile([cal_path, '/Plots'], sprintf('dkl_space_%s.pdf',whichCalFile(1:end-4)));
+    pdf_filename3 = fullfile([cal_path, '/Plots'], sprintf('rgb_space_%s.pdf',whichCalFile(1:end-4)));
+
+    saveas(fig_W, pdf_filename1); %print(fig_rgb, pdf_filename3, '-dpdf', '-opengl', '-bestfit');
+    saveas(fig_dkl, pdf_filename2); 
+    saveas(fig_rgb, pdf_filename3); 
+end
 
 %% save almost all the variables for housekeeping purpose
-% Get a list of all variables in the current workspace
-vars = who;
-% Initialize the struct with the specified name
-eval([whichCalFile(1:end-4), ' = struct();'])
-struct_temp = struct();
-% Open a MAT-file to save the variables
-matfileName = 'Transformation_btw_color_spaces.mat';
-outputName = fullfile(cal_path,matfileName);
-% Check if the file already exists
-fileExists = isfile(outputName);
-
-for i = 1:length(vars)
-    % Get the variable name
-    varName = vars{i};
-    % Skip the following variables
-    if ismember(varName, {'fig_dkl', 'fig_rgb','fig_W',...
-                          'ax_dkl', 'ax_rgb','ax_W',...
-                          'f_dkl_1','f_dkl_2','f_dkl_3','f_dkl_4',...
-                          'f_rgb_1','f_rgb_2','f_rgb_3','f_rgb_4',...
-                          'f_W_1','f_W_2','f_W_3',...
-                          'ldg_dkl','lgd_rgb', 'lgd_W'})
-        continue;
+if flag_save_data 
+    % Get a list of all variables in the current workspace
+    vars = who;
+    % Initialize the struct with the specified name
+    eval([whichCalFile(1:end-4), ' = struct();'])
+    struct_temp = struct();
+    % Open a MAT-file to save the variables
+    matfileName = 'Transformation_btw_color_spaces.mat';
+    outputName = fullfile(cal_path,matfileName);
+    % Check if the file already exists
+    fileExists = isfile(outputName);
+    
+    for i = 1:length(vars)
+        % Get the variable name
+        varName = vars{i};
+        % Skip the following variables
+        if ismember(varName, {'fig_dkl', 'fig_rgb','fig_W',...
+                              'ax_dkl', 'ax_rgb','ax_W',...
+                              'f_dkl_1','f_dkl_2','f_dkl_3','f_dkl_4',...
+                              'f_rgb_1','f_rgb_2','f_rgb_3','f_rgb_4',...
+                              'f_W_1','f_W_2','f_W_3',...
+                              'ldg_dkl','lgd_rgb', 'lgd_W'})
+            continue;
+        end
+        % Use dynamic field referencing to add the variable to the struct
+        struct_temp.(varName) = eval(varName);
     end
-    % Use dynamic field referencing to add the variable to the struct
-    struct_temp.(varName) = eval(varName);
-end
-eval([whichCalFile(1:end-4), ' = struct_temp;']);
-
-% Save or append the struct to the MAT file
-if fileExists
-    % Append if file already exists
-    save(outputName, whichCalFile(1:end-4), '-append');
-else
-    % Save as new file if it does not exist
-    save(outputName, whichCalFile(1:end-4));
+    eval([whichCalFile(1:end-4), ' = struct_temp;']);
+    
+    % Save or append the struct to the MAT file
+    if fileExists
+        % Append if file already exists
+        save(outputName, whichCalFile(1:end-4), '-append');
+    else
+        % Save as new file if it does not exist
+        save(outputName, whichCalFile(1:end-4));
+    end
 end
 
-%% save the two transformation matrix to .xlsx files
-% Specify the filename
-filename1 = 'M_2DWToRGB.xlsx';
-outputName1 = fullfile(cal_path,filename1);
-filename2 = 'M_RGBTo2DW.xlsx';
-outputName2 = fullfile(cal_path,filename2);
-% Save the matrix to a CSV file
-writematrix(M_2DWToRGB, outputName1, 'Sheet', whichCalFile(1:13));
-writematrix(M_RGBTo2DW, outputName2, 'Sheet', whichCalFile(1:13));
+%% save the two transformation matrix to .csv files
+if flag_save_data
+    % Specify the filename
+    filename1 = sprintf('M_2DWToRGB_%s.csv', whichCalFile(1:13));
+    outputName1 = fullfile([cal_path,'/M_2DWToRGB'],filename1);
+    filename2 = sprintf('M_RGBTo2DW_%s.csv', whichCalFile(1:13));
+    outputName2 = fullfile([cal_path,'/M_RGBTo2DW'],filename2);
+    % Save the matrix to a CSV file
+    writematrix(round(M_2DWToRGB,8), outputName1);
+    writematrix(round(M_RGBTo2DW,8), outputName2);
+end
 
-
+%% save MOCS trials
+if flag_save_data
+    % Construct output directory path
+    outputName3_temp = fullfile(cal_path, 'MOCS_trials', ['MOCS_trials_', whichCalFile(1:13)]);
+    
+    % Check if the directory exists, create it if it doesn't
+    if ~exist(outputName3_temp, 'dir')
+        mkdir(outputName3_temp);
+    end
+    
+    % Loop through each set and chroma direction
+    for n = 1:nSets_MOCS
+        for d = 1:nChromaDir
+            % Generate filename and output path
+            filename3 = sprintf('MOCS_trials_loc%d_cDir%d.csv', n, d);
+            outputName3 = fullfile(outputName3_temp, filename3);
+            
+            % Save the matrix, rounding to 8 decimal places
+            writematrix(squeeze(round(MOCS_comp_2DW(n, d, :, 1:2), 8)), outputName3);
+        end
+    end
+end
