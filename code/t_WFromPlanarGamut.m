@@ -8,9 +8,10 @@
 clear all; close all; clc
 flag_save_figures = false; 
 flag_save_data = false;
+flag_pregenerate_MOCS = false;
 
 %% Retrieve the correct calibration file
-whichCalFile = 'DELL_11072024_withoutGammaCorrection.mat';
+whichCalFile = 'DELL_11092024_withoutGammaCorrection.mat';
 whichCalNumber = 1;
 nDeviceBits = 14; %doesn't have to be the true color depth; we can go higher
 whichCones = 'ss2';
@@ -219,7 +220,7 @@ f_dkl_1 = fill3(ax_dkl, X(ceil(n_contour/2),:),Y(ceil(n_contour/2),:),...
 f_dkl_2 = fill3(ax_dkl, gamutDKLPlane(1,:),gamutDKLPlane(2,:),zeros(nAngles),...
     'k','FaceColor','k', 'FaceAlpha',0.4);
 xticks(-1:1:1); yticks(-1:1:1);zticks(-1:1:1);
-xlabel('DKL L/(L+M)'); ylabel('DKL S'); zlabel('DKL lum');
+xlabel('DKL L-M'); ylabel('DKL S'); zlabel('DKL lum');
 axis square; grid on; view(-30,30);
 
 %% Let's try to find the corners
@@ -276,8 +277,8 @@ for ll = 1:numLineSeg
     intersectingPoints1(:,ll) = lineSegmentBase + lineSegmentFactor(ll)*lineSegmentDelta;
     if (lineSegmentFactor(ll) >= 0 && lineSegmentFactor(ll) <= 1)
         corner(ll) = true;
-        %NOTE THAT the matrix for DKL follows this order: 1. lum, 2. L/(L+M), 3. S
-        %But when plotting, x-axis: L/(L+M), y-axis: S, z-axis: lum
+        %NOTE THAT the matrix for DKL follows this order: 1. lum, 2. L-M, 3. S
+        %But when plotting, x-axis: L-M, y-axis: S, z-axis: lum
 
         % f_dkl_3 = plot3(ax_dkl, intersectingPoints(2,ll),intersectingPoints(3,ll), bgDKL(1),...
         %     'bo','MarkerFaceColor','b','MarkerSize',14);
@@ -316,7 +317,7 @@ f_rgb_3 = plot3(ax_rgb, corner_PointsRGB(1,:), corner_PointsRGB(2,:),...
     'MarkerEdgeColor','b','lineWidth',2,'MarkerSize',10); 
 
 %% transformations trom DKL to W space, and RGB space
-%1st dim: lum; 2nd dim: L/(L+M); 3rd dim: S
+%1st dim: lum; 2nd dim: L-M; 3rd dim: S
 bgDKLPlane = [bgDKL(2:3)]; 
 numCor = length(cornerIndices);
 use_builtInTrans = true;
@@ -407,8 +408,8 @@ if (numCorners == 4)
     set(ax_W,'FontSize',12);
     set(fig_W, 'PaperSize', [10, 10]);
     
-    %NOTE THAT the matrix for DKL follows this order: 1. lum, 2. L/(L+M), 3. S
-    %But when plotting, x-axis: L/(L+M), y-axis: S, z-axis: lum
+    %NOTE THAT the matrix for DKL follows this order: 1. lum, 2. L-M, 3. S
+    %But when plotting, x-axis: L-M, y-axis: S, z-axis: lum
     scatter3(ax_dkl, ref_dkl_ext(2,:), ref_dkl_ext(3,:), ref_dkl_ext(1,:), 100, colors_W,...
         'filled', 'MarkerEdgeColor','k','Marker','o','lineWidth',2);
     set(ax_dkl,'FontSize',12);
@@ -450,23 +451,33 @@ assert(min(min(abs(ref_W_ext_check - ref_W_ext))) < 1e-6,...
 %% determine MOCS trials
 nSets_MOCS = 4;
 nLevels_MOCS = 12;
+%we are actually sampling 21 levels and toss 12-20 away
+nLevels_expand = round(nLevels_MOCS*1.75);
 ref_2DW_MOCS = vertcat([-0.6, 0.6; 0, 0; 0.45, 0.45; -0.15, -0.45]', ones(1, nSets_MOCS));
 
 nChromaDir = 2;
-chromaDir_scaler_2DW = 0.3;
-chromaDir1_2DW = M_DKLPlaneTo2DW * [1,0,1]'; %1st dim: L/(L+M), 2nd dim: S, 3rd dim: filler row (just add 1)
-chromaDir1_2DW(1:2,:) = chromaDir1_2DW(1:2,:)./norm(chromaDir1_2DW(1:2,:)).*chromaDir_scaler_2DW;
+%!!!!the scalers control the range of MOCS trials, which are completely based
+%on my own pilot data
+% chromaDir_scaler_2DW = [0.2, 0.38; 0.1, 0.1; 0.1, 0.38; 0.2, 0.38];
+chromaDir_scaler_2DW = [0.2, 0.38; 0.05, 0.1; 0.15, 0.38; 0.12, 0.38];
+chromaDir1_2DW = M_DKLPlaneTo2DW * [1,0,1]'; %1st dim: L-M, 2nd dim: S, 3rd dim: filler row (just add 1)
+chromaDir1_2DW(1:2,:) = chromaDir1_2DW(1:2,:)./norm(chromaDir1_2DW(1:2,:));
 
-chromaDir2_2DW = M_DKLPlaneTo2DW * [0,1,1]'; %1st dim: L/(L+M), 2nd dim: S, 3rd dim: filler row (just add 1)
-chromaDir2_2DW(1:2,:) = chromaDir2_2DW(1:2,:)./norm(chromaDir2_2DW(1:2,:)).*chromaDir_scaler_2DW;
+chromaDir2_2DW = M_DKLPlaneTo2DW * [0,1,1]'; %1st dim: L-M, 2nd dim: S, 3rd dim: filler row (just add 1)
+chromaDir2_2DW(1:2,:) = chromaDir2_2DW(1:2,:)./norm(chromaDir2_2DW(1:2,:));
 chromaDir_2DW = horzcat(chromaDir1_2DW, chromaDir2_2DW);
 
 %store all the MOCS sets
 [MOCS_comp_DKL, MOCS_comp_RGB, MOCS_comp_2DW] = deal(NaN(nSets_MOCS, nChromaDir, nLevels_MOCS, 3));
 for s = 1:nSets_MOCS    
     for d = 1:nChromaDir
-        MOCS_comp_2DW_temp = [linspace(ref_2DW_MOCS(1,s), ref_2DW_MOCS(1,s) + chromaDir_2DW(1,d), nLevels_MOCS); ...
-                              linspace(ref_2DW_MOCS(2,s), ref_2DW_MOCS(2,s) + chromaDir_2DW(2,d), nLevels_MOCS); ...
+        %we are actually sampling 21 levels and toss 12-20 away
+        MOCS_comp_2DW_temp_dim1 = linspace(ref_2DW_MOCS(1,s), ...
+            ref_2DW_MOCS(1,s) + chromaDir_2DW(1,d).*chromaDir_scaler_2DW(s,d), nLevels_expand); 
+        MOCS_comp_2DW_temp_dim2 = linspace(ref_2DW_MOCS(2,s), ...
+            ref_2DW_MOCS(2,s) + chromaDir_2DW(2,d).*chromaDir_scaler_2DW(s,d), nLevels_expand);
+        MOCS_comp_2DW_temp = [MOCS_comp_2DW_temp_dim1([2:nLevels_MOCS, nLevels_expand]); ...
+                              MOCS_comp_2DW_temp_dim2([2:nLevels_MOCS, nLevels_expand]); ...
                               ones(1, nLevels_MOCS)];%add 1s to the useless third dimension
         %2D W space
         MOCS_comp_2DW(s, d, :, :) = MOCS_comp_2DW_temp';
@@ -481,17 +492,17 @@ for s = 1:nSets_MOCS
         scatter(ax_W, MOCS_comp_2DW_temp(1,end), MOCS_comp_2DW_temp(2,end), 'ro'); 
         scatter3(ax_rgb, squeeze(MOCS_comp_RGB(s, d, end, 1)), squeeze(MOCS_comp_RGB(s, d, end, 2)),...
             squeeze(MOCS_comp_RGB(s, d, end, 3)),'ro');
-        %NOTE THAT the matrix for DKL follows this order: 1. lum, 2. L/(L+M), 3. S
-        %But when plotting, x-axis: L/(L+M), y-axis: S, z-axis: lum
+        %NOTE THAT the matrix for DKL follows this order: 1. lum, 2. L-M, 3. S
+        %But when plotting, x-axis: L-M, y-axis: S, z-axis: lum
         scatter3(ax_dkl, squeeze(MOCS_comp_DKL(s, d, end, 2)), squeeze(MOCS_comp_DKL(s, d, end, 3)),...
             squeeze(MOCS_comp_DKL(s, d, end, 1)),'ro');
-        
+
         %add vectors to the plot
-        scatter(ax_W, MOCS_comp_2DW_temp(1,:), MOCS_comp_2DW_temp(2,:), 'k.'); 
-        scatter3(ax_rgb, squeeze(MOCS_comp_RGB(s, d, :, 1)), squeeze(MOCS_comp_RGB(s, d, :, 2)),...
-            squeeze(MOCS_comp_RGB(s, d, :, 3)),'k.');
-        scatter3(ax_dkl, squeeze(MOCS_comp_DKL(s, d, :, 2)), squeeze(MOCS_comp_DKL(s, d, :, 3)),...
-            squeeze(MOCS_comp_DKL(s, d, :, 1)),'k.');
+        plot(ax_W, MOCS_comp_2DW_temp(1,:), MOCS_comp_2DW_temp(2,:), 'k.-'); 
+        plot3(ax_rgb, squeeze(MOCS_comp_RGB(s, d, :, 1)), squeeze(MOCS_comp_RGB(s, d, :, 2)),...
+            squeeze(MOCS_comp_RGB(s, d, :, 3)),'k.-');
+        plot3(ax_dkl, squeeze(MOCS_comp_DKL(s, d, :, 2)), squeeze(MOCS_comp_DKL(s, d, :, 3)),...
+            squeeze(MOCS_comp_DKL(s, d, :, 1)),'k.-');
     end
 end
 
@@ -595,7 +606,12 @@ if flag_save_data
 end
 
 %% save MOCS trials
-if flag_save_data
+if flag_pregenerate_MOCS
+    subjN = 5;
+    nTrials_perLevel = 30;
+end
+
+if flag_save_data || flag_pregenerate_MOCS
     % Construct output directory path
     outputName3_temp = fullfile(cal_path, 'MOCS_trials', ['MOCS_trials_', whichCalFile(1:13)]);
     
@@ -608,11 +624,33 @@ if flag_save_data
     for n = 1:nSets_MOCS
         for d = 1:nChromaDir
             % Generate filename and output path
-            filename3 = sprintf('MOCS_trials_loc%d_cDir%d.csv', n, d);
+            filename3 = sprintf('MOCS_trials_cond%d.csv', (n-1)*nChromaDir+d);
             outputName3 = fullfile(outputName3_temp, filename3);
             
             % Save the matrix, rounding to 8 decimal places
-            writematrix(squeeze(round(MOCS_comp_2DW(n, d, :, 1:2), 8)), outputName3);
+            MOCS_comp_2DW_n_d = squeeze(MOCS_comp_2DW(n, d, :, 1:2));
+            writematrix(MOCS_comp_2DW_n_d, outputName3);
+
+            if flag_pregenerate_MOCS
+                seed_n_d = (subjN*10)+(n-1)*nChromaDir+d;
+                rng(seed_n_d);
+                trial_sequence = [];
+                for m = 1:nTrials_perLevel
+                    trial_sequence = [trial_sequence; MOCS_comp_2DW_n_d(randperm(nLevels_MOCS),:)];
+                end
+                % Construct output directory path
+                outputName4_temp = fullfile(cal_path, sprintf('MOCS_trials/sub%d', subjN));
+                
+                % Check if the directory exists, create it if it doesn't
+                if ~exist(outputName4_temp, 'dir')
+                    mkdir(outputName4_temp);
+                end
+
+                %filename4 = sprintf('MOCS_pregenerated_trials_sub%d_cond%d_seed%d.csv', subjN, (n-1)*nChromaDir+d, seed_n_d);
+                filename4 = sprintf('MOCS_pregenerated_trials_sub%d_cond%d.csv', subjN, (n-1)*nChromaDir+d);
+                outputName4 = fullfile(outputName4_temp, filename4);
+                writematrix(trial_sequence, outputName4);
+            end
         end
     end
 end
