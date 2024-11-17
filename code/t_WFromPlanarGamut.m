@@ -9,6 +9,7 @@ clear all; close all; clc
 flag_save_figures = false; 
 flag_save_data = false;
 flag_pregenerate_MOCS = false;
+flag_pregenerate_config = false;
 
 %% Retrieve the correct calibration file
 whichCalFile = 'DELL_11092024_withoutGammaCorrection.mat';
@@ -654,3 +655,41 @@ if flag_save_data || flag_pregenerate_MOCS
         end
     end
 end
+
+%% save randomization indices
+if flag_pregenerate_config
+    subjN = 5;
+
+    nTotal_MOCS = nSets_MOCS * nChromaDir;
+    nTotal_AEPsych = num_grid_pts^2;
+    nTotal_MOCS_and_AEPsych = nTotal_MOCS + nTotal_AEPsych;
+    config_ind = 1:nTotal_MOCS_and_AEPsych;
+    
+    nTrials_per = nTrials_perLevel * nLevels_MOCS;
+
+    seed_t = subjN*10;
+    rng(seed_t);
+    config_sequence = [];
+    for m = 1:nTrials_per
+        config_sequence = [config_sequence; randperm(nTotal_MOCS_and_AEPsych)];
+    end
+
+    % Construct output directory path
+    outputName5_temp = fullfile(cal_path, sprintf('config_sequences/sub%d', subjN));
+    
+    % Check if the directory exists, create it if it doesn't
+    if ~exist(outputName5_temp, 'dir')
+        mkdir(outputName5_temp);
+    end
+
+    filename5 = sprintf('config_sequences_pregenerated_sub%d.csv', subjN);
+    outputName5 = fullfile(outputName5_temp, filename5);
+    writematrix(config_sequence, outputName5);
+end
+
+
+
+
+
+
+
