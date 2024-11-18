@@ -9,7 +9,7 @@ clear all; close all; clc
 flag_save_figures = false; 
 flag_save_data = false;
 flag_pregenerate_MOCS = false;
-flag_pregenerate_config = false;
+flag_addExpt_trials = true;
 
 %% Retrieve the correct calibration file
 whichCalFile = 'DELL_11092024_withoutGammaCorrection.mat';
@@ -657,34 +657,35 @@ if flag_save_data || flag_pregenerate_MOCS
 end
 
 %% save randomization indices
-if flag_pregenerate_config
-    subjN = 5;
+if flag_addExpt_trials
+    subjN = 3;
 
-    nTotal_MOCS = nSets_MOCS * nChromaDir;
-    nTotal_AEPsych = num_grid_pts^2;
-    nTotal_MOCS_and_AEPsych = nTotal_MOCS + nTotal_AEPsych;
-    config_ind = 1:nTotal_MOCS_and_AEPsych;
+    data_path = sprintf('/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_data/2D_isoluminant_plane/sub%d', subjN);
+    data_file = fullfile(data_path, sprintf('Color_discrimination_2d_oddity_task_isoluminantPlane_AEPsych_sub%d.csv', subjN));
+    dataTable = readtable(data_file);
+
+    %Extract the W_comp column
+    N = length(dataTable.W_comp); % Number of rows
+    [RGB_comp, W_comp] = deal(NaN(N, 3)); % Preallocate for efficiency
     
-    nTrials_per = nTrials_perLevel * nLevels_MOCS;
-
-    seed_t = subjN*10;
-    rng(seed_t);
-    config_sequence = [];
-    for m = 1:nTrials_per
-        config_sequence = [config_sequence; randperm(nTotal_MOCS_and_AEPsych)];
+    % Convert each string to a numeric array
+    for i = 1:N
+        W_comp(i, :) = str2num(dataTable.W_comp{i}); 
+        RGB_comp(i,:) = str2num(dataTable.RGB_comp{i});
     end
-
-    % Construct output directory path
-    outputName5_temp = fullfile(cal_path, sprintf('config_sequences/sub%d', subjN));
     
-    % Check if the directory exists, create it if it doesn't
-    if ~exist(outputName5_temp, 'dir')
-        mkdir(outputName5_temp);
+    ref_rgb_MOCS_DD = M_2DWToRGB * W_comp';
+    
+    lum_check = NaN(1,size(ref_rgb_MOCS_DD, 2));
+    for i = 1:size(ref_rgb_MOCS_DD, 2)
+        lum_check(i) = T_Y * (calObjXYZ.cal.P_device * ref_rgb_MOCS_DD(:,i));
     end
-
-    filename5 = sprintf('config_sequences_pregenerated_sub%d.csv', subjN);
-    outputName5 = fullfile(outputName5_temp, filename5);
-    writematrix(config_sequence, outputName5);
+    assert(min(abs(lum_check - mean(lum_check))) < 1e-6,...
+        'The dots are not on an isoluminant plane!')
+    scatter3(ax_rgb, ref_rgb_MOCS_DD(1,:), ref_rgb_MOCS_DD(2,:),...
+                ref_rgb_MOCS_DD(3,:),'wo','filled');
+    scatter3(ax_rgb, RGB_comp(:,1), RGB_comp(:,2), RGB_comp(:,3), 'o','MarkerFaceColor','none',...
+        'MarkerEdgeColor','k');
 end
 
 
