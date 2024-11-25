@@ -7,37 +7,81 @@ Created on Sun Nov 24 10:48:25 2024
 """
 
 import numpy as np
-import sys
 from scipy.optimize import minimize
-sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
-from core.probability_surface import IndividualProbSurfaceModel
-from analysis.ellipses_tools import fit_2d_isothreshold_contour
-from analysis.ellipsoids_tools import fit_3d_isothreshold_ellipsoid
-from analysis.ellipses_tools import ellParams_to_covMat, covMat3D_to_2DsurfaceSlice
 
 #%%
 class fit_PMF_MOCS_trials():
-    def __init__(self, nDim, stim, resp, flag_btst = False,
-                 nBtst = 1000, target_pC = 0.667, **kwargs):
-        self.nDim = nDim
-        self.stim = stim #stimulus has to be centered to the origin
-        #raise an error is stim.shape[1] is not equal to nDim
+    def __init__(self, nDim: int, stim: np.ndarray, resp: np.ndarray, nLevels: int,
+                 flag_btst: bool = False, nBtst: int = 1000, 
+                 guess_rate: float = 0.333, target_pC: float = 0.667, **kwargs: dict):
+        """
+        Fit a psychometric function to MOCS (Method of Constant Stimuli) trials
+        and optionally perform bootstrapping to estimate confidence intervals.
         
-        self.resp = resp
-        self.flag_btst = flag_btst
-        self.nBtst = nBtst
-        self.target_pC = target_pC
+        Parameters
+        ----------
+        nDim : int
+            Number of dimensions in the stimulus space (e.g., 2 for 2D, 3 for 3D).
+        stim : np.ndarray
+            Array of stimulus values (N x nDim), where N is the number of trials.
+            The stimulus should be centered at the origin.
+        resp : np.ndarray
+            Array of binary responses (0 or 1) corresponding to the trials.
+        flag_btst : bool, optional
+            Whether to perform bootstrapping (default is False).
+        nBtst : int, optional
+            Number of bootstrap iterations if bootstrapping is enabled (default is 1000).
+        target_pC : float, optional
+            Target proportion correct for threshold estimation (default is 0.667).
+        **kwargs : dict
+            Additional optional arguments:
+            - nInitializations : int
+                Number of initializations for parameter fitting.
+            - bounds : list of tuples
+                Bounds for the parameters of the psychometric function.
+            - nGridPts : int
+                Number of points for the reconstructed psychometric function.
+        """
+
+        self.nDim       = nDim #whether we are in 2D W space or 3D
+        self.stim       = stim #stimulus has to be centered to the origin
+        self.resp       = resp
+        self.flag_btst  = flag_btst
+        self.nBtst      = nBtst
+        self.target_pC  = target_pC
+        self.nLevels    = nLevels
+        self.guess_rate = guess_rate
+        #Validate inputs to ensure correctness
+        self._validate_inputs()
         self.unique_stim, self.nTrials_perLevel, self.pC_perLevel, self.stim_org, self.resp_org = self._get_unique_stim()
-        self.nLevels = self.unique_stim.shape[0]
+        if self.nLevels != self.unique_stim.shape[0]:
+            raise ValueError("The number of unique stimuli does not match the number of input levels!")
+        
         # Set number of initializations from kwargs, or use default values if not provided
         self.nInitializations = kwargs.get('nInitializations', 20)  
-
         # Set bounds from kwargs, or use default bounds if not provided
-        # Default: non-negative bounds
-        self.bounds = kwargs.get('bounds', [(1e-4, 0.5), (1e-1, 5)]) 
+        self.bounds   = kwargs.get('bounds', [(1e-4, 0.5), (1e-1, 5)]) 
         self.nGridPts = kwargs.get('nGridPts', 1200)
         
-    def _get_unique_stim(self, tol = 1e-10):
+        
+    def _validate_inputs(self):
+        """
+        Validate inputs to ensure correctness of dimensions and consistency between stim and resp.
+        """
+        # Check if stim.shape[1] matches nDim, raise an error if not
+        if self.stim.shape[1] != self.nDim:
+            raise ValueError(f"Stimulus dimensionality mismatch: "
+                             f"Expected {self.nDim}, but got {self.stim.shape[1]}")
+        # Check if the number of trial matches
+        if self.stim.shape[0] != self.resp.shape[0]:
+            raise ValueError(f"The number of responses N = {self.resp.shape[0]} does"
+                             f" not match the number of trials N = {self.stim.shape[0]}!")  
+        # Check if any element in the array is close to 0
+        if ~np.any(np.abs(self.stim[:,0]) <= 1e-6) or ~np.any(np.abs(self.stim[:,1]) <= 1e-6):
+            raise ValueError("The stimuli should be centerred to origin for this computation!")
+            
+    
+    def _get_unique_stim(self, tol = 1e-8):
         """
         Generalized method to retrieve unique stimulus groups and compute statistics at each unique level.
         
@@ -52,7 +96,7 @@ class fit_PMF_MOCS_trials():
         
         Returns:
         - unique_stim (np.ndarray): An array of shape (M, K), where M is the number of unique groups 
-                                     and K is the number of columns in the original array. Each row 
+                                     and K is the number of dimension (self.nDims). Each row 
                                      contains a unique stimulus group.
         - nTrials_perLevel (np.ndarray): A 1D array of shape (M,) representing the number of trials for 
                                          each unique stimulus group.
@@ -70,11 +114,11 @@ class fit_PMF_MOCS_trials():
         num_unique = len(unique_stim_dim1)  # Number of unique groups
         
         # Initialize arrays for results
-        unique_stim = np.full((num_unique, self.stim.shape[1]), np.nan)  # Unique rows for all columns
-        nTrials_perLevel = np.full(num_unique, np.nan)                   # Number of trials per level
-        pC_perLevel = np.full(num_unique, np.nan)                        # Proportion correct per level
-        stim_org = np.full(self.stim.shape, np.nan)                      # undo shuffling
-        resp_org = np.full(self.resp.shape, np.nan)
+        unique_stim      = np.full((num_unique, self.stim.shape[1]), np.nan)  # Unique rows for all columns
+        nTrials_perLevel = np.full(num_unique, np.nan)                        # Number of trials per level
+        pC_perLevel      = np.full(num_unique, np.nan)                        # Proportion correct per level
+        stim_org         = np.full(self.stim.shape, np.nan)                   # undo shuffling
+        resp_org         = np.full(self.resp.shape, np.nan)
         
         # Loop through each unique value in the first column
         idx_counter = 0
@@ -164,6 +208,17 @@ class fit_PMF_MOCS_trials():
             raise ValueError("Optimization failed: " + result.message)
     
     def _find_stim_at_targetPC(self, predPC):
+        """
+        Find the stimulus value corresponding to the target proportion correct (target_pC).
+        
+        This method identifies the stimulus value from the fine grid of predicted probabilities
+        (`predPC`) that is closest to the target proportion correct (`self.target_pC`).
+        
+        Parameters
+        ----------
+        predPC : np.ndarray
+            A 1D array of predicted probabilities corresponding to the finely sampled stimulus values (`self.fineVal`).
+        """
         idx = np.argmin(np.abs(predPC - self.target_pC))
         return self.fineVal[idx]
     
@@ -190,11 +245,13 @@ class fit_PMF_MOCS_trials():
         fineVal_w0 = np.vstack((self.fineVal, np.full(self.fineVal.shape, 0)))
         
         # Compute predicted pC values at the finely sampled stimulus magnitudes
-        fine_pC = self.pC_Weibull_many_trial(bestfit_params, fineVal_w0.T)
+        fine_pC = self.pC_Weibull_many_trial(bestfit_params, 
+                                             fineVal_w0.T, 
+                                             guess_rate = self.guess_rate)
         return fine_pC
     
     @staticmethod
-    def pC_Weibull_many_trial(weibull_params, xy_coords, guess_rate=1/3, eps=1e-4):
+    def pC_Weibull_many_trial(weibull_params, xy_coords, guess_rate=1/3, eps=1e-6):
         """
         Compute the probability of a correct response (pC) for multiple trials 
         using the Weibull psychometric function.
@@ -216,10 +273,6 @@ class fit_PMF_MOCS_trials():
             A 2D array of shape (N, M), where N is the number of trials, and M is the 
             dimensionality of the stimulus coordinates (e.g., 2 for 2D, 3 for 3D). 
             Each row represents the coordinates of a trial.
-    
-        guess_rate : float, optional
-            The guessing rate, representing the probability of a correct response when 
-            no information is available. Defaults to 1/3 (typical for a 3-alternative forced choice task).
     
         eps : float, optional
             A small value to clip the output probabilities and prevent extreme values 
@@ -271,7 +324,7 @@ class fit_PMF_MOCS_trials():
             between the model predictions and the observed data.
         """
         # Compute predicted probabilities of correct responses (pC_hyp)
-        pC_hyp = self.pC_Weibull_many_trial(params, stim)
+        pC_hyp = self.pC_Weibull_many_trial(params, stim, guess_rate= self.guess_rate)
         
         # Compute the negative log-likelihood
         nLL = -np.sum(resp * np.log(pC_hyp) + (1 - resp) * np.log(1 - pC_hyp))
@@ -280,6 +333,13 @@ class fit_PMF_MOCS_trials():
 
             
     def fit_PsychometricFunc_toData(self):
+        """
+        Fit a psychometric function (PMF) to the original dataset.
+    
+        This method serves as a shortcut for fitting a PMF to the original stimulus-response 
+        data. It uses `self._fit_PsychometricFunc`, which is also utilized for bootstrapped 
+        datasets, to ensure consistency in the fitting process.
+        """
         self.bestfit_result = self._fit_PsychometricFunc(self.stim, self.resp);      
     
     def find_stim_at_targetPC_givenData(self):
@@ -288,7 +348,8 @@ class fit_PMF_MOCS_trials():
     def reconstruct_PsychometricFunc_givenData(self):
         self.fine_pC = self._reconstruct_PsychometricFunc(self.bestfit_result.x)
         
-    def bootstrap_and_refit(self):
+    #%% Bootstrap related methods 
+    def bootstrap_and_refit(self, flag_groupwise_btst = False):
         """
         Perform bootstrap resampling and refit the psychometric function.
     
@@ -324,25 +385,41 @@ class fit_PMF_MOCS_trials():
         - self.stim_at_targetPC_btst : np.ndarray
             Stimulus value corresponding to the target performance level for each iteration.
         """
-        # Draw random integers to generate bootstrap samples (trial indices)
-        # `random_int` contains indices sampled with replacement for each level 
-        #(excluding the filler trial)
-        random_int = np.random.randint(
-            low=0,
-            high=np.max(self.nTrials_perLevel),
-            size=(self.nBtst, self.resp.shape[0] - 1)
-        )
-    
-        # Adjust indices to account for each level (trial multiples)
-        # Add multiples of trials for correct indexing
-        add_trialMultiples = np.repeat(np.arange(self.nLevels - 1), 
-                                       np.max(self.nTrials_perLevel)).astype(int)
-        shuffled_idx = random_int + (add_trialMultiples * np.max(self.nTrials_perLevel)).astype(int)
-    
+        
+        # Ensure the number of bootstrapped trials matches the number of trials 
+        #for each stimulus intensity
+        if flag_groupwise_btst:
+            # Draw random integers to generate bootstrap samples (trial indices)
+            # `random_int` contains indices sampled with replacement for each level 
+            #(excluding the filler trial)
+            random_int = np.random.randint(
+                low=0,
+                high=np.max(self.nTrials_perLevel),
+                size=(self.nBtst, self.resp.shape[0] - 1)
+            )
+        
+            # Adjust indices to account for each level (trial multiples)
+            # Add multiples of trials for correct indexing
+            add_trialMultiples = np.repeat(np.arange(self.nLevels - 1), 
+                                           np.max(self.nTrials_perLevel)).astype(int)
+            shuffled_idx = random_int + (add_trialMultiples * np.max(self.nTrials_perLevel)).astype(int)
+        else:
+            # Combine all trials into a single pool (excluding the filler trial)
+            all_indices = np.arange(self.resp.shape[0]-1)
+
+            # Generate bootstrap samples from the combined pool
+            shuffled_idx = np.random.choice(
+                all_indices, 
+                size=(self.nBtst, self.resp.shape[0]-1), 
+                replace=True
+            )
+
         # Exclude the filler trial (x=0, y=1/3) but retain it for reconstruction later
         resp_org_no0 = self.resp_org[1:]
+        stim_org_no0 = self.stim_org[1:]
     
         # Initialize arrays to store bootstrap results
+        self.stim_btst = np.full((self.nBtst,) + self.stim.shape, np.nan)  # Bootstrapped stimuli
         self.resp_btst = np.full((self.nBtst,) + self.resp.shape, np.nan)  # Bootstrapped responses
         self.bestfit_result_btst = np.full((self.nBtst, 2), np.nan)        # Fitted parameters
         self.bestfit_result_nLL = np.full((self.nBtst,), np.nan)           # Negative log-likelihood
@@ -355,9 +432,10 @@ class fit_PMF_MOCS_trials():
             
             # Resample responses (add filler trial back to the dataset)
             self.resp_btst[n] = np.append(self.resp_org[0], resp_org_no0[shuffled_idx[n]])
+            self.stim_btst[n] = np.vstack((self.stim_org[0], stim_org_no0[shuffled_idx[n]]))
     
             # Fit a psychometric function to the bootstrapped dataset
-            fit_btst_n = self._fit_PsychometricFunc(self.stim_org, self.resp_btst[n])
+            fit_btst_n = self._fit_PsychometricFunc(self.stim_btst[n], self.resp_btst[n])
     
             # Extract fitted parameters and negative log-likelihood
             self.bestfit_result_btst[n] = fit_btst_n.x  # Parameter estimates
@@ -368,6 +446,7 @@ class fit_PMF_MOCS_trials():
     
             # Identify the stimulus corresponding to the target performance level (e.g., 0.667)
             self.stim_at_targetPC_btst[n] = self._find_stim_at_targetPC(self.fine_pC_btst[n])
+            
             
     def compute_95btstCI(self):
         """
