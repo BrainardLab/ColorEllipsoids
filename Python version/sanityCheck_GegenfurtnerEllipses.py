@@ -284,9 +284,9 @@ figg, axx = plt.subplots(1, 2, figsize = (12,5), dpi = 1024)
 for n in range(nPts_unit_circle):
     if n == 0: mk = 'd'
     else: mk = '+'
+    cmap[n] = color_thres_data.M_2DWToRGB @ ref_pts_W[:,n]
     axx[0].scatter(ref_pts_W[0, n], ref_pts_W[1, n], color=cmap[n], 
                    marker= mk, s=20, lw = 0.75)
-    cmap[n] = color_thres_data.M_2DWToRGB @ ref_pts_W[:,n]
     axx[0].plot(*fine_ell_W[n], c=cmap[n], lw = 1.5)
 axx[0].plot(*model_pred_Wishart.fitEll_unscaled[idx_row, idx_col], c= 'grey', lw = 1.5)
 axx[0].scatter(0,0, color = 'k', marker = '+', s = 20, lw = 0.75)
@@ -331,8 +331,8 @@ axx[1].set_xlabel('DKL L-M (stretched)')
 axx[1].set_ylabel('DKL S (stretched)')
 axx[1].grid(True, color='grey',linewidth=0.1)
 plt.tight_layout()
-#figg.savefig(output_figDir_fits+f"DKL_stretchedSpace_sub{subN}.pdf", 
-#             format='pdf', bbox_inches='tight')
+figg.savefig(output_figDir_fits+f"DKL_stretchedSpace_sub{subN}.pdf", 
+             format='pdf', bbox_inches='tight')
 
 #%%------------------------------------------------------------------
 # Visualize the threshold contours in the DKL stretched (unit) space
