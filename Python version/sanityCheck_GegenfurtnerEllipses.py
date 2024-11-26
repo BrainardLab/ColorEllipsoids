@@ -62,48 +62,99 @@ W_est = model_pred_Wishart.W_est
 
 #%%
 def convert_ellParamsW_to_covMatDKL(a, b, theta, M_trans):
-    # convert that to cov matrix (only need major axis, minor axis, and angle)
+    """
+    Convert ellipse parameters in W space to a covariance matrix in DKL space.
+
+    Parameters:
+    a (float): Major axis length of the ellipse in W space.
+    b (float): Minor axis length of the ellipse in W space.
+    theta (float): Angle of rotation of the ellipse in degrees in W space.
+    M_trans (ndarray): Transformation matrix to convert W space to DKL space.
+
+    Returns:
+    covMat_ell_DKL (ndarray): Covariance matrix of the ellipse in DKL space.
+    """
+    # Convert ellipse parameters (a, b, theta) to covariance matrix in W space
     covMat_ell_W = ellParamsQ_to_covMat(a, b, theta)
 
-    # convert the covariance matrix from W space to DKL space 
+    # Transform the covariance matrix from W space to DKL space
     covMat_ell_DKL = M_trans @ covMat_ell_W @ M_trans.T
-    
+
     return covMat_ell_DKL
 
 def convert_covMatDKL_to_unitSpace(covMat_ell_DKL):
-    # Eigen decomposition of Sigma2
-    eigVal_covMat_DKL, eigVec_covMat_DKL = np.linalg.eigh(covMat_ell_DKL)
+    """
+    Transform a covariance matrix in DKL space into a unit circle space.
 
-    # Construct the whitening transformation matrix
-    Lambda_inv_sqrt = np.diag(1 / np.sqrt(eigVal_covMat_DKL))
-    covMat_DKL_to_unit = Lambda_inv_sqrt @ eigVec_covMat_DKL.T
-    covMat_unit_to_DKL = np.linalg.inv(covMat_DKL_to_unit)
+    This function converts an ellipse represented by a covariance matrix in 
+    DKL space into the space of a unit circle. Optionally, it can rotate the 
+    space such that the principal axes of the ellipse align with the coordinate axes.
+
+    Parameters:
+    -----------
+    covMat_ell_DKL (ndarray):
+        A 2x2 covariance matrix representing the shape of the ellipse in DKL space.
+    flag_rotate (bool, optional):
+        If True, rotates the space to align the principal axes of the ellipse with 
+        the coordinate axes. If False (default), only scales the ellipse to a unit 
+        circle without changing its orientation.
+    """
+    # Step 1: Perform eigen decomposition of the covariance matrix.
+    eigVal_covMat_DKL, eigVec_covMat_DKL = np.linalg.eigh(covMat_ell_DKL)
     
+    # Ensure the first element of each eigenvector is positive
+    for i in range(eigVec_covMat_DKL.shape[1]):
+        if eigVec_covMat_DKL[0, i] < 0:
+            eigVec_covMat_DKL[:, i] *= -1
+
+    # Step 2: Create a diagonal matrix for scaling, with entries being the inverse square roots of the eigenvalues.
+    # This scaling ensures the axes of the ellipse are normalized to unit length.
+    Lambda_inv_sqrt = np.diag(1 / np.sqrt(eigVal_covMat_DKL))
+
+    # Step 3: Construct the transformation matrix for converting DKL space to unit circle space.
+    # If rotation is enabled, include the eigenvectors to align the ellipse's axes with the coordinate axes.
+    # Otherwise, skip rotation and use the identity matrix, preserving the original orientation.
+    covMat_DKL_to_unit = Lambda_inv_sqrt @ eigVec_covMat_DKL.T
+
+    # Step 4: Compute the inverse of the transformation matrix.
+    # This matrix converts points from the unit circle space back to DKL space.
+    covMat_unit_to_DKL = np.linalg.inv(covMat_DKL_to_unit)
+
     return covMat_DKL_to_unit, covMat_unit_to_DKL
 
-#%%
-#pick the center stimulus, which is grey
-idx_row = model_pred_Wishart.num_grid_pts1//2
-idx_col = model_pred_Wishart.num_grid_pts2//2
-#select the ellipses parameters for the grey stimulus 
-ell_params_grey_W = model_pred_Wishart.params_ell[idx_row][idx_col] #x center, y center, major axis, minior axis, angle (deg)
+#%%-----------------------------------------------------------
+#                           Main code
+# -------------------------------------------------------------
+# Select the center stimulus, which corresponds to the gray stimulus
+idx_row = model_pred_Wishart.num_grid_pts1 // 2  # Row index for the center
+idx_col = model_pred_Wishart.num_grid_pts2 // 2  # Column index for the center
+
+# Retrieve the ellipse parameters for the gray stimulus (center of the grid)
+# Parameters: x center, y center, major axis, minor axis, rotation angle
+ell_params_grey_W = model_pred_Wishart.params_ell[idx_row][idx_col]
+
+# Convert the ellipse parameters from W space to a covariance matrix in DKL space
 covMat_ell_grey_DKL = convert_ellParamsW_to_covMatDKL(*ell_params_grey_W[2:], M_2DWToDKL)
 
-#compute a matrix that converts DKL to unit space and vice versa
+# Compute the transformation matrices between DKL space and unit circle space
 covMat_DKL_to_unit, covMat_unit_to_DKL = convert_covMatDKL_to_unitSpace(covMat_ell_grey_DKL)
 
+# Generate points on a scaled unit circle
 nPts_unit_circle = 17
 scaler = 6
-unit_circle_pts = (np.eye(2)*scaler) @ UnitCircleGenerate(nPts_unit_circle)
+unit_circle_pts = (np.eye(2) * scaler) @ UnitCircleGenerate(nPts_unit_circle)
 
-#going back from unit circle to DKL to W
-pts_DKL = covMat_unit_to_DKL @ unit_circle_pts 
-ref_pts_W = M_DKLTo2DW @ np.vstack((pts_DKL, np.full((1, nPts_unit_circle), 1)))
+# Transform unit circle points to DKL space
+ref_pts_DKL = covMat_unit_to_DKL @ unit_circle_pts
+# Transform DKL points to W space using the inverse of the transformation matrix
+ref_pts_W = M_DKLTo2DW @ np.vstack((ref_pts_DKL, np.full((1, nPts_unit_circle), 1)))
 
-#retrieve the covariance matrices at those sampled locations
-ref_pts_W_org = ref_pts_W[:-1].T
-ref_pts_W_orgg = ref_pts_W_org[np.newaxis,:,:]
-model_pred_Wishart_copy.convert_Sig_Threshold_oddity_batch(np.transpose(ref_pts_W_orgg,(2,0,1)))
+# Extract the original W space coordinates (excluding the homogeneous component)
+ref_pts_W_org = ref_pts_W[:-1].T  # Shape: (nPts_unit_circle, 2)
+ref_pts_W_orgg = ref_pts_W_org[np.newaxis, :, :]  # Add an extra dimension for batch processing
+
+# Retrieve threshold data at the sampled locations in W space
+model_pred_Wishart_copy.convert_Sig_Threshold_oddity_batch(np.transpose(ref_pts_W_orgg, (2, 0, 1)))
 
 #initialize
 nDir = 200
@@ -124,33 +175,53 @@ for n in range(nPts_unit_circle):
     fine_ell_DKL[n] = convert_2Dcov_to_points_on_ellipse(covMat_around_grey_DKL[n])
     fine_ell_unit[n] = covMat_DKL_to_unit @ fine_ell_DKL[n]
 
-#%%
+#%% visualize
+# Wishart space 
 cmap = np.full((nPts_unit_circle, 3), np.nan)
 figg, axx = plt.subplots(1, 2, figsize = (8,5), dpi = 1024)
 axx[0].plot(*model_pred_Wishart.fitEll_unscaled[idx_row, idx_col], c= 'grey')
 axx[0].scatter(0,0, c = 'k', marker = '+', s = 20)
 for n in range(nPts_unit_circle):
-    axx[0].scatter(ref_pts_W[0, n], ref_pts_W[1, n], c=cmap[n], marker='+', s=20)
+    if n == 0: mk = 'd'
+    else: mk = '+'
+    axx[0].scatter(ref_pts_W[0, n], ref_pts_W[1, n], c=cmap[n], marker= mk, s=20)
     cmap[n] = color_thres_data.M_2DWToRGB @ ref_pts_W[:,n]
     axx[0].plot(*fine_ell_W[n], c=cmap[n])
 axx[0].set_aspect('equal', adjustable='box')  # Make the axis square
 axx[0].set_xlabel('Wishart space dimension 1')
 axx[0].set_ylabel('Wishart space dimension 2')
 axx[0].grid(True, color='grey',linewidth=0.1)
+
+# # DKL L-M and S
+# for n in range(nPts_unit_circle):
+#     if n == 0: mk = '^'
+#     else: mk = '+'
+#     axx[1].scatter(ref_pts_DKL[0,n], ref_pts_DKL[1,n], 
+#                    marker = mk, c = 'k', s = 20)
+#     axx[1].plot(fine_ell_DKL[n,0] + ref_pts_DKL[0,n], 
+#                 fine_ell_DKL[n,1] + ref_pts_DKL[1,n], c = cmap[n])
+# axx[1].scatter(0,0, c = 'k', marker = '+', s = 20)
+# axx[1].set_aspect('equal', adjustable='box')  # Make the axis square
+# axx[1].set_xlabel('DKL L-M')
+# axx[1].set_ylabel('DKL S')
+# axx[1].grid(True, color='grey',linewidth=0.1)
     
+# DKL L-M and S (stretched)
 for n in range(nPts_unit_circle):
+    if n == 0: mk = 'd'
+    else: mk = '+'
     axx[1].scatter(unit_circle_pts[0,n], unit_circle_pts[1,n], 
-                   marker = '+', c = 'k', s = 20)
+                   marker = mk, c = 'k', s = 20)
     axx[1].plot(fine_ell_unit[n,0] + unit_circle_pts[0,n], 
                 fine_ell_unit[n,1] + unit_circle_pts[1,n], c = cmap[n])
 unit_circ = UnitCircleGenerate(nDir)
 axx[1].plot(unit_circ[0], unit_circ[1], c = 'grey')    
 axx[1].scatter(0,0, c = 'k', marker = '+', s = 20)
 axx[1].set_aspect('equal', adjustable='box')  # Make the axis square
-axx[1].set_xlim([-8,8])
-axx[1].set_ylim([-8,8])
-axx[1].set_xticks(np.linspace(-8,8,5))
-axx[1].set_yticks(np.linspace(-8,8,5))
+axx[1].set_xlim([-10,10])
+axx[1].set_ylim([-10,10])
+axx[1].set_xticks(np.linspace(-10,10,5))
+axx[1].set_yticks(np.linspace(-10,10,5))
 axx[1].set_xlabel('DKL L-M')
 axx[1].set_ylabel('DKL S')
 axx[1].grid(True, color='grey',linewidth=0.1)
