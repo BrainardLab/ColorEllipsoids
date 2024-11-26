@@ -386,8 +386,6 @@ class fit_PMF_MOCS_trials():
             Stimulus value corresponding to the target performance level for each iteration.
         """
         
-        # Ensure the number of bootstrapped trials matches the number of trials 
-        #for each stimulus intensity
         if flag_groupwise_btst:
             # Draw random integers to generate bootstrap samples (trial indices)
             # `random_int` contains indices sampled with replacement for each level 
@@ -446,7 +444,6 @@ class fit_PMF_MOCS_trials():
     
             # Identify the stimulus corresponding to the target performance level (e.g., 0.667)
             self.stim_at_targetPC_btst[n] = self._find_stim_at_targetPC(self.fine_pC_btst[n])
-            
             
     def compute_95btstCI(self):
         """

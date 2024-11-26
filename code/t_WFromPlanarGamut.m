@@ -9,7 +9,7 @@ clear all; close all; clc
 flag_save_figures = false; 
 flag_save_data = false;
 flag_pregenerate_MOCS = false;
-flag_addExpt_trials = true;
+flag_addExpt_trials = false;
 
 %% Retrieve the correct calibration file
 whichCalFile = 'DELL_11092024_withoutGammaCorrection.mat';
@@ -601,9 +601,15 @@ if flag_save_data
     outputName1 = fullfile([cal_path,'/M_2DWToRGB'],filename1);
     filename2 = sprintf('M_RGBTo2DW_%s.csv', whichCalFile(1:13));
     outputName2 = fullfile([cal_path,'/M_RGBTo2DW'],filename2);
+    filename3 = sprintf('M_2DWToDKLPlane_%s.csv', whichCalFile(1:13));
+    outputName3 = fullfile([cal_path,'/M_2DWToDKL'],filename3);
+    filename4 = sprintf('M_DKLPlaneTo2DW_%s.csv', whichCalFile(1:13));
+    outputName4 = fullfile([cal_path,'/M_DKLTo2DW'],filename4);
     % Save the matrix to a CSV file
     writematrix(round(M_2DWToRGB,8), outputName1);
     writematrix(round(M_RGBTo2DW,8), outputName2);
+    writematrix(round(M_2DWToDLKPlane,8), outputName3);
+    writematrix(round(M_DKLPlaneTo2DW,8), outputName4);
 end
 
 %% save MOCS trials
