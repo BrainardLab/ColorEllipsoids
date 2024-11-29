@@ -27,7 +27,7 @@ from analysis.ellipses_tools import ellParamsQ_to_covMat, UnitCircleGenerate,con
 base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
             
 #specify the file name
-subN = 1
+subN = 2
 path_str  = base_dir+ f'ELPS_analysis/Experiment_DataFiles/sub{subN}/'
 file_name = f'Color_discrimination_2d_oddity_task_isoluminantPlane_MOCS_sub{subN}_copy.db'
 full_path = f"{path_str}{file_name}"
@@ -338,7 +338,7 @@ figg.savefig(output_figDir_fits+f"DKL_stretchedSpace_sub{subN}.pdf",
 # Visualize the threshold contours in the DKL stretched (unit) space
 # for all reference stimulus locations tested in the experiment
 # -------------------------------------------------------------------
-fig, ax = plt.subplots(1, 1, figsize = (12,5), dpi = 1024)
+fig, ax = plt.subplots(1, 1, figsize = (12,6), dpi = 1024)
 # DKL L-M and S (stretched)
 for n in range(nPts_unit_circle):
     ax.scatter(circle_pts[0,n], circle_pts[1,n], 
@@ -373,7 +373,7 @@ ax.set_ylabel('DKL S (stretched)')
 ax.set_xlim([-50, 50])
 ax.set_ylim([-25, 25])
 ax.set_xticks(np.round(np.linspace(-50,50,9),2))
-ax.set_yticks(np.round(np.linspace(-25,25,5),2))
+ax.set_yticks(np.round(np.linspace(-30,30,5),2))
 ax.grid(True, color='grey',linewidth=0.1)
 fig.savefig(output_figDir_fits+f"DKL_stretchedSpace_wExptRefs_sub{subN}.pdf",
              format='pdf', bbox_inches='tight')
