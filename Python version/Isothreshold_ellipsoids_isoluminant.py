@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from scipy.io import loadmat
 import sys
+import os
 import numpy as np
 import jax
 jax.config.update("jax_enable_x64", True)
@@ -22,8 +23,10 @@ sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Pytho
 from plotting.sim_CIELab_plotting import CIELabVisualization
 
 #%% load the isoluminant plane
-path_str = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox/"
-sys.path.append(path_str)
+os.chdir("/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox/")
+
+#path_str = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox/"
+#sys.path.append(path_str)
 #load data
 iso_mat = loadmat('W_from_PlanarGamut.mat')
 gamut_rgb = iso_mat['gamut_bg_primary']
@@ -32,7 +35,7 @@ corner_points_rgb = iso_mat['cornerPointsRGB']
 #%% define output directory for output files and figures
 COLOR_DIMENSION = 3
 # base directory
-baseDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
+baseDir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
 # Create an instance of the class
 color_thres_data = color_thresholds(COLOR_DIMENSION, baseDir + 'ELPS_analysis/')
     
@@ -62,15 +65,17 @@ nRef_slc = nIdx_slc**COLOR_DIMENSION
 ref_points_slc = ref_points[idx_slc][:,idx_slc][:,:,idx_slc]
 fitEll_unscaled_slc = fitEll_unscaled[idx_slc][:,idx_slc][:,:,idx_slc]
 thres_points_slc = CIE_data['rgb_surface_scaled'][idx_slc][:,idx_slc][:,:,idx_slc]
-CIELabVisualization.plot_3D_isothreshold_ellipsoid(np.reshape(ref_points_slc,(nRef_slc,COLOR_DIMENSION)),
-                                                   np.reshape(fitEll_unscaled_slc,(nRef_slc,COLOR_DIMENSION,-1)),
-                                                   ax = ax,
-                                                   visualize_thresholdPoints = True,
-                                                   visualize_ellipsoids = True,
-                                                   scatter_alpha = 1,
-                                                   scatter_ms = 1,
-                                                   ref_ms = 3,
-                                                   threshold_points = np.reshape(thres_points_slc,(nRef_slc,)+thres_points_slc.shape[3:]))
+# Create an instance of the class
+vis = CIELabVisualization(color_thres_data)
+vis.plot_3D(np.reshape(ref_points_slc,(nRef_slc,COLOR_DIMENSION)),
+                            np.reshape(fitEll_unscaled_slc,(nRef_slc,COLOR_DIMENSION,-1)),
+                            ax = ax,
+                            visualize_thresholdPoints = True,
+                            visualize_ellipsoids = True,
+                            scatter_alpha = 1,
+                            scatter_ms = 1,
+                            ref_ms = 3,
+                            threshold_points = np.reshape(thres_points_slc,(nRef_slc,)+thres_points_slc.shape[3:]))
 plt.show()
 
 #%%
@@ -122,10 +127,10 @@ for s in range(COLOR_DIMENSION):
              [centroid[2], centroid[2]+Vt[s,2]],
              color='k', lw = 0.5)
 fitEll_unscaled1 = color_thres_data.W_unit_to_N_unit(gt_Wishart.fitEll_unscaled)
-CIELabVisualization.plot_3D_isothreshold_ellipsoid(color_thres_data.W_unit_to_N_unit(ref_points_on_plane),
-                                                   np.reshape(fitEll_unscaled1,(nRef_on_plane,COLOR_DIMENSION,-1)),
-                                                   ax = ax1,
-                                                   visualize_ellipsoids = True,
-                                                   ref_ms = 3,
-                                                   view_angle = [30,-120])
+vis.plot_3D(color_thres_data.W_unit_to_N_unit(ref_points_on_plane),
+            np.reshape(fitEll_unscaled1,(nRef_on_plane,COLOR_DIMENSION,-1)),
+            ax = ax1,
+            visualize_ellipsoids = True,
+            ref_ms = 3,
+            view_angle = [30,-120])
 plt.show()

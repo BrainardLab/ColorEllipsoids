@@ -6,7 +6,7 @@
 
 %% Initialize
 clear all; close all; clc
-flag_save_figures = false; 
+flag_save_figures = true; 
 flag_save_data = false;
 flag_pregenerate_MOCS = false;
 flag_addExpt_trials = false;
@@ -284,7 +284,7 @@ for ll = 1:numLineSeg
         % f_dkl_3 = plot3(ax_dkl, intersectingPoints(2,ll),intersectingPoints(3,ll), bgDKL(1),...
         %     'bo','MarkerFaceColor','b','MarkerSize',14);
         f_dkl_3 = plot3(ax_dkl, intersectingPoints1(2,ll),intersectingPoints1(3,ll),bgDKL(1),...
-            'ro','MarkerFaceColor','r','MarkerEdgeColor','b','lineWidth',2,'MarkerSize',10);
+            'ro','MarkerFaceColor',[0.8,0.8,0.8],'MarkerEdgeColor','k','lineWidth',2,'MarkerSize',10);
     else
         corner(ll) = false;
     end
@@ -314,8 +314,8 @@ corner_theLMSExcitations = cell2mat(corner_theLMSExcitations_temp);
 % matrix M_LMSTORGB. Note that we have to subtract the amblient LMS here
 corner_PointsRGB = M_LMSTORGB*(corner_theLMSExcitations - ambientLMS);
 f_rgb_3 = plot3(ax_rgb, corner_PointsRGB(1,:), corner_PointsRGB(2,:),...
-    corner_PointsRGB(3,:), 'o','MarkerFaceColor','r',...
-    'MarkerEdgeColor','b','lineWidth',2,'MarkerSize',10); 
+    corner_PointsRGB(3,:), 'o','MarkerFaceColor',[0.8,0.8,0.8],...
+    'MarkerEdgeColor','k','lineWidth',2,'MarkerSize',10); 
 
 %% transformations trom DKL to W space, and RGB space
 %1st dim: lum; 2nd dim: L-M; 3rd dim: S
@@ -373,12 +373,12 @@ if (numCorners == 4)
     f_W_1 = plot(ax_W, gamut2DW(1,:),gamut2DW(2,:),'k','LineWidth',2);
     % f_W_2 = plot(ax_W, targetCorners(1,:), targetCorners(2,:),'bo','MarkerFaceColor','b','MarkerSize',14);
     f_W_2 = plot(ax_W, cornerPoints2DW(1,:),cornerPoints2DW(2,:),...
-        'o','MarkerFaceColor','r','MarkerEdgeColor','b','lineWidth',2,'MarkerSize',10);
+        'o','MarkerFaceColor',[0.8,0.8,0.8],'MarkerEdgeColor','k','lineWidth',2,'MarkerSize',10);
     xlim([-1.1 1.1]);  ylim([-1.1 1.1]); axis('square');
     xlabel('Wishart space dim 1'); ylabel('Wishart space dim 2');
 
     %% select 9 reference locations
-    num_grid_pts = 5;
+    num_grid_pts = 3;
     ref_W_1d = linspace(-0.6,0.6,num_grid_pts);
     [ref_W_x, ref_W_y] = meshgrid(ref_W_1d, ref_W_1d);
     nRef = length(ref_W_x(:));
@@ -400,7 +400,7 @@ if (numCorners == 4)
     
     % add ref to the plots
     cmap = colormap('parula');
-    colors_W = cmap(round(linspace(1, size(cmap, 1), nRef)), :);
+    colors_W = ref_rgb';
     
     scatter(ax_W, ref_W_x(:), ref_W_y(:),100, colors_W,...
         'filled','MarkerEdgeColor','k','Marker','o','lineWidth',2);

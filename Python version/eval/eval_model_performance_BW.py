@@ -11,7 +11,7 @@ jax.config.update("jax_enable_x64", True)
 import matplotlib.pyplot as plt
 import sys
 import os
-import dill as pickle
+import dill as pickled
 import numpy as np
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
 from analysis.ellipses_tools import ellParams_to_covMat, rotAngle_to_eigenvectors
@@ -21,7 +21,8 @@ from analysis.model_performance import ModelPerformance
         
 # Define base directory and figure output directory
 base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
-fig_outputDir = base_dir+'ELPS_analysis/ModelPerformance_FigFiles/'
+proj_name = 'META' #'META'
+fig_outputDir = base_dir+proj_name+'_analysis/ModelPerformance_FigFiles/'
 
 #%% ------------------------------------------
 # Load data simulated using CIELab
@@ -30,14 +31,17 @@ jitter  = [0.3]#[0.1, 0.3, 0.5]   # Different noise levels (jitter)
 nLevels = len(jitter)      # Number of noise levels
 nSims   = 200                # Number of simulations per condition
 saveFig = False            # Whether to save the figures
-color_dimension = 3        # Dimensionality of the color space (2D or 3D)
-fitting_method = 'indvEll'#'indvEll'
+color_dimension = 2        # Dimensionality of the color space (2D or 3D)
+if proj_name == 'META': thres_dimension = 4
+else: thres_dimension = color_dimension
+fitting_method = ''#'indvEll'
 if fitting_method == 'indvEll':
     str_ext = '_indvEll'
 else:
     str_ext = ''
 # Path to the directory containing the simulation data files
-path_str1 = base_dir + f'ELPS_analysis/ModelFitting_DataFiles/{color_dimension}D_oddity_task{str_ext}/' 
+#path_str1 = base_dir + proj_name + f'_analysis/ModelFitting_DataFiles/{thres_dimension}D_oddity_task{str_ext}/' 
+path_str1 = base_dir + proj_name + f'_analysis/ModelFitting_DataFiles/{thres_dimension}DTask{str_ext}/' 
 
 # List to store loaded simulation data
 data_load = []
@@ -45,7 +49,7 @@ data_load = []
 # Loop through each jitter level and load corresponding simulation data
 for j in jitter:
     if color_dimension == 2: 
-        plane_2D = 'GB plane'  # For 2D simulations, select a specific plane (e.g., GB plane)
+        plane_2D = 'RG plane'  # For 2D simulations, select a specific plane (e.g., GB plane)
         s_ell = plane_2D       # Label used for file naming
     else:
         s_ell = 'ellipsoids'   # For 3D simulations, no specific plane
@@ -53,8 +57,11 @@ for j in jitter:
     
     # Construct the file name based on the jitter level and other parameters
     if fitting_method != 'indvEll':
-        file_name_j = f'Fitted_isothreshold_{s_ell}_sim{nSims}perCond_samplingNearContour_' +\
+        if proj_name == 'ELPS':
+            file_name_j = f'Fitted_isothreshold_{s_ell}_sim{nSims}perCond_samplingNearContour_' +\
                       f'jitter{j:01}_seed0_bandwidth0.005_oddity.pkl'
+        else:
+            file_name_j = f'Fitted_byWishart_isothreshold_{plane_2D}_4DExpt_sim02800total_AEPsychSampling_EAVC_sub2.pkl'
     else:
         file_name_j = f'Fitted_isothreshold_{s_ell}_sim{nSims}perCond_samplingNearContour'+\
             f'_jitter{j:01}_seed1_oddity{str_ext}.pkl'
@@ -63,7 +70,7 @@ for j in jitter:
     # Change directory and load the simulation data using pickle
     os.chdir(path_str1)
     with open(full_path_j, 'rb') as f:
-        data_load_j = pickle.load(f)
+        data_load_j = pickled.load(f)
         data_load.append(data_load_j) # Append the loaded data to the list
 
 #%% load ground truths
