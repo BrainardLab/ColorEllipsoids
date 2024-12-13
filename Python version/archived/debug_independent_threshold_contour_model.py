@@ -43,7 +43,7 @@ nRefs = xy_ref.shape[0]  # Number of reference points (4 in this case)
 par_all = model_indv.sample_params_prior(jax.random.PRNGKey(0))
 par_all = par_all[:,0:3]
 
-nTrials = 10000  # Number of trials (or points) to generate for each ellipse
+nTrials = 1000  # Number of trials (or points) to generate for each ellipse
 jitter = 0.3  # Amount of random jitter to add to the sampled points
 xy_comp = np.full((nRefs, nTrials, 2), np.nan)  # Initialize array for comparison points (elliptical points)
 

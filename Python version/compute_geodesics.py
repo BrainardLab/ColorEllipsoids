@@ -26,7 +26,7 @@ from analysis.ellipses_tools import UnitCircleGenerate
 
 #%% load file
 base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
-plane_2D = 'GB plane'
+plane_2D = 'RB plane'
 flag_load_pilot = False
 if flag_load_pilot:
     fileDir_fits = base_dir +f'META_analysis/ModelFitting_DataFiles/2dTask/pilot/'
@@ -173,7 +173,7 @@ wishart_pred_vis.plot_2D(
     gt_lw= 0.5,
     gt_lc =[0.1,0.1,0.1],
     fontsize = 8.5,
-    fig_name = "Geodesics_CIE.pdf") 
+    fig_name = f"Geodesics_{plane_2D}.png") 
         
 
 #%% ---------------

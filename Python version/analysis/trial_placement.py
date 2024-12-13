@@ -600,7 +600,7 @@ class TrialPlacementWithoutAdaptiveSampling:
         
         # Retrieve the optimal scaling factor and the corresponding probability
         opt_scaler = z2_scaler[min_idx]
-        return opt_scaler, probC[min_idx]
+        return opt_scaler, probC[min_idx], probC
     
     
     

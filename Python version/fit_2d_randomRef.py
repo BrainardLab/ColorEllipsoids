@@ -82,7 +82,7 @@ for rng_seed in range(1):
                      'slc_fixedVal': color_thres_data.fixed_value}
     target_pC     = 2/3
     # Scaler used to adjust covariance matrices to approximate 66.7% correct responses
-    # scaler_radii, pC_approx = sim_trial.compute_radii_scaler_to_reach_targetPC(target_pC,
+    # scaler_radii, pC_approx,_ = sim_trial.compute_radii_scaler_to_reach_targetPC(target_pC,
     #                                                                            nsteps=100,
     #                                                                            visualize= True)
     scaler_radii = 2.56

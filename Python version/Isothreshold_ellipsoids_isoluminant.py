@@ -13,6 +13,7 @@ import sys
 import os
 import numpy as np
 import jax
+import jax.numpy as jnp
 jax.config.update("jax_enable_x64", True)
 
 #load functions from other modules
@@ -23,10 +24,8 @@ sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Pytho
 from plotting.sim_CIELab_plotting import CIELabVisualization
 
 #%% load the isoluminant plane
-os.chdir("/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox/")
-
-#path_str = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox/"
-#sys.path.append(path_str)
+path_str = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox/"
+sys.path.append(path_str)
 #load data
 iso_mat = loadmat('W_from_PlanarGamut.mat')
 gamut_rgb = iso_mat['gamut_bg_primary']
@@ -79,11 +78,13 @@ vis.plot_3D(np.reshape(ref_points_slc,(nRef_slc,COLOR_DIMENSION)),
 plt.show()
 
 #%%
+os.chdir("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
+
 ref_points_on_plane = color_thres_data.N_unit_to_W_unit(np.transpose(iso_mat['ref_rgb'],(1,0)))
 nRef_on_plane = ref_points_on_plane.shape[0]
 # Transpose the grid to match the expected input format of the model's prediction functions.
 # The transposition is dependent on the color dimension to ensure the correct orientation of the data.
-grid_trans = ref_points_on_plane[np.newaxis, np.newaxis,:,:]
+grid_trans = jnp.array(ref_points_on_plane[np.newaxis, np.newaxis,:,:])
 # batch compute 78% threshold contour based on estimated weight matrix
 test_Wishart = gt_Wishart
 test_Wishart.convert_Sig_Threshold_oddity_batch(grid_trans)

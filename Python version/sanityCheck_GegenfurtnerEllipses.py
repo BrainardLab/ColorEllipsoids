@@ -27,7 +27,7 @@ from analysis.ellipses_tools import ellParamsQ_to_covMat, UnitCircleGenerate,con
 base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
             
 #specify the file name
-subN = 2
+subN = 5
 path_str  = base_dir+ f'ELPS_analysis/Experiment_DataFiles/sub{subN}/'
 file_name = f'Color_discrimination_2d_oddity_task_isoluminantPlane_MOCS_sub{subN}_copy.db'
 full_path = f"{path_str}{file_name}"
@@ -164,7 +164,7 @@ stretchingMat_DKL_to_unit, stretchingMat_unit_to_DKL = stretchingMat_from_covMat
 
 # Generate points on a scaled unit circle (to serve as reference)
 nPts_unit_circle = 17
-scaler = 6
+scaler = 6.5
 unit_circle_pts = (np.eye(2) * scaler) @ UnitCircleGenerate(nPts_unit_circle)
 
 # Transform unit circle points from unit space to DKL space
@@ -282,7 +282,7 @@ for n in range(base_shape[0]):
 cmap = np.full((nPts_unit_circle, 3), np.nan)
 figg, axx = plt.subplots(1, 2, figsize = (12,5), dpi = 1024)
 for n in range(nPts_unit_circle):
-    if n == 0: mk = 'd'
+    if n == 0: mk = '+'
     else: mk = '+'
     cmap[n] = color_thres_data.M_2DWToRGB @ ref_pts_W[:,n]
     axx[0].scatter(ref_pts_W[0, n], ref_pts_W[1, n], color=cmap[n], 
@@ -313,7 +313,7 @@ axx[0].grid(True, color='grey',linewidth=0.1)
 # DKL L-M and S (stretched)
 circle_pts = stretchingMat_DKL_to_unit @ ref_pts_DKL
 for n in range(nPts_unit_circle):
-    if n == 0: mk = 'd'
+    if n == 0: mk = '+'
     else: mk = '+'
     axx[1].scatter(circle_pts[0,n], circle_pts[1,n], 
                    marker = mk, color = 'k', s = 20, lw = 0.75)
@@ -370,9 +370,9 @@ ax.scatter(0,0, c = 'k', marker = '+', s = 20, lw = 0.5)
 ax.set_aspect('equal', adjustable='box')  # Make the axis square
 ax.set_xlabel('DKL L-M (stretched)')
 ax.set_ylabel('DKL S (stretched)')
-ax.set_xlim([-50, 50])
+ax.set_xlim([-30, 30])
 ax.set_ylim([-25, 25])
-ax.set_xticks(np.round(np.linspace(-50,50,9),2))
+ax.set_xticks(np.round(np.linspace(-30,30,5),2))
 ax.set_yticks(np.round(np.linspace(-30,30,5),2))
 ax.grid(True, color='grey',linewidth=0.1)
 fig.savefig(output_figDir_fits+f"DKL_stretchedSpace_wExptRefs_sub{subN}.pdf",
