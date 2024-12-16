@@ -592,8 +592,6 @@ class TrialPlacementWithoutAdaptiveSampling:
     
         # Plot the computed probabilities as a function of the scaling factors
         if visualize: plt.plot(z2_scaler, probC)
-        print(type(pC_target))  # Should be <class 'float'>
-        print(type(probC))
         
         # Find the index of the scaling factor closest to the target probability (pC_target)
         min_idx = np.argmin(np.abs(pC_target - probC))
