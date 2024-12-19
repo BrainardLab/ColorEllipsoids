@@ -220,7 +220,7 @@ class TrialPlacementWithoutAdaptiveSampling:
                     rgb_comp_temp, _, _, _ = self.sample_rgb_comp_2DNearContour(rgb_ref,
                                                                                 ellPara)      
                 else:
-                    ellPara = self.gt_CIE_results['ellParams'][self.sim['slc_RGBplane']][*ref_idx]
+                    ellPara = self.gt_CIE_results['ellParams'][self.sim['slc_RGBplane']][ref_idx]
                     rgb_comp_temp, _, _, _ = self.sample_rgb_comp_2DNearContour(rgb_ref[varying_plane_idx],
                                                                                 ellPara)         
           
@@ -230,7 +230,7 @@ class TrialPlacementWithoutAdaptiveSampling:
         else:
             if self.sim['method_sampling'] == 'NearContour':
                 # Use ellipsoidal parameters to generate comparison stimuli
-                ellPara = self.gt_CIE_results['ellipsoidParams'][*ref_idx]
+                ellPara = self.gt_CIE_results['ellipsoidParams'][ref_idx]
                 rgb_comp_temp = self.sample_rgb_comp_3DNearContour(rgb_ref, ellPara)      
             elif self.sim['method_sampling'] == 'Random':
                 print('Some day, remember to update sample_rgb_comp_random so that it generalizes to 3D.')
