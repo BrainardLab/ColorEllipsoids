@@ -25,7 +25,7 @@ from plotting.sim_CIELab_plotting import CIELabVisualization
 
 #%% load the isoluminant plane
 path_str = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox/"
-sys.path.append(path_str)
+os.chdir(path_str)
 #load data
 iso_mat = loadmat('W_from_PlanarGamut.mat')
 gamut_rgb = iso_mat['gamut_bg_primary']
@@ -87,7 +87,7 @@ nRef_on_plane = ref_points_on_plane.shape[0]
 grid_trans = jnp.array(ref_points_on_plane[np.newaxis, np.newaxis,:,:])
 # batch compute 78% threshold contour based on estimated weight matrix
 test_Wishart = gt_Wishart
-test_Wishart.convert_Sig_Threshold_oddity_batch(grid_trans)
+test_Wishart.convert_Sig_Threshold_oddity_batch(grid_trans[0])
 
 #%% Calculate the mean of the points (centroid)
 #here we can use either gamut_rgb or corner_points_rgb
