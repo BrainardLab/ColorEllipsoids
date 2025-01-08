@@ -91,13 +91,23 @@ class CommunicateViaTextFile:
         raise IOError(f"Failed to open file for writing after {self.max_retries} retries.")
         
     def extract_last_line(self):
-        # Open the file for reading
-        with open(self.dropbox_fullfile, 'r') as file:
-            last_line = ''
-            # Read the file line by line to get the last line
-            for line in file:
-                last_line = line.strip()  # Keep trimming whitespace
-        return last_line
+        retry_count = 0
+        while retry_count < self.max_retries:
+            try:
+                # Open the file for reading
+                with open(self.dropbox_fullfile, 'r') as file:
+                    last_line = ''
+                    # Read the file line by line to get the last line
+                    for line in file:
+                        last_line = line.strip()  # Keep trimming whitespace
+                return last_line
+            except IOError:
+                # If file opening fails, increment retry count and pause
+                retry_count += 1
+                time.sleep(self.retry_delay)
+
+        # If we reach here, it means we failed to open the file
+        raise IOError(f"Failed to open file for writing after {self.max_retries} retries.")
     
     def extract_last_word_in_file(self, last_line = None):
         """

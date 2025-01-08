@@ -15,7 +15,7 @@ dropbox_path = 'c:\\users\\brainardlab-adm\\Aguirre-Brainard Lab Dropbox\\Fangfa
 file_name = 'test_communication.txt'
 
 # Initialize communication class
-communicator = CommunicateViaTextFile(dropbox_path, timeout =120, retry_delay = 0.1, max_retries = 20)
+communicator = CommunicateViaTextFile(dropbox_path, timeout =120, retry_delay = 0.1, max_retries = 100)
 communicator.check_and_handle_file(file_name)
 
 #%% Step 1: Initialize
