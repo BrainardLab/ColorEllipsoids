@@ -180,13 +180,10 @@ class CommunicateViaTextFile:
         Raises:
             IOError: If the file cannot be opened for writing or reading.
         """
-        # Write the initial message to the file
-        with open(self.dropbox_fullfile, 'w') as file:
-            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            file.write(f"{timestamp} - {self.computer_name}: Set_Up_to_Communicate\n")
+        # Append the message to the file
+        self.append_message_to_file("Set_Up_to_Communicate")
 
         start_time = time.time()
-
         # Wait for Unity to send back "Ready_To_Communicate"
         while True:
             is_ready_to_communicate = self.check_last_word_in_file("Ready_To_Communicate")
@@ -266,10 +263,8 @@ class CommunicateViaTextFile:
         while True:
             is_set_up_to_communicate = self.check_last_word_in_file("Set_Up_to_Communicate")
             if is_set_up_to_communicate:
-                # Write the initial message to the file
-                with open(self.dropbox_fullfile, 'w') as file:
-                    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                    file.write(f"{timestamp} - {self.computer_name}: Ready_To_Communicate\n")
+                # Append the message to the file
+                self.append_message_to_file("Ready_To_Communicate")
                 break
             
             # Check if the timeout duration has been exceeded
