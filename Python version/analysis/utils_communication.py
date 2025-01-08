@@ -23,6 +23,7 @@ class CommunicateViaTextFile:
         self.computer_name = socket.gethostname()
         self.retry_delay = retry_delay
         self.timeout = timeout
+        self.terminate = False
         
     def check_and_handle_file(self, file_name):
         """
@@ -87,7 +88,7 @@ class CommunicateViaTextFile:
         # If we reach here, it means we failed to open the file
         raise IOError(f"Failed to open file for writing after {max_retries} retries.")
         
-    def check_last_line(self):
+    def extract_last_line(self):
         # Open the file for reading
         with open(self.dropbox_fullfile, 'r') as file:
             last_line = ''
@@ -95,8 +96,38 @@ class CommunicateViaTextFile:
             for line in file:
                 last_line = line.strip()  # Keep trimming whitespace
         return last_line
+    
+    def extract_last_word_in_file(self, last_line = None):
+        """
+        extract the last word.
+    
+        Args:
+            word (str): The word to check.
+    
+        Returns:
+            tuple: A tuple containing:
+                - bool: True if the word is the last word of the last line, otherwise False.
+                - str: The last line of the file.
         
-    def check_last_word_in_file(self, word):
+        Raises:
+            IOError: If the file cannot be opened for reading.
+        """
+        try:
+            if last_line is None:
+                # Read the file line by line to get the last line
+                last_line = self.extract_last_line()
+    
+            # Split the last line into words
+            if last_line:
+                words = last_line.split()
+                return words[-1]
+    
+            # If the file is empty, return False and an empty string
+            return False, ""
+        except IOError:
+            raise IOError("Failed to open file for reading.")
+        
+    def check_last_word_in_file(self, word, last_word = None):
         """
         Checks if the specified word is the last word of the last line in the file.
     
@@ -111,20 +142,9 @@ class CommunicateViaTextFile:
         Raises:
             IOError: If the file cannot be opened for reading.
         """
-        try:
-            # Read the file line by line to get the last line
-            last_line = self.check_last_line()
-    
-            # Split the last line into words
-            if last_line:
-                words = last_line.split()
-                last_word = words[-1] if words else ''
-                return last_word == word, last_line
-    
-            # If the file is empty, return False and an empty string
-            return False, ""
-        except IOError:
-            raise IOError("Failed to open file for reading.")
+        if last_word is None:
+            last_word = self.extract_last_word_in_file()
+        return last_word == word
             
     def initialize_communication(self):
         """
@@ -143,7 +163,7 @@ class CommunicateViaTextFile:
 
         # Wait for Unity to send back "Ready_To_Communicate"
         while True:
-            is_ready_to_communicate, _ = self.check_last_word_in_file("Ready_To_Communicate")
+            is_ready_to_communicate = self.check_last_word_in_file("Ready_To_Communicate")
             if is_ready_to_communicate:
                 break
             
@@ -173,7 +193,7 @@ class CommunicateViaTextFile:
 
         # Wait for Unity to send back a message indicating the image has been displayed
         while True:
-            is_image_confirmed, _ = self.check_last_word_in_file("Image_Confirmed")
+            is_image_confirmed = self.check_last_word_in_file("Image_Confirmed")
             if is_image_confirmed:
                 break
 
@@ -189,7 +209,13 @@ class CommunicateViaTextFile:
         
         #wait for command
         while True:
-            is_image_display, last_line = self.check_last_word_in_file("Image_Display")
+            last_line = self.extract_last_line()
+            last_word = self.extract_last_word_in_file(last_line = last_line)
+            is_image_display = self.check_last_word_in_file("Image_Display", last_word = last_word)
+            is_done = self.check_last_word_in_file("Done", last_word = last_word)
+            if is_done:
+                break
+            
             if is_image_display:
                 # extract the RGB value
                 RGBvals = self.extract_rgb_values(last_line)
@@ -197,6 +223,7 @@ class CommunicateViaTextFile:
                 message_image_for_display = f"R{RGBvals[0]:.4f}_G{RGBvals[1]:.4f}_B{RGBvals[2]:.4f} Image_Confirmed"
                 # Append the message to the file
                 self.append_message_to_file(message_image_for_display)
+                break
             
             # Check if the timeout duration has been exceeded
             if time.time() - start_time > self.timeout:
@@ -234,7 +261,7 @@ class CommunicateViaTextFile:
 
         # Wait for command
         while True:
-            is_set_up_to_communicate, _ = self.check_last_word_in_file("Set_Up_to_Communicate")
+            is_set_up_to_communicate = self.check_last_word_in_file("Set_Up_to_Communicate")
             if is_set_up_to_communicate:
                 # Write the initial message to the file
                 with open(self.dropbox_fullfile, 'w') as file:
@@ -254,4 +281,5 @@ class CommunicateViaTextFile:
         Appends a message to the file indicating that the sequence is done.
         """
         self.append_message_to_file("Done")
+        self.terminate = True
             
