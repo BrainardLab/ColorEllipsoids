@@ -240,6 +240,7 @@ class CommunicateViaTextFile:
             is_image_display = self.check_last_word_in_file("Image_Display", last_word = last_word)
             is_done = self.check_last_word_in_file("Done", last_word = last_word)
             if is_done:
+                self.terminate = True
                 break
             
             if is_image_display:
