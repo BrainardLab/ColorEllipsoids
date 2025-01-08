@@ -12,7 +12,8 @@ import os
 import numpy as np
 
 class CommunicateViaTextFile:
-    def __init__(self, dropbox_file_path, retry_delay = 0.1, timeout = 30):
+    def __init__(self, dropbox_file_path, retry_delay = 0.1, timeout = 30,
+                 max_retries = 10):
         """
         Initialize the CommunicateViaTextFile class with the file path.
         
@@ -23,6 +24,7 @@ class CommunicateViaTextFile:
         self.computer_name = socket.gethostname()
         self.retry_delay = retry_delay
         self.timeout = timeout
+        self.max_retries = max_retries
         self.terminate = False
         
     def check_and_handle_file(self, file_name):
@@ -58,7 +60,7 @@ class CommunicateViaTextFile:
 
         self.dropbox_fullfile = file_path
 
-    def append_message_to_file(self, message, max_retries = 5):
+    def append_message_to_file(self, message):
         """
         Appends a message with a timestamp to the specified file.
         
@@ -70,7 +72,7 @@ class CommunicateViaTextFile:
         """
         retry_count = 0
 
-        while retry_count < max_retries:
+        while retry_count < self.max_retries:
             try:
                 # Open the file in append mode
                 with open(self.dropbox_fullfile, 'a') as file:
@@ -86,7 +88,7 @@ class CommunicateViaTextFile:
                 time.sleep(self.retry_delay)
 
         # If we reach here, it means we failed to open the file
-        raise IOError(f"Failed to open file for writing after {max_retries} retries.")
+        raise IOError(f"Failed to open file for writing after {self.max_retries} retries.")
         
     def extract_last_line(self):
         # Open the file for reading
@@ -145,6 +147,30 @@ class CommunicateViaTextFile:
         if last_word is None:
             last_word = self.extract_last_word_in_file()
         return last_word == word
+            
+    def extract_rgb_values(self, input_string):
+        """
+        Extracts the RGB values from the input string.
+
+        Args:
+            input_string (str): The input string containing RGB values.
+
+        Returns:
+            np.ndarray: A NumPy array of the RGB values.
+        """
+        try:            
+            # Find the RGB part in the message
+            rgb_part = input_string.split(' ')[-2]  # Extract the part before "Image_Display"
+            
+            # Extract individual R, G, B values
+            r_value = float(rgb_part.split('_')[0][1:])  # Remove 'R' and convert to float
+            g_value = float(rgb_part.split('_')[1][1:])  # Remove 'G' and convert to float
+            b_value = float(rgb_part.split('_')[2][1:])  # Remove 'B' and convert to float
+            
+            # Return as a NumPy array
+            return np.array([r_value, g_value, b_value])
+        except Exception as e:
+            raise ValueError(f"Failed to extract RGB values from input: {input_string}. Error: {e}")
             
     def initialize_communication(self):
         """
@@ -231,30 +257,6 @@ class CommunicateViaTextFile:
 
             # Pause for a short period to prevent CPU overload
             time.sleep(self.retry_delay)
-                
-    def extract_rgb_values(self, input_string):
-        """
-        Extracts the RGB values from the input string.
-
-        Args:
-            input_string (str): The input string containing RGB values.
-
-        Returns:
-            np.ndarray: A NumPy array of the RGB values.
-        """
-        try:            
-            # Find the RGB part in the message
-            rgb_part = input_string.split(' ')[-2]  # Extract the part before "Image_Display"
-            
-            # Extract individual R, G, B values
-            r_value = float(rgb_part.split('_')[0][1:])  # Remove 'R' and convert to float
-            g_value = float(rgb_part.split('_')[1][1:])  # Remove 'G' and convert to float
-            b_value = float(rgb_part.split('_')[2][1:])  # Remove 'B' and convert to float
-            
-            # Return as a NumPy array
-            return np.array([r_value, g_value, b_value])
-        except Exception as e:
-            raise ValueError(f"Failed to extract RGB values from input: {input_string}. Error: {e}")
             
     def confirm_communication(self):
         start_time = time.time()
