@@ -170,7 +170,7 @@ class CommunicateViaTextFile:
 
         # Wait for Unity to send back a message indicating the image has been displayed
         while True:
-            if self.check_last_word_in_file("RGBvalues_Successfully_Received"):
+            if self.check_last_word_in_file("Image_Confirmed"):
                 break
 
             # Check if the timeout duration has been exceeded

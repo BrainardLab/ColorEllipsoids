@@ -18,14 +18,10 @@ file_name = 'test_communication.txt'
 communicator = CommunicateViaTextFile(dropbox_path)
 communicator.check_and_handle_file(file_name)
 
-# Step 1: Initialize
-try:
-    print("Initializing communication...")
-    communicator.initialize_communication()
-    print("Initialization complete.")
-except TimeoutError as e:
-    print(f"Error during initialization: {e}")
-    exit()
+#%% Step 1: Initialize
+print("Initializing communication...")
+communicator.initialize_communication()
+print("Initialization complete.")
 
 # Step 2: Send 10 sets of RGB values
 rgb_values = np.random.rand(10, 3)  # Generate 10 random RGB values
