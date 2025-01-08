@@ -14,7 +14,7 @@ dropbox_path = 'c:\\users\\brainardlab-adm\\Aguirre-Brainard Lab Dropbox\\Fangfa
 file_name = 'test_communication.txt'
 
 # Initialize communication class
-communicator = CommunicateViaTextFile(dropbox_path)
+communicator = CommunicateViaTextFile(dropbox_path, timeout = 120, retry_delay=0.1, max_retries=10)
 communicator.check_and_handle_file(file_name)
 
 # Step 1: Wait for Initialization
@@ -24,11 +24,10 @@ print("Initialization confirmed.")
 
 # Step 2: Wait for and confirm RGB values
 while True:
-    last_line = communicator.check_last_line()
-    if "Done" in last_line:
-        print("Communication finalized by sender.")
-    else:
-        print("Waiting for RGB values...")
-        communicator.confirm_RGBvals()
-        print("RGB values confirmed.")
+    
+    if communicator.terminate:
+        break
+    print("Waiting for RGB values...")
+    communicator.confirm_RGBvals()
+    print("RGB values confirmed.")
     
