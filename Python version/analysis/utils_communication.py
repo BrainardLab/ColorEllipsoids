@@ -196,6 +196,23 @@ class CommunicateViaTextFile:
             # Pause for a short period to prevent CPU overload
             time.sleep(self.retry_delay)
             
+    def confirm_communication(self):
+        start_time = time.time()
+
+        # Wait for command
+        while True:
+            is_set_up_to_communicate = self.check_last_word_in_file("Set_Up_to_Communicate")
+            if is_set_up_to_communicate:
+                # Append the message to the file
+                self.append_message_to_file("Ready_To_Communicate")
+                break
+                
+            # Check if the timeout duration has been exceeded
+            if time.time() - start_time > self.timeout:
+                raise TimeoutError(f"Timeout: Did not receive 'Set_Up_to_Communicate' within {self.timeout} seconds.")
+            # Pause for a short period to prevent CPU overload
+            time.sleep(self.retry_delay)
+            
     def send_RGBvals(self, target_settings):
         """
         Sends the current RGB values for display to the file and waits for confirmation.
@@ -256,24 +273,6 @@ class CommunicateViaTextFile:
             # Pause for a short period to prevent CPU overload
             time.sleep(self.retry_delay)
             
-    def confirm_communication(self):
-        start_time = time.time()
-
-        # Wait for command
-        while True:
-            is_set_up_to_communicate = self.check_last_word_in_file("Set_Up_to_Communicate")
-            if is_set_up_to_communicate:
-                # Append the message to the file
-                self.append_message_to_file("Ready_To_Communicate")
-                break
-            
-            # Check if the timeout duration has been exceeded
-            if time.time() - start_time > self.timeout:
-                raise TimeoutError(f"Timeout: Did not receive 'Set_Up_to_Communicate' within {self.timeout} seconds.")
-            # Pause for a short period to prevent CPU overload
-            time.sleep(self.retry_delay)
-        
-        
     def finalize(self):
         """
         Appends a message to the file indicating that the sequence is done.
