@@ -99,12 +99,14 @@ class CommunicateViaTextFile:
     def check_last_word_in_file(self, word):
         """
         Checks if the specified word is the last word of the last line in the file.
-        
+    
         Args:
             word (str): The word to check.
-        
+    
         Returns:
-            bool: True if the word is the last word of the last line, otherwise False.
+            tuple: A tuple containing:
+                - bool: True if the word is the last word of the last line, otherwise False.
+                - str: The last line of the file.
         
         Raises:
             IOError: If the file cannot be opened for reading.
@@ -112,15 +114,15 @@ class CommunicateViaTextFile:
         try:
             # Read the file line by line to get the last line
             last_line = self.check_last_line()
-
+    
             # Split the last line into words
             if last_line:
                 words = last_line.split()
                 last_word = words[-1] if words else ''
-                return last_word == word
-
-            # If the file is empty, return False
-            return False
+                return last_word == word, last_line
+    
+            # If the file is empty, return False and an empty string
+            return False, ""
         except IOError:
             raise IOError("Failed to open file for reading.")
             
@@ -185,9 +187,10 @@ class CommunicateViaTextFile:
         
         #wait for command
         while True:
-            if self.check_last_word_in_file("Image_Display"):
+            is_image_display, last_line = self.check_last_word_in_file("Image_Display")
+            if is_image_display:
                 # extract the RGB value
-                RGBvals = self.extract_rgb_values(self.check_last_line())
+                RGBvals = self.extract_rgb_values(last_line)
                 # Create the message to indicate the current stimulus to display
                 message_image_for_display = f"R{RGBvals[0]:.4f}_G{RGBvals[1]:.4f}_B{RGBvals[2]:.4f} Image_Confirmed"
                 # Append the message to the file
