@@ -143,7 +143,8 @@ class CommunicateViaTextFile:
 
         # Wait for Unity to send back "Ready_To_Communicate"
         while True:
-            if self.check_last_word_in_file("Ready_To_Communicate"):
+            is_ready_to_communicate, _ = self.check_last_word_in_file("Ready_To_Communicate")
+            if is_ready_to_communicate:
                 break
             
             # Check if the timeout duration has been exceeded
@@ -172,7 +173,8 @@ class CommunicateViaTextFile:
 
         # Wait for Unity to send back a message indicating the image has been displayed
         while True:
-            if self.check_last_word_in_file("Image_Confirmed"):
+            is_image_confirmed, _ = self.check_last_word_in_file("Image_Confirmed")
+            if is_image_confirmed:
                 break
 
             # Check if the timeout duration has been exceeded
@@ -232,7 +234,8 @@ class CommunicateViaTextFile:
 
         # Wait for command
         while True:
-            if self.check_last_word_in_file("Set_Up_to_Communicate"):
+            is_set_up_to_communicate, _ = self.check_last_word_in_file("Set_Up_to_Communicate")
+            if is_set_up_to_communicate:
                 # Write the initial message to the file
                 with open(self.dropbox_fullfile, 'w') as file:
                     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
