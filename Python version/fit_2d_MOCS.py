@@ -177,9 +177,7 @@ Sigmas_recover_wRandx = model_test.compute_Sigmas(model_test.compute_U(W_recover
 # -----------------------------
 target_pC = 2/3
 model_pred_Wishart_MOCS = wishart_model_pred(model_test, opt_params, 
-                                        NUM_GRID_PTS, MC_SAMPLES, 
-                                        BANDWIDTH, W_INIT_KEY,
-                                        DATA_KEY, OPT_KEY, W_init, 
+                                        W_INIT_KEY, DATA_KEY, OPT_KEY, W_init, 
                                         W_recover_wRandx, Sigmas_recover_wRandx, 
                                         color_thres_data,
                                         target_pC= target_pC,

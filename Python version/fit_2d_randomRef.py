@@ -222,9 +222,7 @@ for rng_seed in range(1):
     # Compute model predictions
     # -----------------------------
     model_pred_Wishart_wRandx = wishart_model_pred(model_test, opt_params, 
-                                            NUM_GRID_PTS, MC_SAMPLES, 
-                                            BANDWIDTH, W_INIT_KEY,
-                                            DATA_KEY, OPT_KEY, W_init, 
+                                            W_INIT_KEY, DATA_KEY, OPT_KEY, W_init, 
                                             W_recover_wRandx, Sigmas_recover_wRandx, 
                                             color_thres_data,
                                             target_pC= target_pC,
@@ -244,9 +242,7 @@ for rng_seed in range(1):
     # Compute model predictions
     # -----------------------------
     model_pred_Wishart_wRandx_s = wishart_model_pred(model_test, opt_params, 
-                                            NUM_GRID_PTS+1,  MC_SAMPLES, 
-                                            BANDWIDTH, W_INIT_KEY,
-                                            DATA_KEY, OPT_KEY, W_init, 
+                                            W_INIT_KEY, DATA_KEY, OPT_KEY, W_init, 
                                             W_recover_wRandx, Sigmas_recover_wRandx_s, 
                                             color_thres_data,
                                             target_pC= target_pC,

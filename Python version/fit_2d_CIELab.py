@@ -131,8 +131,7 @@ for rr in range(10):
     # -----------------------------
     # Compute model predictions
     # -----------------------------
-    model_pred_Wishart = wishart_model_pred(model, opt_params, NUM_GRID_PTS, 
-                                            MC_SAMPLES, BANDWIDTH, W_INIT_KEY,
+    model_pred_Wishart = wishart_model_pred(model, opt_params, W_INIT_KEY,
                                             DATA_KEY, OPT_KEY, W_init, 
                                             W_est, Sigmas_est_grid, 
                                             color_thres_data,
