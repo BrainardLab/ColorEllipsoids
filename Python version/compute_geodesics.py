@@ -79,8 +79,9 @@ if flag_load_pilot:
     performance_field = color_thres_data.N_unit_to_W_unit(
         model_pred_Wishart.fitEll_scaled
     )
-    color_thres_data.fixed_color_dim = 0  # Fix the color dimension for further analysis
-    color_thres_data.varying_RGBplane = [1,2]
+    #color_thres_data.fixed_color_dim = 0  # Fix the color dimension for further analysis
+    #color_thres_data.varying_RGBplane = [1,2]
+    color_thres_data = vars_dict['color_thres_data']
 
     # Define the output figure directory based on the loaded file path
     figDir_fits_temp = full_path[:full_path.rfind('/') + 1]
@@ -134,7 +135,7 @@ v0 = 6*jnp.array(UnitCircleGenerate(nStarts))
 geo_path_all_x0 = []
 geo_path_trim_all_x0 = []
 
-for s in range(x0_all.shape[0]):
+for s in range(x0_all.shape[0]): #x0_all.shape[0]
     # ---------------------------
     # Run ODE Solver for Geodesic
     # ---------------------------
@@ -149,7 +150,7 @@ for s in range(x0_all.shape[0]):
     odesolver = Dopri5()
     # Compute geodesic and determine final location
     for i in range(nStarts):
-        geo_path_i = geodesics.exponential_map(x0, v0[:,i], odeterm, odesolver)
+        geo_path_i = geodesics.exponential_map(x0, v0[:,i], odeterm, odesolver, dt0 = 0.001)
         geo_path.append(geo_path_i)
         #x1 = geo_path[-1]
         
@@ -191,16 +192,17 @@ for s in range(x0_all.shape[0]):
         samples_s = 1,
         plane_2D = plane_2D,
         modelpred_ls = '-',
-        modelpred_lw = 2,
+        modelpred_lw = 1.5,
         modelpred_lc = None,
         modelpred_alpha = 0.8,
         gt_lw= 0.5,
         gt_lc =[0.1,0.1,0.1],
-        fontsize = 8.5,
-        fig_name = f"Geodesics_{plane_2D}_startingPoint[{x0[0]:.1f}, {x0[1]:.1f}].pdf") 
-    #ax.set_title(plane_2D, fontsize = 10)    
-    #ax.set_xlabel('Wishart dimension 1')
-    #ax.set_ylabel('Wishart dimension 2')   
+        fontsize = 8.5) 
+    if plane_2D == 'isoluminant plane':
+        ax.set_title(plane_2D, fontsize = 10)    
+        ax.set_xlabel('Wishart dimension 1')
+        ax.set_ylabel('Wishart dimension 2')   
+    #wishart_pred_vis._save_figure(fig,f"Geodesics_{plane_2D}_startingPoint[{x0[0]:.1f}, {x0[1]:.1f}].pdf") 
     
 #%%
 # x0_test = jnp.array([-0.6,0.6])
@@ -217,31 +219,25 @@ for s in range(x0_all.shape[0]):
 
 #%% select two geodesic paths
 idx_x0 = 6
-idx_path = [32, 36]
+idx_path = [32, 35, 38]
 geo_path_trim_slc = geo_path_trim_all_x0[idx_x0]
+model_pred_Wishart_geopath_all = []
+ref_geopath_all = []
 
 #plot the geodesics along with model predictions
-fig2, ax2 = plt.subplots(1, 1, figsize = (3.1,3.6), dpi= 1024)
-geo_bds =[-0.9, 0.9]
-for i in idx_path:
-    if i == 0: label = 'Geodesics'; 
-    else: label = None
-    ax2.plot(geo_path_trim_slc[i][:, 0], geo_path_trim_slc[i][:, 1], lw=1, color="gray", 
-            alpha = 0.75, label = label)
-    
+for i in range(len(idx_path)):
     # -----------------------------
     # Rocover covariance matrices
     # -----------------------------
     # Specify grid over stimulus space
-    ref_geopath = np.transpose(geo_path_trim_slc[i][::100,:][jnp.newaxis,:,:], (1,0,2))
-    Sigmas_ref_geopath = model.compute_Sigmas(model.compute_U(W_est, ref_geopath))
+    ref_geopath = np.transpose(geo_path_trim_slc[idx_path[i]][::50,:][jnp.newaxis,:,:], (1,0,2))
+    ref_geopath_all.append(ref_geopath)
+    Sigmas_ref_geopath = model.compute_Sigmas(model.compute_U(W_est, ref_geopath_all[i]))
     
     # -----------------------------
     # Compute model predictions
     # -----------------------------
     model_pred_Wishart_geopath = wishart_model_pred(model, model_pred_Wishart.opt_params, 
-                                            6, 2000, 
-                                            5e-3,
                                             model_pred_Wishart.w_init_key,
                                             model_pred_Wishart.opt_key, 
                                             model_pred_Wishart.W_init, 
@@ -250,36 +246,59 @@ for i in idx_path:
                                             target_pC= 0.667,
                                             ngrid_bruteforce = 500,
                                             bds_bruteforce = [0.01, 0.25])
+    model_pred_Wishart_geopath_all.append(model_pred_Wishart_geopath)
     
-    ref_geopath_trans = np.transpose(ref_geopath,(2,0,1))
-    model_pred_Wishart_geopath.convert_Sig_Threshold_oddity_batch(ref_geopath_trans)
-    performance_field_geopath = color_thres_data.N_unit_to_W_unit(
-        model_pred_Wishart_geopath.fitEll_scaled
-    )
+    #ref_geopath_trans = np.transpose(ref_geopath_all[i],(2,0,1))
+    model_pred_Wishart_geopath_all[i].convert_Sig_Threshold_oddity_batch(np.transpose(ref_geopath_all[i],(2,0,1)))
 
-#ground truth ellipses
-wishart_pred_vis.plot_2D(
-    ref_geopath, 
-    ref_geopath,
-    performance_field_geopath, 
-    ax = ax2,
-    visualize_samples= False,
-    visualize_gt = False,
-    visualize_model_estimatedCov = False,
-    flag_rescale_axes_label = True,
-    samples_alpha = 1,
-    samples_s = 1,
-    plane_2D = plane_2D,
-    modelpred_ls = '-',
-    modelpred_lw = 2,
-    modelpred_lc = None,
-    modelpred_alpha = 0.8,
-    gt_lw= 0.5,
-    gt_lc =[0.1,0.1,0.1],
-    fontsize = 8.5,
-    fig_name = f"Geodesics_{plane_2D}_startingPoint[{x0[0]:.1f}, {x0[1]:.1f}].pdf") 
-#ax.set_title(plane_2D, fontsize = 10)    
-
+#%%
+fig2, ax2 = plt.subplots(1, 1, figsize = (3.1,3.6), dpi= 1024)
+for i in idx_path:
+    if i == 0: label = 'Geodesics'; 
+    else: label = None
+    ax2.plot(geo_path_trim_slc[i][:, 0], geo_path_trim_slc[i][:, 1], lw=1, color="gray", 
+            alpha = 0.75, label = label)
+    
+for i in range(len(idx_path)):
+    wishart_pred_geopath_vis = WishartPredictionsVisualization(expt_trial,
+                                                       model, 
+                                                       model_pred_Wishart_geopath_all[i], 
+                                                       color_thres_data,
+                                                       fig_dir = figDir_fits, 
+                                                       save_fig = False)
+        
+    #ground truth ellipses
+    wishart_pred_geopath_vis.plot_2D(
+        ref_geopath_all[i], 
+        ref_geopath_all[i],
+        model_pred_Wishart_geopath_all[i].fitEll_unscaled, 
+        ax = ax2,
+        visualize_samples= False,
+        visualize_gt = False,
+        visualize_model_estimatedCov = False,
+        flag_rescale_axes_label = True,
+        samples_alpha = 1,
+        samples_s = 1,
+        plane_2D = plane_2D,
+        modelpred_ls = '-',
+        modelpred_lw = 1.5,
+        modelpred_lc = None,
+        modelpred_alpha = 0.8,
+        gt_lw= 0.5,
+        gt_lc =[0.1,0.1,0.1],
+        fontsize = 8.5) 
+if plane_2D == 'isoluminant plane':
+    ax2.set_title(plane_2D, fontsize = 10)    
+    ax2.set_xlabel('Wishart dimension 1')
+    ax2.set_ylabel('Wishart dimension 2')  
+tks = np.around(np.linspace(-1, 1, 5),1)
+ax2.set_xticks(tks) 
+ax2.set_yticks(tks) 
+ax2.set_xticklabels(tks) 
+ax2.set_yticklabels(tks) 
+ax2.get_legend().remove()
+wishart_pred_geopath_vis._save_figure(fig2,f"Geodesics_{plane_2D}_startingPoint[{x0[0]:.1f}, {x0[1]:.1f}]_selectedPaths.pdf") 
+    
 
 
 
