@@ -134,6 +134,7 @@ nStarts = 40
 v0 = 6*jnp.array(UnitCircleGenerate(nStarts))
 geo_path_all_x0 = []
 geo_path_trim_all_x0 = []
+geo_bds =[-0.9, 0.9]
 
 for s in range(x0_all.shape[0]): #x0_all.shape[0]
     # ---------------------------
@@ -147,6 +148,7 @@ for s in range(x0_all.shape[0]): #x0_all.shape[0]
     odeterm = ODETerm(geodesics.geodesic_vector_field(
         lambda x: jnp.linalg.inv(model.compute_Sigmas(model.compute_U(W_est, x)))
     ))
+    
     odesolver = Dopri5()
     # Compute geodesic and determine final location
     for i in range(nStarts):
@@ -163,7 +165,6 @@ for s in range(x0_all.shape[0]): #x0_all.shape[0]
     
     #plot the geodesics along with model predictions
     fig, ax = plt.subplots(1, 1, figsize = (3.1,3.6), dpi= 1024)
-    geo_bds =[-0.9, 0.9]
     geo_path_trim = []
     for i in range(nStarts):
         #ax.plot(euc_path[:, 0], euc_path[:, 1], lw=1, color="k")
@@ -186,8 +187,8 @@ for s in range(x0_all.shape[0]): #x0_all.shape[0]
         ax = ax,
         visualize_samples= False,
         visualize_gt = False,
-        visualize_model_estimatedCov = False,
-        flag_rescale_axes_label = True,
+        visualize_model_estimatedCov = True,
+        flag_rescale_axes_label = False,
         samples_alpha = 1,
         samples_s = 1,
         plane_2D = plane_2D,
@@ -195,14 +196,12 @@ for s in range(x0_all.shape[0]): #x0_all.shape[0]
         modelpred_lw = 1.5,
         modelpred_lc = None,
         modelpred_alpha = 0.8,
-        gt_lw= 0.5,
-        gt_lc =[0.1,0.1,0.1],
         fontsize = 8.5) 
     if plane_2D == 'isoluminant plane':
         ax.set_title(plane_2D, fontsize = 10)    
         ax.set_xlabel('Wishart dimension 1')
         ax.set_ylabel('Wishart dimension 2')   
-    #wishart_pred_vis._save_figure(fig,f"Geodesics_{plane_2D}_startingPoint[{x0[0]:.1f}, {x0[1]:.1f}].pdf") 
+    wishart_pred_vis._save_figure(fig,f"Geodesics_{plane_2D}_startingPoint[{x0[0]:.1f}, {x0[1]:.1f}].pdf") 
     
 #%%
 # x0_test = jnp.array([-0.6,0.6])
@@ -218,8 +217,13 @@ for s in range(x0_all.shape[0]): #x0_all.shape[0]
 # )
 
 #%% select two geodesic paths
+"""
+There are many different initial locations and velocities.
+We will pick 1 example location (idx_x0), and three motion directions
+"""
 idx_x0 = 6
-idx_path = [32, 35, 38]
+idx_path = [30, 35, 39]
+skipping_step = 38
 geo_path_trim_slc = geo_path_trim_all_x0[idx_x0]
 model_pred_Wishart_geopath_all = []
 ref_geopath_all = []
@@ -230,7 +234,7 @@ for i in range(len(idx_path)):
     # Rocover covariance matrices
     # -----------------------------
     # Specify grid over stimulus space
-    ref_geopath = np.transpose(geo_path_trim_slc[idx_path[i]][::50,:][jnp.newaxis,:,:], (1,0,2))
+    ref_geopath = np.transpose(geo_path_trim_slc[idx_path[i]][::skipping_step,:][jnp.newaxis,:,:], (1,0,2))
     ref_geopath_all.append(ref_geopath)
     Sigmas_ref_geopath = model.compute_Sigmas(model.compute_U(W_est, ref_geopath_all[i]))
     
@@ -275,8 +279,8 @@ for i in range(len(idx_path)):
         ax = ax2,
         visualize_samples= False,
         visualize_gt = False,
-        visualize_model_estimatedCov = False,
-        flag_rescale_axes_label = True,
+        visualize_model_estimatedCov = True,
+        flag_rescale_axes_label = False,
         samples_alpha = 1,
         samples_s = 1,
         plane_2D = plane_2D,
@@ -284,14 +288,12 @@ for i in range(len(idx_path)):
         modelpred_lw = 1.5,
         modelpred_lc = None,
         modelpred_alpha = 0.8,
-        gt_lw= 0.5,
-        gt_lc =[0.1,0.1,0.1],
         fontsize = 8.5) 
 if plane_2D == 'isoluminant plane':
     ax2.set_title(plane_2D, fontsize = 10)    
     ax2.set_xlabel('Wishart dimension 1')
     ax2.set_ylabel('Wishart dimension 2')  
-tks = np.around(np.linspace(-1, 1, 5),1)
+tks = np.around(np.linspace(-0.6, 0.6, 3),1)
 ax2.set_xticks(tks) 
 ax2.set_yticks(tks) 
 ax2.set_xticklabels(tks) 
@@ -299,6 +301,60 @@ ax2.set_yticklabels(tks)
 ax2.get_legend().remove()
 wishart_pred_geopath_vis._save_figure(fig2,f"Geodesics_{plane_2D}_startingPoint[{x0[0]:.1f}, {x0[1]:.1f}]_selectedPaths.pdf") 
     
+#%% visualize 3D projection
+grid_fine = jnp.stack(jnp.meshgrid(*[jnp.linspace(-0.9,0.9,100) for _ in range(model.num_dims)]), axis=-1)
+Sigmas_ref_finegrid = model.compute_Sigmas(model.compute_U(W_est, grid_fine))
+
+# Compute determinant for each 2x2 matrix
+determinants = np.log(np.linalg.det(Sigmas_ref_finegrid))
+# Compute trace for each 2x2 matrix
+traces = np.trace(Sigmas_ref_finegrid, axis1=-2, axis2=-1)
+
+# Extract the grid x and y coordinates
+x_coords = grid_fine[..., 0]
+y_coords = grid_fine[..., 1]
+
+fig = plt.figure(figsize=(11, 18))
+ax = fig.add_subplot(111, projection='3d')
+
+# Plot the 3D surface
+surface = ax.plot_surface(x_coords, y_coords, determinants, 
+                          cmap='viridis', linewidth=0.3,edgecolors=(0, 0, 0, 0.5), alpha=0.8)
+
+# Add 2D projection on a fixed Z plane
+fixed_z = np.min(determinants) - 3  # Fixed z-level for the projection
+contour = ax.contourf(x_coords, y_coords, determinants, 
+                      zdir='z', offset=fixed_z, cmap='viridis',
+                      levels=50, alpha=0.01)
+# Add ellipses on the projection
+for i in range(model_pred_Wishart_geopath_all[1].fitEll_unscaled.shape[0]):
+    cm = color_thres_data.M_2DWToRGB @ np.insert(ref_geopath_all[1][i], 2, 1)
+    # Extract x and y coordinates for the ellipse
+    ellipse_x = model_pred_Wishart_geopath_all[1].fitEll_unscaled[i, 0, 0]
+    ellipse_y = model_pred_Wishart_geopath_all[1].fitEll_unscaled[i, 0, 1]
+    
+    # Plot the ellipse in 3D, keeping z fixed at the projection level
+    ax.plot(ellipse_x, ellipse_y, zs=fixed_z, zdir='z', color=cm, alpha=0.8)
+
+# Customize axis and labels
+ax.set_xlabel('X')
+ax.set_ylabel('Y')
+ax.set_zlabel('Log Determinant')
+ax.set_zlim(fixed_z, np.max(determinants))  # Ensure the Z-axis includes the projection
+
+# Add color bar
+fig.colorbar(surface, ax=ax, shrink=0.2, aspect=10, label='Log Determinant Value')
+plt.tight_layout()
+plt.show()
+
+
+
+
+
+
+
+
+
 
 
 

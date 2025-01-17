@@ -11,7 +11,6 @@ jax.config.update("jax_enable_x64", True)
 import dill as pickled
 import sys
 import numpy as np
-import re
 import matplotlib.pyplot as plt
 from analysis.utils_load import select_file_and_get_path
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
@@ -33,9 +32,8 @@ input_fileDir_fits, file_name = select_file_and_get_path()
 full_path = f"{input_fileDir_fits}/{file_name}"
 
 # Load the necessary variables from the file
-import pickle  # Ensure pickle is imported for loading the data
 with open(full_path, 'rb') as f:
-    vars_dict = pickle.load(f)
+    vars_dict = pickled.load(f)
 
 # Retrieve the variables of interest from the loaded dictionary
 # - Model predictions using the Wishart process
@@ -163,7 +161,6 @@ def find_CI_for_gridRefs(p_ell, nd=ndims, nTheta=nTheta):
 
     return ell_min, ell_max
 
-
 # Compute confidence intervals for the joint fits across all reference locations
 fitEll_min, fitEll_max = find_CI_for_gridRefs(params_all)
 
@@ -184,7 +181,7 @@ def plot_btst_CI(grid, ell_min, ell_max, ax):
             cm = color_thres_data.M_2DWToRGB @ np.insert(grid[i, j], 2, 1)
             idx_max_nonan = ~np.isnan(ell_max[i, j, 0])
             ax.fill(ell_max[i,j,0,idx_max_nonan], ell_max[i,j,1,idx_max_nonan], 
-                    color= cm, alpha = 0.7, edgecolor = None, label = lbl)
+                    color= cm, alpha = 0.9, edgecolor = None, label = lbl)
             idx_min_nonan = ~np.isnan(ell_min[i, j, 0])
             ax.fill(ell_min[i,j,0,idx_min_nonan], ell_min[i,j,1,idx_min_nonan], 
                     color='white')
@@ -206,10 +203,12 @@ wishart_pred_vis_wCI.plot_2D(
     grid, 
     grid,
     ax = ax,
-    visualize_samples= False,
+    visualize_samples= True,
     visualize_gt = False,
     visualize_model_estimatedCov = False,
     flag_rescale_axes_label = False,
+    samples_alpha = 0.5,
+    samples_label = 'Experimental data',
     sigma_lw = 0.5,
     sigma_alpha = 1,
     modelpred_alpha = 1,
@@ -219,7 +218,7 @@ wishart_pred_vis_wCI.plot_2D(
 ax.set_xlabel('Wishart space dimension 1');
 ax.set_ylabel('Wishart space dimension 2');
 ax.set_title('Joint fits');
-fig.savefig(output_figDir_fits+f"/{file_name[:-4]}_btstCI_byJointFits.pdf",
+fig.savefig(output_figDir_fits+f"/{file_name_btst[:-10]}_btstCI_byJointFits_wSamples.pdf",
              format='pdf', bbox_inches='tight')  
 
 #%% 
@@ -233,9 +232,11 @@ wishart_pred_vis_wCI.plot_2D(
     grid, 
     grid,
     ax = ax2,
-    visualize_samples= False,
+    visualize_samples= True,
     visualize_gt = False,
     visualize_model_estimatedCov = False,
+    samples_alpha = 0.5,
+    samples_label = 'Experimental data',
     sigma_lw = 0.5,
     sigma_alpha = 1,
     modelpred_alpha = 1,
@@ -245,7 +246,7 @@ wishart_pred_vis_wCI.plot_2D(
 ax2.set_xlabel('Wishart space dimension 1');
 ax2.set_ylabel('Wishart space dimension 2');
 ax2.set_title('Individual fits');
-fig2.savefig(output_figDir_fits+f"/{file_name[:-4]}_btstCI_byIndvFits.pdf",
+fig2.savefig(output_figDir_fits+f"/{file_name_btst[:-10]}_btstCI_byIndvFits_wSamples.pdf",
              format='pdf', bbox_inches='tight')  
 
 

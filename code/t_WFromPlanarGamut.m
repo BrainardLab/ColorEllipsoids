@@ -6,7 +6,7 @@
 
 %% Initialize
 clear all; close all; clc
-flag_save_figures = true; 
+flag_save_figures = false; 
 flag_save_data = false;
 flag_pregenerate_MOCS = false;
 flag_addExpt_trials = false;
@@ -633,7 +633,7 @@ if flag_save_data || flag_pregenerate_MOCS
             % Generate filename and output path
             filename3 = sprintf('MOCS_trials_cond%d.csv', (n-1)*nChromaDir+d);
             outputName3 = fullfile(outputName3_temp, filename3);
-            
+
             % Save the matrix, rounding to 8 decimal places
             MOCS_comp_2DW_n_d = squeeze(MOCS_comp_2DW(n, d, :, 1:2));
             writematrix(MOCS_comp_2DW_n_d, outputName3);
@@ -641,9 +641,24 @@ if flag_save_data || flag_pregenerate_MOCS
             if flag_pregenerate_MOCS
                 seed_n_d = (subjN*10)+(n-1)*nChromaDir+d;
                 rng(seed_n_d);
+
+                %initialize trial_sequence that will not include reference
                 trial_sequence = [];
+                % Initialize trial_sequence_wRef as an empty cell array
+                trial_sequence_wRef = {};  
                 for m = 1:nTrials_perLevel
-                    trial_sequence = [trial_sequence; MOCS_comp_2DW_n_d(randperm(nLevels_MOCS),:)];
+                    % Format1: generate trial sequence that does not include ref stim
+                    rand_MOCS_comp = MOCS_comp_2DW_n_d(randperm(nLevels_MOCS),:);
+                    trial_sequence = [trial_sequence;rand_MOCS_comp];
+
+                    % Format2: generate trial sequence that will include ref stim
+                    % Create W_ref as a column of strings
+                    W_ref_col = repmat({sprintf('[%.6f, %.6f]', ref_2DW_MOCS(1, n), ref_2DW_MOCS(2, n))}, nLevels_MOCS, 1);
+                    % Create W_comp as a column of strings
+                    W_comp_col = arrayfun(@(i) sprintf('[%.6f, %.6f]', rand_MOCS_comp(i, 1), rand_MOCS_comp(i, 2)), ...
+                          (1:nLevels_MOCS)', 'UniformOutput', false);        
+                    new_rows = [W_ref_col, W_comp_col];     
+                    trial_sequence_wRef = [trial_sequence_wRef; new_rows];
                 end
                 % Construct output directory path
                 outputName4_temp = fullfile(cal_path, sprintf('MOCS_trials/sub%d', subjN));
@@ -652,11 +667,21 @@ if flag_save_data || flag_pregenerate_MOCS
                 if ~exist(outputName4_temp, 'dir')
                     mkdir(outputName4_temp);
                 end
-
-                %filename4 = sprintf('MOCS_pregenerated_trials_sub%d_cond%d_seed%d.csv', subjN, (n-1)*nChromaDir+d, seed_n_d);
+                % output comparison stimuli as double/float
                 filename4 = sprintf('MOCS_pregenerated_trials_sub%d_cond%d.csv', subjN, (n-1)*nChromaDir+d);
                 outputName4 = fullfile(outputName4_temp, filename4);
                 writematrix(trial_sequence, outputName4);
+    
+                % A more comprehensive data storage: with headers and with reference stim
+                % Convert matrix to table and add column headers
+                filename4_h = sprintf('MOCS_pregenerated_trials_sub%d_cond%d_wRefs.csv', subjN, (n-1)*nChromaDir+d);
+                outputName4 = fullfile(outputName4_temp, filename4_h);
+                % Create a table with 'W_ref' and 'W_comp'
+                trial_table = table(trial_sequence_wRef(:, 1), trial_sequence_wRef(:, 2), ...
+                    'VariableNames', {'W_ref', 'W_comp'});
+    
+                % Write the table to a CSV file
+                writetable(trial_table, outputName4);
             end
         end
     end
