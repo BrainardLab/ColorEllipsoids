@@ -62,7 +62,7 @@ deltaE_1JND   = 1
 
 #%%make a finer grid for the direction (just for the purpose of visualization)
 #the raw isothreshold contou is very tiny, we can amplify it by 5 times for the purpose of visualization
-contour_scaler = 5
+contour_scaler = 2.5
 nThetaEllipse  = 200
 
 ssize = (sim_thres_CIELab.nPlanes, nGridPts_ref, nGridPts_ref)
@@ -97,12 +97,12 @@ for p in range(sim_thres_CIELab.nPlanes):
                 #leads to a pre-determined deltaE
                 opt_vecLen[p,i,j,k] = sim_thres_CIELab.find_vecLen(rgb_ref_pij,
                                                                    vecDir,
-                                                                   deltaE_1JND)
+                                                                   deltaE_1JND,
+                                                                   coloralg = 'CIE2000')
             #fit an ellipse
             fit_results = fit_2d_isothreshold_contour(
-                    rgb_ref_pij, grid_theta_xy,
+                    rgb_ref_pij[idx_varyingDim], grid_theta_xy,
                     vecLength = opt_vecLen[p,i,j],
-                    varyingRGBplan = idx_varyingDim,
                     nThetaEllipse = nThetaEllipse,
                     ellipse_scaler = contour_scaler)
             fitEllipse_scaled[p,i,j],fitEllipse_unscaled[p,i,j],\
@@ -137,7 +137,7 @@ for p in range(sim_thres_CIELab.nPlanes):
     sim_CIE_vis.plot_RGB_to_LAB(plane_points[p], 
                                 lab_comp[p], 
                                 lab_viewing_angle = viewing_angle[p],
-                                fig_name = f'RGB_to_CIELab_conversion{p}.pdf')
+                                fig_name = f'RGB_to_CIELab2000_conversion{p}.pdf')
 
 #%% visualize primaries of the monitor
 rgb_s_green = np.array([0.5, 0.8, 0.2])

@@ -12,7 +12,15 @@ import numpy as np
 from scipy.optimize import minimize
 import sys
 import os
+from colormath.color_objects import LabColor
+from colormath.color_diff import delta_e_cie2000
 
+#in order for delta_e_cie2000 to work, we need to do the following adjustment
+def patch_asscalar(a):
+    return a.item()
+setattr(np, "asscalar", patch_asscalar)
+
+#%%
 class SimThresCIELab:
     def __init__(self, fileDir, background_rgb):
         """
@@ -160,24 +168,50 @@ class SimThresCIELab:
         
         return color_Lab, color_XYZ, color_LMS
     
-    def compute_deltaE(self, ref_RGB, vecDir, vecLen, comp_RGB = None):
+    def compute_deltaE(self, ref_RGB, vecDir, vecLen, comp_RGB=None, method='CIELAB'):
         """
         Computes the perceptual difference (deltaE) between a reference stimulus
         and a comparison stimulus in the CIELab color space. The comparison stimulus
-        is derived based on a specified chromatic direction and length from the reference.
+        can be specified directly or calculated based on a chromatic direction and length.
     
         Parameters:
-        - ref_RGB (array; 3,): The RGB values of the reference stimulus.
-        - vecDir (array; 1 x 3): The direction vector along which the comparison 
-            stimulus varies from the reference.
-        - vecLen (array): The length to move in the specified direction from the 
-            reference stimulus.
+        - ref_RGB (array; 3,): RGB values of the reference stimulus.
+        - vecDir (array; 1 x 3): Chromatic direction vector for comparison stimulus variation.
+        - vecLen (float): Distance to move along vecDir from the reference stimulus.
+        - comp_RGB (array; 3,) [optional]: RGB values of the comparison stimulus. If not 
+          provided, it will be calculated using ref_RGB, vecDir, and vecLen.
+        - method (str): The method for computing deltaE ('CIELAB' or 'CIE2000').
     
         Returns:
-        - deltaE (float): The computed perceptual difference between the reference 
-            and comparison stimuli.
+        - deltaE (float): The perceptual difference between the reference and comparison stimuli.
         """
     
+        # Convert reference RGB to CIELab values.
+        ref_Lab, _, _ = self.convert_rgb_lab(ref_RGB)
+    
+        # If comparison RGB is not provided, calculate it by moving ref_RGB along vecDir by vecLen.
+        if comp_RGB is None:
+            comp_RGB = ref_RGB + vecDir * vecLen
+    
+        # Convert comparison RGB to CIELab values.
+        comp_Lab, _, _ = self.convert_rgb_lab(comp_RGB)
+    
+        if method == 'CIELAB':
+            # Compute deltaE as the Euclidean distance between the reference and comparison in CIELab.
+            deltaE = np.linalg.norm(comp_Lab - ref_Lab)
+        elif method == 'CIE2000':
+            # Define reference and comparison colors in LabColor format.
+            color1 = LabColor(lab_l=ref_Lab[0], lab_a=ref_Lab[1], lab_b=ref_Lab[2])
+            color2 = LabColor(lab_l=comp_Lab[0], lab_a=comp_Lab[1], lab_b=comp_Lab[2])
+            # Compute deltaE using the CIE2000 method.
+            deltaE = delta_e_cie2000(color1, color2)
+        else:
+            raise ValueError("The method must be 'CIELAB' or 'CIE2000'.")
+    
+        return deltaE
+    
+    def compute_deltaE_cie2000(self, ref_RGB, vecDir, vecLen, comp_RGB = None):
+            
         # Calculate the RGB values for the comparison stimulus by adjusting the reference RGB
         # along the specified chromatic direction by the given vector length (vecLen).
         ref_Lab,_,_ = self.convert_rgb_lab(ref_RGB)
@@ -188,14 +222,18 @@ class SimThresCIELab:
         # using the provided parameters and the background RGB. 
         comp_Lab,_,_ = self.convert_rgb_lab(comp_RGB)
         
-        # Calculate the perceptual difference (deltaE) between the reference and comparison
-        # stimuli as the Euclidean distance between their Lab values.
-        deltaE = np.linalg.norm(comp_Lab - ref_Lab)
+        # Reference color.
+        color1 = LabColor(lab_l=ref_Lab[0], lab_a=ref_Lab[1], lab_b=ref_Lab[2])
+        # Color to be compared to the reference.
+        color2 = LabColor(lab_l=comp_Lab[0], lab_a=comp_Lab[1], lab_b=comp_Lab[2])
+        # This is your delta E value as a float.
+        deltaE = delta_e_cie2000(color1, color2)
         
         return deltaE
+        
     
     def find_vecLen(self, ref_RGB_test, vecDir_test, deltaE = 1, lb_opt = 0,
-                    ub_opt = 0.1, N_opt = 3):
+                    ub_opt = 0.1, N_opt = 3, coloralg = 'CIELAB'):
         """
         This function finds the optimal vector length for a chromatic direction
         that achieves a target perceptual difference in the CIELab color space.
@@ -212,9 +250,15 @@ class SimThresCIELab:
         Returns:
         - opt_vecLen (float): The optimal vector length that achieves the target deltaE value
         """
+        
+        if coloralg not in ['CIELAB', 'CIE2000']:
+            raise ValueError("The method can only be 'CIELAB' or 'CIE2000'.")
+                
         #The lambda function computes the absolute difference between the
         #deltaE obtained from compute_deltaE function and the target deltaE.
-        deltaE_func = lambda d: abs(self.compute_deltaE(ref_RGB_test, vecDir_test, d) - deltaE)
+        deltaE_func = lambda d: abs(self.compute_deltaE(ref_RGB_test,
+                                                        vecDir_test, 
+                                                        d, method=coloralg) - deltaE)
             
         # Generate initial points for the optimization algorithm within the bounds.
         init = np.random.rand(N_opt) * (ub_opt - lb_opt) + lb_opt
