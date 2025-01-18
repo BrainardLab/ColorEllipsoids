@@ -62,6 +62,7 @@ deltaE_1JND   = 1
 
 #define the algorithm for computing color difference
 color_diff_algorithm = 'CIE2000' #or 'CIE2000', 'CIE1994', 'CIE1976' (default)
+str_append = '' if color_diff_algorithm == 'CIE1976' else '_'+color_diff_algorithm
 
 #%%make a finer grid for the direction (just for the purpose of visualization)
 #the raw isothreshold contou is very tiny, we can amplify it by 5 times for the purpose of visualization
@@ -126,10 +127,10 @@ sim_CIE_vis.plot_2D(grid_est,
                     ell_lc = [1,1,1],
                     ref_mc = [1,1,1],
                     rgb_background = np.transpose(plane_points,(0,2,3,1)),
-                    fig_name = f'Isothreshold_contour_2D_{color_diff_algorithm}.pdf')
+                    fig_name = f'Isothreshold_contour_2D{str_append}.pdf')
 
 #%%save to CSV
-file_name   = f'Isothreshold_contour_CIELABderived_fixedVal{fixed_RGBvec}_{color_diff_algorithm}.pkl'
+file_name   = f'Isothreshold_contour_CIELABderived_fixedVal{fixed_RGBvec}{str_append}.pkl'
 full_path   = f"{output_fileDir}{file_name}"
 
 #save all the stim info

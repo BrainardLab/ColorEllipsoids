@@ -20,7 +20,7 @@ from plotting.sim_CIELab_plotting import CIELabVisualization
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
 from analysis.ellipsoids_tools import UnitCircleGenerate_3D, fit_3d_isothreshold_ellipsoid
                 
-base_dir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
+base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
 output_figDir = base_dir+ 'ELPS_analysis/Simulation_FigFiles/Python_version/CIE/'
 output_fileDir = base_dir+ 'ELPS_analysis/Simulation_DataFiles/'
 
@@ -34,9 +34,13 @@ background_RGB = np.array([0.5,0.5,0.5])
 # Initialize the SimThresCIELab class with the path and background RGB values
 sim_thres_CIELab = SimThresCIELab(path_str, background_RGB)
 
+#define the algorithm for computing color difference
+color_diff_algorithm = 'CIE1994' #or 'CIE2000', 'CIE1994', 'CIE1976' (default)
+str_append = '' if color_diff_algorithm == 'CIE1976' else '_'+color_diff_algorithm
+
 #%%
-file_name = 'Isothreshold_ellipsoid_CIELABderived.pkl'
-path_str = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
+file_name = f'Isothreshold_ellipsoid_CIELABderived{str_append}.pkl'
+path_str = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
         'ELPS_analysis/Simulation_DataFiles/'
 full_path = f"{path_str}{file_name}"
 os.chdir(path_str)
@@ -53,8 +57,7 @@ try:
             data_load = pickled.load(f)        
     stim, results, plt_specifics = data_load[1], data_load[2], data_load[3]
 except:
-
-    #%% DEINE STIMULUS PROPERTIES AND PLOTTING SPECIFICS
+    # DEINE STIMULUS PROPERTIES AND PLOTTING SPECIFICS
     ndims = 3 #color dimensions
     #define a 5 x 5 x 5 grid of RGB values as reference stimuli
     nGridPts_ref = 5
@@ -90,7 +93,7 @@ except:
     
     #the raw isothreshold contour is very tiny, we can amplify it by 5 times
     #for the purpose of visualization
-    ellipsoid_scaler = 5
+    ellipsoid_scaler = 2.5
     
     #make a finer grid for the direction (just for the purpose of visualization)
     nThetaEllipsoid = 200
@@ -109,7 +112,7 @@ except:
     rgb_surface_cov       = np.full(base_shape1 + (ndims, ndims),np.nan)
     ellipsoidParams       = np.full(base_shape1,{})
     
-    #%%Fitting starts from here
+    #Fitting starts from here
     #for each reference stimulus
     for i in range(nGridPts_ref):
         print(i)
@@ -128,7 +131,8 @@ except:
                         #leads to a pre-determined deltaE
                         opt_vecLen[i,j,k,l,m] = sim_thres_CIELab.find_vecLen(rgb_ref_ijk,
                                                                              vecDir,
-                                                                             deltaE_1JND)
+                                                                             deltaE_1JND,
+                                                                             coloralg=color_diff_algorithm)
                         
                 #fit an ellipsoid 
                 fit_results = fit_3d_isothreshold_ellipsoid(rgb_ref_ijk, 
@@ -170,7 +174,7 @@ except:
 #%%visualize ellipsoids
 sim_CIE_vis = CIELabVisualization(sim_thres_CIELab,
                                   fig_dir=output_figDir, 
-                                  save_fig= False)
+                                  save_fig= True)
 ndims = 3
 sim_CIE_vis.plot_3D(np.reshape(stim['ref_points'],(stim['nGridPts_ref']**ndims,-1)), 
                             np.reshape(results['fitEllipsoid_scaled'],(stim['nGridPts_ref']**ndims,ndims,-1)),
@@ -180,7 +184,8 @@ sim_CIE_vis.plot_3D(np.reshape(stim['ref_points'],(stim['nGridPts_ref']**ndims,-
                                                            stim['numDirPts_z'],stim['numDirPts_xy'],ndims)),
                             color_ref_rgb = np.array([0.2,0.2,0.2]),
                             color_surf = np.array([0.8,0.8,0.8]),
-                            color_threshold = [])
+                            color_threshold = [],
+                            fig_name =file_name[:-4]+'.pdf')
                                     
     
     

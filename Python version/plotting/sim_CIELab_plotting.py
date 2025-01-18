@@ -213,7 +213,7 @@ class CIELabVisualization(WishartModelBasicsVisualization):
             'data_mc':[0.5,0.5,0.5],
             'ticks': np.linspace(0,1,5),
             'fontsize':15,
-            'figName':'Isothreshold_contour',
+            'fig_name':'Isothreshold_contour',
             }
         
         # Update plot parameters with method-specific settings and external configurations.
@@ -289,9 +289,7 @@ class CIELabVisualization(WishartModelBasicsVisualization):
             'view_angle':[35,-120],
             'fontsize':15,
             'plane_3D': 'RGB space',
-            'save_fig':False,
-            'fig_dir':'',
-            'figName':'Isothreshold_ellipsoids'} 
+            'fig_name':'Isothreshold_ellipsoids'} 
         # Update plot parameters with method-specific settings and external configurations.
         self.pltP.update(method_specific_settings)
         self.pltP.update(kwargs)  
@@ -350,8 +348,9 @@ class CIELabVisualization(WishartModelBasicsVisualization):
         self._update_axes_labels(ax, self.pltP['ticks'], self.pltP['ticks'], nsteps = 1)
         ax.view_init(elev=self.pltP['view_angle'][0], azim=self.pltP['view_angle'][1])   # Adjust viewing angle for better visualization
         # Show the figure after all subplots have been drawn
-        if self.pltP['fig_dir'] and self.pltP['save_fig']:
-            plt.savefig(self.pltP['fig_dir'] + self.pltP['fig_name'])
+        # Show the figure after all subplots have been drawn
+        if self.fig_dir and self.save_fig:
+            plt.savefig(self.fig_dir + self.pltP['fig_name'])
         plt.show()
         return fig, ax
             
