@@ -1,5 +1,5 @@
 function opt_vecLen = find_vecLen(background_RGB, ref_RGB, ref_Lab, ...
-    vecDir, param, stim)
+    vecDir, param, stim, coloralg)
 % Finds the optimal vector length along a specified chromatic direction
 % such that the perceptual difference (deltaE) between a reference stimulus
 % and a comparison stimulus is equal to a specific value (e.g., 1 JND) in
@@ -20,7 +20,7 @@ function opt_vecLen = find_vecLen(background_RGB, ref_RGB, ref_Lab, ...
     % Define an anonymous function to compute the absolute difference between
     % the computed deltaE and the target deltaE value (1 JND).
     deltaE = @(d) abs(compute_deltaE(d, background_RGB, ref_RGB,...
-        ref_Lab, vecDir, param) - stim.deltaE_1JND);
+        ref_Lab, vecDir, param, coloralg) - stim.deltaE_1JND);
 
     % Set the lower and upper bounds for the vector length search.
     lb = 0; ub = 0.2;

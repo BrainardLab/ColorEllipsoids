@@ -87,11 +87,19 @@ stim.deltaE_1JND       = 1;
 
 %the raw isothreshold contour is very tiny, we can amplify it by 10 times
 %for the purpose of visualization
-results.contour_scaler = 5;
+results.contour_scaler = 2.5;
 %make a finer grid for the direction (just for the purpose of
 %visualization)
 plt.nThetaEllipse      = 200;
 plt.circleIn2D         = UnitCircleGenerate(plt.nThetaEllipse);
+
+% Determine which color difference metric to use ('CIE1976', 'CIE94', 'CIEDE2000')
+color_diff_alg = 'CIEDE2000'; % Specify the desired color difference algorithm
+
+% Create a string suffix based on the selected algorithm
+if strcmp(color_diff_alg, 'CIE1976'); str_color_diff_alg = '';
+else; str_color_diff_alg = ['_', color_diff_alg];
+end
 
 %%
 %for each fixed R / G / B value in the BG / RB / RG plane
@@ -127,7 +135,7 @@ for l = 5:5%1:stim.len_fixed_RGBvec
                     %leads to a pre-determined deltaE
                     results.opt_vecLen(l,p,i,j,k) = find_vecLen(...
                         background_RGB_l, rgb_ref_pij, ref_Lab_lpij, ...
-                        vecDir, param,stim);
+                        vecDir, param,stim, color_diff_alg);
                 end
 
                 %fit an ellipse
@@ -165,7 +173,8 @@ plot_2D_isothreshold_contour(stim.x_grid_ref, stim.y_grid_ref, ...
     'refColor',[1,1,1],...
     'EllipsesLine','-',...
     'visualizeRawData',true,...
-    'saveFig',false)
+    'saveFig', true, ...
+    'figName', sprintf('Isothreshold_contour_MATLAB%s',str_color_diff_alg))
 
 %% save the data
 D = {param, stim, results, plt};
@@ -175,7 +184,8 @@ outputDir = fullfile(analysisDir,myFigDir);
 if (~exist('outputDir'))
     mkdir(outputDir);
 end
-outputName = fullfile(outputDir, "Isothreshold_contour_CIELABderived.mat");
+outputName = fullfile(outputDir, sprintf("Isothreshold_contour_CIELABderived%s.mat",...
+    str_color_diff_alg));
 save(outputName,'D');
 
 

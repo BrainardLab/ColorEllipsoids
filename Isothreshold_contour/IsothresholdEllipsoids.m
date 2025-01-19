@@ -99,7 +99,7 @@ stim.deltaE_1JND  = 1;
 
 %the raw isothreshold contour is very tiny, we can amplify it by 5 times
 %for the purpose of visualization
-results.ellipsoid_scaler = 5;
+results.ellipsoid_scaler = 2.5;
 %make a finer grid for the direction (just for the purpose of
 %visualization)
 plt.nThetaEllipsoid    = 200;
@@ -108,7 +108,15 @@ plt.circleIn3D         = UnitCircleGenerate_3D(plt.nThetaEllipsoid, ...
     plt.nPhiEllipsoid);
 
 %% Fitting starts from here
-load_existingFits = true;
+% Determine which color difference metric to use ('CIE1976', 'CIE94', 'CIEDE2000')
+color_diff_alg = 'CIE94'; % Specify the desired color difference algorithm
+
+% Create a string suffix based on the selected algorithm
+if strcmp(color_diff_alg, 'CIE1976'); str_color_diff_alg = '';
+else; str_color_diff_alg = ['_', color_diff_alg];
+end
+
+load_existingFits = false;
 if load_existingFits
     analysisDir = getpref('ColorEllipsoids', 'ELPSAnalysis');
     myFigDir = 'Simulation_DataFiles';
@@ -142,7 +150,7 @@ else
                         %leads to a pre-determined deltaE
                         results.opt_vecLen(i,j,k,l,m) = find_vecLen(...
                             stim.background_RGB, rgb_ref_ijk, ref_Lab_ijk, ...
-                            vecDir, param,stim);
+                            vecDir, param,stim, color_diff_alg);
                     end
                 end
         
@@ -189,7 +197,7 @@ else
                         end
                         results.opt_vecLen_oneFixedPlane(i,j,k,n,o) = find_vecLen(...
                             stim.background_RGB, rgb_ref_ijk, ref_Lab_ijk, ...
-                            vecDir_oneFixedPlane(:,o), param,stim);    
+                            vecDir_oneFixedPlane(:,o), param,stim, color_diff_alg);    
                     end
     
                     %fit an ellipse
@@ -219,7 +227,9 @@ else
     if (~exist('outputDir'))
         mkdir(outputDir);
     end
-    outputName = fullfile(outputDir, "Isothreshold_ellipsoid_CIELABderived.mat");
+    outputName = fullfile(outputDir, ...
+        sprintf("Isothreshold_ellipsoid_CIELABderived%s.mat",...
+        str_color_diff_alg));
     save(outputName,'D');
 end
 
@@ -253,7 +263,7 @@ plot_3D_isothreshold_ellipsoid(stim.grid_ref, stim.grid_ref, ...
     'flag_flipX', true,...
     'fontsize',15,...
     'saveFig',true,...
-    'figName', 'Isothreshold_ellipsoids_wSurfColor',...
+    'figName', sprintf('Isothreshold_ellipsoids_wSurfColor%s',str_color_diff_alg),...
     'normalizedFigPos',[0,0.1,0.3,0.6]);
 
 

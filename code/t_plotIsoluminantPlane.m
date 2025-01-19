@@ -375,7 +375,7 @@ if (numCorners == 4)
     xlabel('Wishart space dim 1'); ylabel('Wishart space dim 2');
 
     %% select 9 reference locations
-    num_grid_pts = 3;
+    num_grid_pts = 5;
     ref_W_1d = linspace(-0.6,0.6,num_grid_pts);
     [ref_W_x, ref_W_y] = meshgrid(ref_W_1d, ref_W_1d);
     nRef = length(ref_W_x(:));
@@ -478,13 +478,21 @@ stim.deltaE_1JND  = 1;
 
 %the raw isothreshold contour is very tiny, we can amplify it by 5 times
 %for the purpose of visualization
-results.ellipsoid_scaler = 5;
+results.ellipsoid_scaler = 2.5;
 %make a finer grid for the direction (just for the purpose of
 %visualization)
 plt.nThetaEllipsoid    = 200;
 plt.nPhiEllipsoid      = 100;
 plt.circleIn3D         = UnitCircleGenerate_3D(plt.nThetaEllipsoid, ...
     plt.nPhiEllipsoid);
+
+% Determine which color difference metric to use ('CIE1976', 'CIE94', 'CIEDE2000')
+color_diff_alg = 'CIEDE2000'; % Specify the desired color difference algorithm
+
+% Create a string suffix based on the selected algorithm
+if strcmp(color_diff_alg, 'CIE1976'); str_color_diff_alg = '';
+else; str_color_diff_alg = ['_', color_diff_alg];
+end
 
 %for each reference stimulus
 for i = 1:size(ref_rgb,2)
@@ -507,7 +515,7 @@ for i = 1:size(ref_rgb,2)
             %leads to a pre-determined deltaE
             results.opt_vecLen(i,l,m) = find_vecLen(...
                 stim.background_RGB, rgb_ref_i, ref_Lab_i, ...
-                vecDir, param, stim);
+                vecDir, param, stim, color_diff_alg);
         end
     end
 
@@ -589,16 +597,16 @@ legend(ax_rgb,[f_rgb_2, f_rgb_3], ...
     'Location','northoutside', 'Orientation', 'vertical');
 
 if flag_save_figures
-    pdf_filename1 = fullfile([cal_path, '/Plots'], sprintf('W_space_%s_wEll.pdf',whichCalFile(1:end-4)));
-    pdf_filename2 = fullfile([cal_path, '/Plots'], sprintf('dkl_space_%s_wEll.pdf',whichCalFile(1:end-4)));
-    pdf_filename3 = fullfile([cal_path, '/Plots'], sprintf('rgb_space_%s_wEll.pdf',whichCalFile(1:end-4)));
+    pdf_filename1 = fullfile([cal_path, '/Plots'], sprintf('W_space_%s_wEll%s.pdf',whichCalFile(1:end-4), str_color_diff_alg));
+    pdf_filename2 = fullfile([cal_path, '/Plots'], sprintf('dkl_space_%s_wEll%s.pdf',whichCalFile(1:end-4), str_color_diff_alg));
+    pdf_filename3 = fullfile([cal_path, '/Plots'], sprintf('rgb_space_%s_wEll%s.pdf',whichCalFile(1:end-4), str_color_diff_alg));
 
     saveas(fig_W, pdf_filename1); 
     saveas(fig_dkl, pdf_filename2); 
     saveas(fig_rgb, pdf_filename3); 
 
     % print(fig_W, pdf_filename1, '-depsc', '-vector');
-    % print(fig_dkl, pdf_filename2, '-depsc', '-vector');
+    % print(fig_dkl, pdf_filename2, '-depsc', '-vector');       
     % print(fig_rgb, pdf_filename3, '-depsc', '-vector');
 end
 
