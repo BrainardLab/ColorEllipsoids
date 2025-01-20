@@ -6,18 +6,28 @@ Created on Tue Jan  7 21:57:13 2025
 """
 
 import sys
+import os
 import numpy as np
 sys.path.append('c:\\users\\brainardlab\\documents\\github\\colorellipsoids\\python version')
 from analysis.utils_communication import CommunicateViaTextFile, ExperimentFileManager
 
 # Define the Dropbox path and file name
+subject_id = 1
+session_today = 2
 networkDisk_path = 'c:\Shares\BrainardLab'
-expt_file_manager = ExperimentFileManager(subject_id= 1, networkDisk_path= networkDisk_path)
-file_path, file_name = expt_file_manager.create_session_file(1)
+if session_today == 1:
+    expt_file_manager = ExperimentFileManager(subject_id, 
+                                              networkDisk_path)
+else:
+    path_sub = os.path.join(networkDisk_path, f'sub{subject_id}')
+    expt_info = f'sub{subject_id}_expt_record.pkl'
+    path_metadata = os.path.join(path_sub, expt_info)
+    expt_file_manager = ExperimentFileManager.load_state(path_metadata)
+file_path, file_name = expt_file_manager.create_session_file(session_today)
+expt_file_manager.list_files()
 
 #%% Initialize communication class
-communicator = CommunicateViaTextFile(expt_file_manager.path_sub,
-                                      timeout =120, retry_delay = 0.1, max_retries = 100)
+communicator = CommunicateViaTextFile(expt_file_manager.path_sub)
 communicator.check_and_handle_file(file_name)
 
 # Step 1: Initialize

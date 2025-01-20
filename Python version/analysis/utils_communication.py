@@ -48,12 +48,30 @@ class ExperimentFileManager:
         # Validate session number
         if session_num < 1:
             raise ValueError("Session number must be larger than 1.")
-        if not past_session_num and session_num != 1:
-            raise ValueError("The first session must be 1.")
-        if past_session_num and session_num != (max(past_session_num) + 1):
-            raise ValueError(f"Previous session numbers are: {past_session_num}. The next one should be {max(past_session_num) + 1}.")
-
         
+        if not past_session_num:  # No previous session numbers
+            if session_num != 1:
+                raise ValueError("The first session must be 1.")
+        else:  # There are previous sessions
+            if session_num in past_session_num:
+                # Check the status of the session
+                if self.session_data[session_num]['status'] == 'Done':
+                    raise ValueError("This session was already completed in the past.")
+                else:
+                    pressed_button = input(
+                        "There is an existing file for this session,\n"
+                        "but the status shows that the session was not completed.\n"
+                        "Please confirm that this is true and press Y/N to proceed/stop: "
+                    )
+                    if pressed_button.lower() != "y":
+                        print("Operation cancelled.")
+                        return None, None
+            elif session_num != (max(past_session_num) + 1):
+                raise ValueError(
+                    f"Previous session numbers are: {past_session_num}. "
+                    f"The next one should be {max(past_session_num) + 1}."
+                )
+            
         #Generate the file name and path:
         date_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
         file_name = f"sub{self.subject_id}_session{session_num}_{date_time}.txt"
@@ -70,7 +88,8 @@ class ExperimentFileManager:
             "file_name": file_name,
             "date_time": date_time,
             "session_number": session_num,
-            "sender_path_sub": self.path_sub
+            "sender_path_sub": self.path_sub,
+            "status": 'Created'
         }
         
         # Save the updated state
@@ -78,6 +97,36 @@ class ExperimentFileManager:
         
         print(f"File created and state saved: {file_path}")
         return file_path, file_name
+    
+    def recipient_updates(self, recipient_status, session_num = -1):
+        """
+        Update the status of the latest session file from the recipient's perspective.
+        
+        Args:
+            recipient_status (str): The status to update. Possible values are 
+                                    'Confirmed', 'Communicating', or 'Done'.
+            session_num (int): default is the latest session
+        
+        Raises:
+            ValueError: If the recipient_status is invalid or if there are no sessions.
+        """
+        valid_statuses = {'Confirmed', 'Communicating', 'Done'}
+        
+        # Validate the status
+        if recipient_status not in valid_statuses:
+            raise ValueError(f"Invalid status: {recipient_status}. Valid options are {valid_statuses}.")
+        
+        # Check if there is at least one session
+        if not self.session_data:
+            raise ValueError("No session data available to update.")
+        
+        # Update the status
+        self.session_data[session_num]["status"] = recipient_status
+        
+        # Save the updated state
+        self.save_state()
+        
+        print(f"Updated session {session_num} status to: {recipient_status}")
     
     def save_state(self):
         """
@@ -89,12 +138,19 @@ class ExperimentFileManager:
         
     def list_files(self):
         """
-        List all files created for the subject.
+        List all files created for the subject and print them.
         
         Returns:
-            list: List of file paths.
+            list: List of file names.
         """
-        return [data["file_path"] for data in self.session_data.values()]
+        file_names = [data["file_name"] for data in self.session_data.values()]
+        
+        # Print the file names
+        print("Files created for the subject:")
+        for file_name in file_names:
+            print(f"- {file_name}")
+        
+        return file_names
     
     @staticmethod
     def load_state(pickle_file):
@@ -149,12 +205,6 @@ class CommunicateViaTextFile:
 
         # Check if the file exists
         if os.path.exists(file_path):
-            # # If the file exists, rename it with a timestamp
-            # timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            # name, ext = os.path.splitext(file_name)
-            # new_file_name = f"{name}_{timestamp}{ext}"
-            # old_file_path = os.path.join(self.dropbox_file_path, new_file_name)
-            # os.rename(file_path, old_file_path)
             print('Found the file.')
         else:
             # Create a new file with the original name
