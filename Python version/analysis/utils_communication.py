@@ -7,10 +7,115 @@ Created on Tue Jan  7 20:55:45 2025
 
 import time
 from datetime import datetime
+import dill as pickled
 import socket
 import os
 import numpy as np
 
+#%% create a new file
+class ExperimentFileManager:
+    def __init__(self, subject_id, networkDisk_path):
+        """
+        Initialize the file manager for a specific subject.
+        
+        Args:
+            subject_id (str): Unique identifier for the subject.
+            networkDisk_path (str): Base directory where files are stored.
+        """
+        self.subject_id = subject_id
+        self.networkDisk_path = networkDisk_path
+        self._check_networkDisk_path()
+        
+        #create a path just for that subject
+        #create subject directory if not exists
+        self.path_sub = os.path.join(self.networkDisk_path, f'sub{subject_id}')
+        os.makedirs(self.path_sub, exist_ok = True)
+        
+        self.session_data = {}  # Dictionary to store session metadata
+        self.pickle_file = os.path.join(self.path_sub, f"sub{subject_id}_expt_record.pkl")
+    
+    def _check_networkDisk_path(self):
+        # Check if the path exists
+        if os.path.exists(self.networkDisk_path):
+            print(f"The path exists: {self.networkDisk_path}")
+        else:
+            raise ValueError(f"The path does not exist: {self.networkDisk_path}")
+                    
+    def create_session_file(self, session_num):
+        # Retrieve past session numbers
+        past_session_num = list(self.session_data.keys())
+        
+        # Validate session number
+        if session_num < 1:
+            raise ValueError("Session number must be larger than 1.")
+        if not past_session_num and session_num != 1:
+            raise ValueError("The first session must be 1.")
+        if past_session_num and session_num != (max(past_session_num) + 1):
+            raise ValueError(f"Previous session numbers are: {past_session_num}. The next one should be {max(past_session_num) + 1}.")
+
+        
+        #Generate the file name and path:
+        date_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        file_name = f"sub{self.subject_id}_session{session_num}_{date_time}.txt"
+        file_path = os.path.join(self.path_sub, file_name)
+        
+        # Create the file with metadata
+        with open(file_path, 'w') as file:
+            file.write(f"Subject ID: {self.subject_id}\n")
+            file.write(f"Session: {session_num}\n")
+            file.write(f"Date and Time: {date_time}\n")
+            
+        # Update session data
+        self.session_data[session_num] = {
+            "file_path": file_path,
+            "date_time": date_time,
+            "metadata": {
+                "session_number": session_num,
+                "file_directory": file_path,
+            },
+        }
+        
+        # Save the updated state
+        self.save_state()
+        
+        print(f"File created and state saved: {file_path}")
+        return file_path, file_name
+    
+    def save_state(self):
+        """
+        Save the current state of the class as a pickle file.
+        """
+        with open(self.pickle_file, 'wb') as pkl_file:
+            pickled.dump(self, pkl_file)
+        print(f"State saved to pickle: {self.pickle_file}")
+        
+    def list_files(self):
+        """
+        List all files created for the subject.
+        
+        Returns:
+            list: List of file paths.
+        """
+        return [data["file_path"] for data in self.session_data.values()]
+    
+    @staticmethod
+    def load_state(pickle_file):
+        """
+        Load a saved instance of ExperimentFileManager from a pickle file.
+        
+        Args:
+            pickle_file (str): Path to the pickle file.
+    
+        Returns:
+            ExperimentFileManager: Loaded instance.
+        """
+        with open(pickle_file, 'rb') as pkl_file:
+            instance = pickled.load(pkl_file)
+        print(f"State loaded from pickle: {pickle_file}")
+        return instance
+
+
+#%%
 class CommunicateViaTextFile:
     def __init__(self, dropbox_file_path, retry_delay = 0.1, timeout = 30,
                  max_retries = 10):

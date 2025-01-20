@@ -7,22 +7,25 @@ Created on Tue Jan  7 21:57:13 2025
 
 import sys
 import numpy as np
-sys.path.append('c:\\users\\brainardlab-adm\\documents\\github\\colorellipsoids\\python version')
-from analysis.utils_communication import CommunicateViaTextFile
+sys.path.append('c:\\users\\brainardlab\\documents\\github\\colorellipsoids\\python version')
+from analysis.utils_communication import CommunicateViaTextFile, ExperimentFileManager
 
 # Define the Dropbox path and file name
-dropbox_path = 'c:\\users\\brainardlab-adm\\Aguirre-Brainard Lab Dropbox\\Fangfang Hong\\ELPS_analysis\\SanityChecks_DataFiles'
-file_name = 'test_communication.txt'
+networkDisk_path = 'c:\Shares\BrainardLab'
+expt_file_manager = ExperimentFileManager(subject_id= 1, networkDisk_path= networkDisk_path)
+file_path, file_name = expt_file_manager.create_session_file(1)
 
-# Initialize communication class
-communicator = CommunicateViaTextFile(dropbox_path, timeout =120, retry_delay = 0.1, max_retries = 100)
+#%% Initialize communication class
+communicator = CommunicateViaTextFile(expt_file_manager.path_sub,
+                                      timeout =120, retry_delay = 0.1, max_retries = 100)
 communicator.check_and_handle_file(file_name)
 
-#%% Step 1: Initialize
+# Step 1: Initialize
 print("Initializing communication...")
 communicator.initialize_communication()
 print("Initialization complete.")
 
+#%%
 # Step 2: Send 10 sets of RGB values
 rgb_values = np.random.rand(10, 3)  # Generate 10 random RGB values
 
