@@ -67,12 +67,10 @@ class ExperimentFileManager:
             
         # Update session data
         self.session_data[session_num] = {
-            "file_path": file_path,
+            "file_name": file_name,
             "date_time": date_time,
-            "metadata": {
-                "session_number": session_num,
-                "file_directory": file_path,
-            },
+            "session_number": session_num,
+            "sender_path_sub": self.path_sub
         }
         
         # Save the updated state
