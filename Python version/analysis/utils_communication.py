@@ -98,7 +98,7 @@ class ExperimentFileManager:
         print(f"File created and state saved: {file_path}")
         return file_path, file_name
     
-    def recipient_updates(self, recipient_status, session_num = -1):
+    def recipient_updates(self, recipient_status, session_num = None):
         """
         Update the status of the latest session file from the recipient's perspective.
         
@@ -120,7 +120,11 @@ class ExperimentFileManager:
         if not self.session_data:
             raise ValueError("No session data available to update.")
         
-        # Update the status
+        # Determine which session to update
+        if session_num is None:
+            session_num = max(self.session_data.keys())  # Get the latest session number
+
+        #update the status
         self.session_data[session_num]["status"] = recipient_status
         
         # Save the updated state
