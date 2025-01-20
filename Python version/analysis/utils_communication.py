@@ -98,9 +98,9 @@ class ExperimentFileManager:
         print(f"File created and state saved: {file_path}")
         return file_path, file_name
     
-    def recipient_updates(self, recipient_status, session_num = None):
+    def status_updates(self, status, session_num = None):
         """
-        Update the status of the latest session file from the recipient's perspective.
+        Update the status of the latest session file from the sender's perspective.
         
         Args:
             recipient_status (str): The status to update. Possible values are 
@@ -113,8 +113,8 @@ class ExperimentFileManager:
         valid_statuses = {'Confirmed', 'Communicating', 'Done'}
         
         # Validate the status
-        if recipient_status not in valid_statuses:
-            raise ValueError(f"Invalid status: {recipient_status}. Valid options are {valid_statuses}.")
+        if status not in valid_statuses:
+            raise ValueError(f"Invalid status: {status}. Valid options are {valid_statuses}.")
         
         # Check if there is at least one session
         if not self.session_data:
@@ -125,12 +125,12 @@ class ExperimentFileManager:
             session_num = max(self.session_data.keys())  # Get the latest session number
 
         #update the status
-        self.session_data[session_num]["status"] = recipient_status
+        self.session_data[session_num]["status"] = status
         
         # Save the updated state
         self.save_state()
         
-        print(f"Updated session {session_num} status to: {recipient_status}")
+        print(f"Updated session {session_num} status to: {status}")
     
     def save_state(self):
         """

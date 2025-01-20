@@ -13,7 +13,7 @@ from analysis.utils_communication import CommunicateViaTextFile, ExperimentFileM
 
 # Define the Dropbox path and file name
 subject_id = 1
-session_today = 2
+session_today =1
 networkDisk_path = 'c:\Shares\BrainardLab'
 if session_today == 1:
     expt_file_manager = ExperimentFileManager(subject_id, 
@@ -34,6 +34,8 @@ communicator.check_and_handle_file(file_name)
 print("Initializing communication...")
 communicator.initialize_communication()
 print("Initialization complete.")
+#update the communication status
+expt_file_manager.recipient_updates('Confirmed')
 
 #%%
 # Step 2: Send 10 sets of RGB values
@@ -44,8 +46,17 @@ for i, rgb in enumerate(rgb_values, start=1):
     communicator.send_RGBvals(rgb.tolist())
     print(f"RGB values {i} confirmed.")
 
-
 # Step 3: Finalize
 print("Finalizing communication...")
 communicator.finalize()
 print("Communication finalized.")
+
+#update the communication status
+expt_file_manager.recipient_updates('Done')
+
+
+
+
+
+
+
