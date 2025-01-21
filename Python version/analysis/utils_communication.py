@@ -11,10 +11,84 @@ import dill as pickled
 import socket
 import os
 import numpy as np
+import tkinter as tk
+
+#%%
+def get_experiment_info_custom():
+    """
+    Create a customized popup window to collect subject_id, subject_init, and session_today.
+    
+    Returns:
+        tuple: subject_id (int), subject_init (str), session_today (int)
+    """
+    # Function to submit the data
+    def submit():
+        try:
+            # Validate and retrieve data
+            subject_id = int(subject_id_entry.get())
+            subject_init = subject_init_entry.get().strip()
+            session_today = int(session_today_entry.get())
+            
+            # Ensure no fields are empty
+            if not subject_init:
+                raise ValueError("Subject initials cannot be empty.")
+            
+            # Update result and close the window
+            result["subject_id"] = subject_id
+            result["subject_init"] = subject_init
+            result["session_today"] = session_today
+            popup.destroy()
+        except ValueError as e:
+            error_label.config(text=f"Error: {e}", fg="red")
+
+    # Create the main popup window
+    popup = tk.Tk()
+    popup.title("Enter Experiment Info")
+    popup.geometry("400x300")  # Set window size
+
+    # Configure font size
+    label_font = ("Arial", 14)
+    entry_font = ("Arial", 12)
+    button_font = ("Arial", 12)
+    
+    # Create labels and entry fields
+    tk.Label(popup, text="Enter Subject ID:", font=label_font).pack(pady=5)
+    subject_id_entry = tk.Entry(popup, font=entry_font)
+    subject_id_entry.pack(pady=5)
+    
+    tk.Label(popup, text="Enter Subject Initials:", font=label_font).pack(pady=5)
+    subject_init_entry = tk.Entry(popup, font=entry_font)
+    subject_init_entry.pack(pady=5)
+    
+    tk.Label(popup, text="Enter Today's Session Number:", font=label_font).pack(pady=5)
+    session_today_entry = tk.Entry(popup, font=entry_font)
+    session_today_entry.pack(pady=5)
+    
+    # Error message label
+    error_label = tk.Label(popup, text="", font=("Arial", 10))
+    error_label.pack(pady=5)
+    
+    # Submit button
+    tk.Button(popup, text="Submit", command=submit, font=button_font).pack(pady=10)
+    
+    # Center window
+    popup.eval('tk::PlaceWindow . center')
+    
+    # Initialize result dictionary
+    result = {}
+    
+    # Run the Tkinter event loop
+    popup.mainloop()
+    
+    # Return the collected data
+    if result:
+        return result["subject_id"], result["subject_init"], result["session_today"]
+    else:
+        return None, None, None  # Return None values if the window was closed
 
 #%% create a new file
 class ExperimentFileManager:
-    def __init__(self, subject_id, networkDisk_path):
+    def __init__(self, subject_id, subject_init, networkDisk_path):
         """
         Initialize the file manager for a specific subject.
         
@@ -23,6 +97,7 @@ class ExperimentFileManager:
             networkDisk_path (str): Base directory where files are stored.
         """
         self.subject_id = subject_id
+        self.subject_init = subject_init
         self.networkDisk_path = networkDisk_path
         self._check_networkDisk_path()
         
@@ -40,8 +115,17 @@ class ExperimentFileManager:
             print(f"The path exists: {self.networkDisk_path}")
         else:
             raise ValueError(f"The path does not exist: {self.networkDisk_path}")
-                    
-    def create_session_file(self, session_num):
+            
+    def _check_init_consistency(self):
+        # Validate that subject initials match across history
+        for session in self.session_data.values():
+            if session["sub_initial"] != self.subject_init:
+                raise ValueError(
+                    f"Mismatch in subject initials: Found '{session['sub_initial']}' in history, "
+                    f"but current subject initials are '{self.subject_init}'. Ensure consistency."
+                )
+    
+    def _validate_session_num(self, session_num):
         # Retrieve past session numbers
         past_session_num = list(self.session_data.keys())
         
@@ -71,6 +155,13 @@ class ExperimentFileManager:
                     f"Previous session numbers are: {past_session_num}. "
                     f"The next one should be {max(past_session_num) + 1}."
                 )
+                    
+    def create_session_file(self, session_num):
+        # Validate that subject initials match across history
+        self._check_init_consistency()
+        
+        # Validate session number
+        self._validate_session_num(session_num)
             
         #Generate the file name and path:
         date_time = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
@@ -85,6 +176,7 @@ class ExperimentFileManager:
             
         # Update session data
         self.session_data[session_num] = {
+            "sub_initial": self.subject_init,
             "file_name": file_name,
             "date_time": date_time,
             "session_number": session_num,
