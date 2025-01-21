@@ -115,15 +115,6 @@ class ExperimentFileManager:
             print(f"The path exists: {self.networkDisk_path}")
         else:
             raise ValueError(f"The path does not exist: {self.networkDisk_path}")
-            
-    def _check_init_consistency(self):
-        # Validate that subject initials match across history
-        for session in self.session_data.values():
-            if session["sub_initial"] != self.subject_init:
-                raise ValueError(
-                    f"Mismatch in subject initials: Found '{session['sub_initial']}' in history, "
-                    f"but current subject initials are '{self.subject_init}'. Ensure consistency."
-                )
     
     def _validate_session_num(self, session_num):
         # Retrieve past session numbers
@@ -156,10 +147,7 @@ class ExperimentFileManager:
                     f"The next one should be {max(past_session_num) + 1}."
                 )
                     
-    def create_session_file(self, session_num):
-        # Validate that subject initials match across history
-        self._check_init_consistency()
-        
+    def create_session_file(self, session_num):      
         # Validate session number
         self._validate_session_num(session_num)
             
