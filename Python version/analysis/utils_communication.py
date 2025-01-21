@@ -171,7 +171,7 @@ class ExperimentFileManager:
         # Create the file with metadata
         with open(file_path, 'w') as file:
             file.write(f"Subject ID: {self.subject_id}\n")
-            file.write(f"Subject initial: {self.subject_initial}\n")
+            file.write(f"Subject initial: {self.subject_init}\n")
             file.write(f"Session: {session_num}\n")
             file.write(f"Date and Time: {date_time}\n")
             
