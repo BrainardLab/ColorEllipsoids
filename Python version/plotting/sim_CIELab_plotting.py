@@ -350,7 +350,7 @@ class CIELabVisualization(WishartModelBasicsVisualization):
         # Show the figure after all subplots have been drawn
         # Show the figure after all subplots have been drawn
         if self.fig_dir and self.save_fig:
-            plt.savefig(self.fig_dir + self.pltP['fig_name'])
+            plt.savefig(os.path.join(self.fig_dir, self.pltP['fig_name']))
         plt.show()
         return fig, ax
             

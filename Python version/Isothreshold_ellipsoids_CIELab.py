@@ -21,8 +21,9 @@ sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids
 from analysis.ellipsoids_tools import UnitCircleGenerate_3D, fit_3d_isothreshold_ellipsoid
                 
 base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
-output_figDir = base_dir+ 'ELPS_analysis/Simulation_FigFiles/Python_version/CIE/'
-output_fileDir = base_dir+ 'ELPS_analysis/Simulation_DataFiles/'
+output_figDir = os.path.join(base_dir,'ELPS_analysis','Simulation_FigFiles',
+                             'Python_version','CIE')
+output_fileDir = os.path.join(base_dir, 'ELPS_analysis','Simulation_DataFiles')
 
 #%%import functions from the other script
 # Define the path to the directory containing the necessary files for the simulation
@@ -35,14 +36,13 @@ background_RGB = np.array([0.5,0.5,0.5])
 sim_thres_CIELab = SimThresCIELab(path_str, background_RGB)
 
 #define the algorithm for computing color difference
-color_diff_algorithm = 'CIE1994' #or 'CIE2000', 'CIE1994', 'CIE1976' (default)
+color_diff_algorithm = 'CIE2000' #or 'CIE2000', 'CIE1994', 'CIE1976' (default)
 str_append = '' if color_diff_algorithm == 'CIE1976' else '_'+color_diff_algorithm
 
 #%%
 file_name = f'Isothreshold_ellipsoid_CIELABderived{str_append}.pkl'
-path_str = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'+\
-        'ELPS_analysis/Simulation_DataFiles/'
-full_path = f"{path_str}{file_name}"
+path_str = os.path.join(base_dir, 'ELPS_analysis','Simulation_DataFiles')
+full_path = f"{path_str}/{file_name}"
 os.chdir(path_str)
 
 #Here is what we do if we want to load the data
@@ -165,7 +165,7 @@ except:
     plt_specifics = {}
     for i in  plt_specifics_keys: plt_specifics[i] = eval(i)     
     
-    full_path = f"{output_fileDir}{file_name}"
+    full_path = f"{output_fileDir}/{file_name}"
         
     # Write the list of dictionaries to a file using pickle
     with open(full_path, 'wb') as f:

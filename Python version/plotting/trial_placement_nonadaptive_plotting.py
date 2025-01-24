@@ -351,5 +351,5 @@ class TrialPlacementVisualization(WishartModelBasicsVisualization):
                             wspace=-0.05, hspace=-0.05)
         plt.show()
         if pltP['saveFig'] and pltP['figDir'] != '':
-            full_path2 = os.path.join(pltP['figDir'],pltP['figName']+'.png')
+            full_path2 = f"{pltP['figDir']}/{pltP['figName']}"
             fig.savefig(full_path2)            
