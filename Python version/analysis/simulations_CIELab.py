@@ -168,7 +168,7 @@ class SimThresCIELab:
         
         return color_Lab, color_XYZ, color_LMS
     
-    def compute_deltaE(self, ref_RGB, vecDir, vecLen, comp_RGB=None, method='Euclidean'):
+    def compute_deltaE(self, ref_RGB, vecDir, vecLen, comp_RGB=None, method='CIE1976'):
         """
         Computes the perceptual difference (deltaE) between a reference stimulus
         and a comparison stimulus in the CIELab color space. The comparison stimulus
@@ -186,7 +186,6 @@ class SimThresCIELab:
             - 'CIE1976': DeltaE using the CIE1976 method (Euclidean distance in CIELab).
             - 'CIE1994': DeltaE using the CIE1994 method (accounts for perceptual non-uniformity).
             - 'CIE2000': DeltaE using the CIE2000 method (more advanced perceptual uniformity).
-            - 'Euclidean': Simple Euclidean distance between the reference and comparison Lab values.
     
         Returns:
         - deltaE (float): The computed perceptual difference between the reference and comparison stimuli.

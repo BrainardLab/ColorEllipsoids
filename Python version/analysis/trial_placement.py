@@ -9,6 +9,8 @@ import numpy as np
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import sys
+from colormath.color_objects import LabColor
+from colormath.color_diff import delta_e_cie2000, delta_e_cie1994, delta_e_cie1976
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
 from analysis.color_thres import color_thresholds
 
@@ -443,7 +445,7 @@ class TrialPlacementWithoutAdaptiveSampling:
         self.sim['pC_given_alpha_beta'] = self.WeibullFunc(self.sim['deltaE_1JND'],
                                                            alpha, beta, guessing_rate)
     
-    def run_sim_1ref(self, sim_CIELab, rgb_ref, rgb_comp):
+    def run_sim_1ref(self, sim_CIELab, rgb_ref, rgb_comp, colordiff_alg):
         #initialize
         lab_comp = np.full((3,self.sim['nSims']), np.nan)
         deltaE = np.full((self.sim['nSims']), np.nan)
@@ -460,8 +462,22 @@ class TrialPlacementWithoutAdaptiveSampling:
             # Convert the comparison RGB values to Lab color space.
             lab_comp[:,n], _, _ =  sim_CIELab.convert_rgb_lab(rgb_comp[:,n])
             # Calculate the color difference (deltaE) between the 
-            #comparison and reference stimuli.
-            deltaE[n] =  np.linalg.norm(lab_comp[:,n] - ref_Lab)
+            #comparison and reference stimuli.            
+            # Compute deltaE using the specified method.
+            # Convert lab_comp[:, n] to LabColor
+            lab_comp_color = LabColor(lab_l=lab_comp[0, n], lab_a=lab_comp[1, n], lab_b=lab_comp[2, n])
+            lab_ref_color = LabColor(lab_l=ref_Lab[0], lab_a=ref_Lab[1], lab_b=ref_Lab[2])
+            if colordiff_alg == 'CIE2000':
+                # CIE2000 method (more accurate perceptual uniformity).
+                deltaE[n] = delta_e_cie2000(lab_comp_color, lab_ref_color)
+            elif colordiff_alg == 'CIE1994':
+                # CIE1994 method (intermediate between CIE1976 and CIE2000).
+                deltaE[n] = delta_e_cie1994(lab_comp_color, lab_ref_color)
+            else:
+                # Simple Euclidean distance in CIELab.
+                deltaE[n] = np.linalg.norm(lab_comp[:,n] - ref_Lab)
+                # THIS IS EQUIVALENT AS CIE1976
+            
             # Calculate the probability of correct identification using the 
             #Weibull function.
             probC[n] = self.WeibullFunc(deltaE[n],
@@ -498,7 +514,7 @@ class TrialPlacementWithoutAdaptiveSampling:
         
         return probC, resp_binary
 
-    def run_sim(self, sim_CIELab = None, random_seed = None):
+    def run_sim(self, sim_CIELab = None, random_seed = None, colordiff_alg = 'CIE1976'):
         """
         Runs the simulation to generate comparison stimuli, calculate color differences,
         determine the probability of correct identification, and simulate binary responses.
@@ -512,7 +528,15 @@ class TrialPlacementWithoutAdaptiveSampling:
         random_seed : int, optional
             Seed for the random number generator to ensure reproducibility. 
             If None, a random seed will be generated.
+            
+        colordiff_alg (str): The method for calculating deltaE. Options are:
+            - 'CIE1976': DeltaE using the CIE1976 method (Euclidean distance in CIELab).
+            - 'CIE1994': DeltaE using the CIE1994 method (accounts for perceptual non-uniformity).
+            - 'CIE2000': DeltaE using the CIE2000 method (more advanced perceptual uniformity).
+    
         """
+        if colordiff_alg not in ['CIE1976', 'CIE1994', 'CIE2000']:
+            raise ValueError("The method can only be 'CIE1976' or 'CIE1994' or 'CIE2000'.")
 
         self._initialize()
         # Set the random seed if provided, otherwise generate a random seed
@@ -561,7 +585,8 @@ class TrialPlacementWithoutAdaptiveSampling:
                         self.sim['probC'][i,j], self.sim['resp_binary'][i,j] = \
                             self.run_sim_1ref(sim_CIELab, 
                                               rgb_ref_ij, 
-                                              self.sim['rgb_comp'][i,j])
+                                              self.sim['rgb_comp'][i,j],
+                                              colordiff_alg)
                             
         else:
             # Generalize the code above for 3d case
@@ -575,7 +600,8 @@ class TrialPlacementWithoutAdaptiveSampling:
                         self.sim['probC'][i,j,k], self.sim['resp_binary'][i,j,k] = \
                             self.run_sim_1ref(sim_CIELab, 
                                               rgb_ref_ijk, 
-                                              self.sim['rgb_comp'][i,j,k])
+                                              self.sim['rgb_comp'][i,j,k],
+                                              colordiff_alg)
                     
 #%%
     @staticmethod

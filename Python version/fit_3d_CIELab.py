@@ -12,6 +12,7 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import dill as pickle
 import sys
+import os
 import numpy as np
 
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
@@ -26,31 +27,33 @@ from plotting.trial_placement_nonadaptive_plotting import TrialPlacementVisualiz
 from data_reorg import organize_data
 
 #%% three variables we need to define for loading the data
-for rr in range(10):
+for rr in range(1):
     rnd_seed  = rr
     nSims     = 240
     jitter    = 0.3
     
     base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
-    output_figDir_fits = base_dir +'ELPS_analysis/ModelFitting_FigFiles/Python_version/3D_oddity_task/'
-    output_fileDir = base_dir + 'ELPS_analysis/ModelFitting_DataFiles/3D_oddity_task/'
+    output_figDir_fits = os.path.join(base_dir,'ELPS_analysis','ModelFitting_FigFiles',
+                                      'Python_version','3D_oddity_task')
+    output_fileDir = os.path.join(base_dir,'ELPS_analysis','ModelFitting_DataFiles',
+                                  '3D_oddity_task')
     
     #% ------------------------------------------
     # Load data simulated using CIELab
     # ------------------------------------------
     #file 1
-    path_str = base_dir + 'ELPS_analysis/Simulation_DataFiles/'
+    path_str = os.path.join(base_dir, 'ELPS_analysis','Simulation_DataFiles','ellipsoids')
     # Create an instance of the class
     color_thres_data = color_thresholds(3, base_dir + 'ELPS_analysis/')
     # Load Wishart model fits
-    color_thres_data.load_CIE_data()  
+    color_thres_data.load_CIE_data(CIE_version='CIE2000')  
     stim3D = color_thres_data.get_data('stim3D', dataset='CIE_data')
     results3D = color_thres_data.get_data('results3D', dataset='CIE_data')
     
     #simulation files
     file_sim = f'Sims_isothreshold_ellipsoids_sim{nSims}perCond_samplingNearContour_'+\
-                f'jitter{jitter}_seed{rnd_seed}.pkl'
-    full_path = f"{path_str}{file_sim}"
+                f'jitter{jitter}_seed{rnd_seed}_CIE2000.pkl'
+    full_path = f"{path_str}/{file_sim}"
     with open(full_path, 'rb') as f: data_load = pickle.load(f)
     sim = data_load[0]
     
@@ -68,10 +71,10 @@ for rr in range(10):
     Fitting would be easier if we first scale things up, and then scale the model 
     predictions back down
     """
-    scaler_x1  = 5
+    scaler_x1  = 2.5
     #x1_raw is unscaled
     data, x1_raw, xref_raw = organize_data(3, sim,\
-            scaler_x1, slc_idx = idx_trim, visualize_samples = False)
+            scaler_x1, slc_idx = idx_trim)
     # unpackage data
     ref_size_dim1, ref_size_dim2, ref_size_dim3 = x1_raw.shape[0:3]
     # if we run oddity task with the reference stimulus fixed at the top

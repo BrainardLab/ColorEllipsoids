@@ -32,7 +32,7 @@ plane_2D      = 'RG plane'
 plane_2D_dict = {'GB plane': 0, 'RB plane': 1, 'RG plane': 2}
 plane_2D_idx  = plane_2D_dict[plane_2D]
 sim_jitter    = '0.3'
-nSims         = 50 #number of simulations: 240 trials for each ref stimulus
+nSims         = 160 #number of simulations: 240 trials for each ref stimulus
 
 for rr in range(10):
     rnd_seed      = rr
@@ -57,7 +57,7 @@ for rr in range(10):
     #file 2
     file_sim      = f"Sims_isothreshold_{plane_2D}_sim{nSims}perCond_"+\
                     f"samplingNearContour_jitter{sim_jitter}_seed{rnd_seed}.pkl"
-    full_path     = f"{path_str}{file_sim}"   
+    full_path     = f"{path_str}{plane_2D}/{nSims} trials/{file_sim}"   
     with open(full_path, 'rb') as f:  data_load = pickle.load(f)
     sim = data_load[0]
     

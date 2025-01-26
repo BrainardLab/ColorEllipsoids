@@ -14,10 +14,6 @@ import matplotlib.pyplot as plt
 import sys
 
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
-from core import oddity_task
-from analysis.ellipses_tools import fit_2d_isothreshold_contour
-from analysis.ellipsoids_tools import fit_3d_isothreshold_ellipsoid
-from analysis.ellipses_tools import ellParams_to_covMat, covMat3D_to_2DsurfaceSlice
 from analysis.color_thres import color_thresholds
 
 #%%

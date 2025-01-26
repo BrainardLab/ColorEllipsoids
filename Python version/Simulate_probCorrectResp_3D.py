@@ -28,9 +28,10 @@ output_fileDir = os.path.join(base_dir + 'ELPS_analysis','Simulation_DataFiles')
 rnd_seed = 0
 colordiff_alg = 'CIE2000' #or CIE1994
 if colordiff_alg == 'CIE1976':
-    file_name = 'Isothreshold_ellipsoid_CIELABderived.pkl'
+    str_colordiff_alg = ''
 else:
-    file_name = f'Isothreshold_ellipsoid_CIELABderived_{colordiff_alg}.pkl'
+    str_colordiff_alg = '_' + colordiff_alg
+file_name = f'Isothreshold_ellipsoid_CIELABderived{str_colordiff_alg}.pkl'
 path_str =  os.path.join(base_dir, 'ELPS_analysis','Simulation_DataFiles')
 full_path = f"{path_str}/{file_name}"
 
@@ -67,11 +68,13 @@ sim_trial_vis.plot_WeibullPMF(x_PMF)
 
 #% specify the seed
 # Run the simulation with the specified random seed
-sim_trial.run_sim(sim_CIELab, random_seed = rnd_seed)
+sim_trial.run_sim(sim_CIELab, 
+                  random_seed = rnd_seed, 
+                  colordiff_alg= colordiff_alg)
 
 #% plotting and saving data
 sim = sim_trial.sim
-fixed_val = 0.35 #0.2, 0.35, 0.5, 0.65, 0.8
+fixed_val = 0.8 #0.2, 0.35, 0.5, 0.65, 0.8
 for test in 'RGB':
     ttl = 'RGB plane'
     ttl_new = ttl.replace(test,'')
@@ -92,8 +95,8 @@ for test in 'RGB':
     
 #%% save to pkl
 file_name = f"Sims_isothreshold_ellipsoids_sim{sim['nSims']}" +\
-    f"perCond_sampling{sim['method_sampling']}_jitter{sim['random_jitter']}_seed{rnd_seed}.pkl"
-full_path = f"{output_fileDir}{file_name}"
+    f"perCond_sampling{sim['method_sampling']}_jitter{sim['random_jitter']}_seed{rnd_seed}{str_colordiff_alg}.pkl"
+full_path = f"{output_fileDir}/ellipsoids/{file_name}"
         
 # Write the list of dictionaries to a file using pickle
 with open(full_path, 'wb') as f:
