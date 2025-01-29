@@ -20,7 +20,6 @@ from core import oddity_task, model_predictions, optim
 from core.wishart_process import WishartProcessModel
 from core.model_predictions import wishart_model_pred
 from analysis.color_thres import color_thresholds
-from analysis.ellipses_tools import covMat3D_to_2DsurfaceSlice
 from plotting.wishart_predictions_plotting import WishartPredictionsVisualization
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version')
 from plotting.trial_placement_nonadaptive_plotting import TrialPlacementVisualization
@@ -31,6 +30,7 @@ for rr in range(1):
     rnd_seed  = rr
     nSims     = 240
     jitter    = 0.3
+    colordiff_alg = 'CIE1994'
     
     base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
     output_figDir_fits = os.path.join(base_dir,'ELPS_analysis','ModelFitting_FigFiles',
@@ -46,11 +46,12 @@ for rr in range(1):
     # Create an instance of the class
     color_thres_data = color_thresholds(3, base_dir + 'ELPS_analysis/')
     # Load Wishart model fits
-    color_thres_data.load_CIE_data(CIE_version='CIE2000')  
+    color_thres_data.load_CIE_data(CIE_version= colordiff_alg)  
     stim3D = color_thres_data.get_data('stim3D', dataset='CIE_data')
     results3D = color_thres_data.get_data('results3D', dataset='CIE_data')
     
     #simulation files
+    colordiff_alg_str = '_' + colordiff_alg if colordiff_alg != 'CIE1976' else ''
     file_sim = f'Sims_isothreshold_ellipsoids_sim{nSims}perCond_samplingNearContour_'+\
                 f'jitter{jitter}_seed{rnd_seed}_CIE2000.pkl'
     full_path = f"{path_str}/{file_sim}"
@@ -158,13 +159,13 @@ for rr in range(1):
     # Compute model predictions
     # -----------------------------
     model_pred_Wishart = wishart_model_pred(model, opt_params, W_INIT_KEY,
-                                            DATA_KEY, OPT_KEY, W_init, 
+                                            OPT_KEY, W_init, 
                                             W_est, Sigmas_est_grid, 
                                             color_thres_data,
                                             target_pC= 2/3,
                                             scaler_x1 = scaler_x1,
-                                            ngrid_bruteforce = 200,
-                                            bds_bruteforce = [0.01, 0.25])
+                                            ngrid_bruteforce = 1000,
+                                            bds_bruteforce = [0.0005, 0.3])
     
     model_pred_Wishart.convert_Sig_Threshold_oddity_batch(grid_trans)
     
@@ -189,8 +190,11 @@ for rr in range(1):
                                             model_pred_Wishart.Sigmas_recover_grid)
     model_pred_Wishart.Sigmas_recover_grid_slice_2d = np.transpose(model_pred_slice_2d_ellipse,(1,0,2,3,4,5))
         
-    #% plot figures and save them as png and gif
-    fig_outputDir = base_dir+ 'ELPS_analysis/ModelFitting_FigFiles/Python_version/3D_oddity_task/'
+    # ---------------------------------------------
+    # plot figures and save them as png and gif
+    # ---------------------------------------------
+    fig_outputDir = os.path.join(base_dir, 'ELPS_analysis','ModelFitting_FigFiles',
+                                 'Python_version','3D_oddity_task', colordiff_alg)
     name_ext = '_withInterpolations' if np.prod(xref_raw.shape[0:3]) < np.prod(grid.shape[0:3]) else ''
     fig_name = 'Fitted' + file_sim[4:-4] + name_ext #+'_maxDeg' + str(model.degree)
     
@@ -205,7 +209,7 @@ for rr in range(1):
                                                          model_pred_Wishart, 
                                                          color_thres_data,
                                                          fig_dir = output_figDir_fits, 
-                                                         save_fig = False,
+                                                         save_fig = True,
                                                          save_gif = False)
             
     wishart_pred_vis.plot_3D(
@@ -222,12 +226,12 @@ for rr in range(1):
         fig_name = fig_name) 
     
     if wishart_pred_vis.save_gif:
-        wishart_pred_vis._save_gif(fig_name, fig_name, fig_name_end = '.pdf')
+        wishart_pred_vis._save_gif(fig_name, fig_name, fig_name_end = '.png')
     
     #% save data
     output_file = f"Fitted{file_sim[4:-4]}_bandwidth{BANDWIDTH}{name_ext}_oddity.pkl"
     #    '_maxDeg' + str(model.degree)+'.pkl'
-    full_path4 = f"{output_fileDir}{output_file}"
+    full_path4 = f"{output_fileDir}/{colordiff_alg}/{output_file}"
     
     variable_names = ['data', 'x1_raw', 'xref_raw','sim_trial_by_CIE', 'grid_1d',
                       'grid','grid_trans','iters', 'objhist', 'model','opt_params',

@@ -489,16 +489,115 @@ class fit_PMF_MOCS_trials():
         
         # Step 6: Extract the 95% confidence interval for the probability correct at each grid point
         self.fine_pC_95btstCI = arr_sorted[[idx_lb, idx_ub]]
-                
+    
+#%%            
+class sim_MOCS_trials:
+    @staticmethod
+    def generate_vectors_min_angle(min_angle_degrees=60, max_angle_degrees = 160, seed=None):
+        """
+        Generate two random vectors on a 2D plane such that their angle is at least 
+            `min_angle_degrees` apart and at max 'max_angle_degrees' apart.
 
+        Args:
+            min_angle_degrees (float): The minimum angle (in degrees) between the two vectors.
+            max_angle_degrees (float): The maximum angle (in degrees) between the two vectors.
+            seed (int, optional): Seed for the random number generator for reproducibility.
+
+        Returns:
+            tuple: Two numpy arrays representing the two vectors.
+        """
+        if seed is not None:
+            np.random.seed(seed)
+
+        # Convert the minimum angle to radians
+        min_angle_radians = np.radians(min_angle_degrees)
+        max_angle_radians = np.radians(max_angle_degrees)
+
+        while True:
+            # Generate two random vectors in 2D
+            vector1 = np.random.randn(2)
+            vector2 = np.random.randn(2)
+
+            # Normalize the vectors to make them unit vectors
+            vector1 = vector1 / np.linalg.norm(vector1)
+            vector2 = vector2 / np.linalg.norm(vector2)
+
+            # Compute the cosine of the angle between the two vectors
+            cos_theta = np.dot(vector1, vector2)
+
+            # Ensure the vectors are at least `min_angle_degrees` apart
+            if min_angle_radians <= np.arccos(np.clip(cos_theta, -1, 1)) <= max_angle_radians:
+                return vector1, vector2
         
+    @staticmethod
+    def sim_binary_trials(p, N, seed=None):
+        """
+        Simulate binary responses based on a probability `p` for `N` trials.
+
+        Args:
+            p (float): Probability of success (1) for each trial (0 ≤ p ≤ 1).
+            N (int): Number of trials to simulate.
+            seed (int, optional): Seed for reproducibility.
+
+        Returns:
+            numpy.ndarray: A 1D array of binary responses (0 or 1).
+        """
+        if seed is not None:
+            np.random.seed(seed)
+
+        # Generate binary responses directly using a binomial distribution
+        resp = np.random.binomial(1, p, N)
+        return resp, np.mean(resp)
+        
+    @staticmethod
+    def create_discrete_stim(endpoint, num_pts, startpoint = np.array([0,0]), ndims = 2):
+        if endpoint.shape[0] != startpoint.shape[0] != ndims:
+            raise ValueError('The dimensions of points do not match!')
+         
+        for n in range(ndims):
+            discrete_dim_n = np.linspace(startpoint[n], endpoint[n], num_pts)
+            if n == 0:
+                discrete_stim = discrete_dim_n[:,np.newaxis]
+            else:
+                discrete_stim = np.hstack((discrete_stim, discrete_dim_n[:,np.newaxis]))
+        return discrete_stim
     
+    @staticmethod
+    def generate_stacked_grids(bds, num_grid_pts, dim = 2):
+        """
+        Generate and stack multiple grids based on given boundaries, number of grid points, and dimensionality.
     
+        Args:
+            bds (array-like): List or array of boundary values for each grid.
+            num_grid_pts (array-like): List or array specifying the number of points per dimension.
+            dim (int): Number of dimensions for the grid.
     
+        Returns:
+            numpy.ndarray: Stacked grids, with shape (total_points, dim).
+        """
+        # Ensure inputs are numpy arrays
+        bds = np.array(bds)
+        num_grid_pts = np.array(num_grid_pts)
+        
+        # Check if bds and num_grid_pts have the same shape
+        if bds.shape != num_grid_pts.shape:
+            raise ValueError("bds and num_grid_pts must have the same shape.")
     
+        stacked_grids = []
     
-    
-    
+        # Generate grids for each boundary and corresponding number of points
+        for bd, num_pts in zip(bds, num_grid_pts):
+            # Generate a list of linspace arrays for each dimension
+            linspaces = [np.linspace(-bd, bd, num_pts) for _ in range(dim)]
+            grid = np.stack(np.meshgrid(*linspaces, indexing='ij'), axis=-1)  # 'ij' ensures correct order in any dim
+            stacked_grids.append(grid.reshape(-1, dim))  # Flatten the grid
+        
+        # Stack all grids together
+        return np.vstack(stacked_grids)
+        
+        
+        
+        
     
     
     
