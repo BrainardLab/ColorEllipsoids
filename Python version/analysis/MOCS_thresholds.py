@@ -340,7 +340,7 @@ class fit_PMF_MOCS_trials():
         data. It uses `self._fit_PsychometricFunc`, which is also utilized for bootstrapped 
         datasets, to ensure consistency in the fitting process.
         """
-        self.bestfit_result = self._fit_PsychometricFunc(self.stim, self.resp);      
+        self.bestfit_result = self._fit_PsychometricFunc(self.stim, self.resp) 
     
     def find_stim_at_targetPC_givenData(self):
         self.stim_at_targetPC = self._find_stim_at_targetPC(self.fine_pC)
@@ -425,9 +425,7 @@ class fit_PMF_MOCS_trials():
         self.stim_at_targetPC_btst = np.full((self.nBtst,), np.nan)        # Stimuli at target performance level
     
         # Perform bootstrap iterations
-        for n in range(self.nBtst):
-            print(n)  # Optional: Print iteration number for debugging/progress tracking
-            
+        for n in range(self.nBtst):            
             # Resample responses (add filler trial back to the dataset)
             self.resp_btst[n] = np.append(self.resp_org[0], resp_org_no0[shuffled_idx[n]])
             self.stim_btst[n] = np.vstack((self.stim_org[0], stim_org_no0[shuffled_idx[n]]))
@@ -493,14 +491,16 @@ class fit_PMF_MOCS_trials():
 #%%            
 class sim_MOCS_trials:
     @staticmethod
-    def generate_vectors_min_angle(min_angle_degrees=60, max_angle_degrees = 160, seed=None):
+    def generate_vectors_min_angle(min_angle_degrees=60, max_angle_degrees=160,
+                                   ndims=2, seed=None):
         """
-        Generate two random vectors on a 2D plane such that their angle is at least 
-            `min_angle_degrees` apart and at max 'max_angle_degrees' apart.
+        Generate two random vectors in a given dimension (2D or 3D) such that their angle is 
+        at least `min_angle_degrees` apart and at most `max_angle_degrees` apart.
 
         Args:
             min_angle_degrees (float): The minimum angle (in degrees) between the two vectors.
             max_angle_degrees (float): The maximum angle (in degrees) between the two vectors.
+            ndims (int): Dimension of the vectors (2 for plane, 3 for RGB cube).
             seed (int, optional): Seed for the random number generator for reproducibility.
 
         Returns:
@@ -509,25 +509,28 @@ class sim_MOCS_trials:
         if seed is not None:
             np.random.seed(seed)
 
-        # Convert the minimum angle to radians
+        # Convert angles to radians
         min_angle_radians = np.radians(min_angle_degrees)
         max_angle_radians = np.radians(max_angle_degrees)
 
         while True:
-            # Generate two random vectors in 2D
-            vector1 = np.random.randn(2)
-            vector2 = np.random.randn(2)
+            # Generate two random vectors in the specified dimension
+            vector1 = np.random.randn(ndims)
+            vector2 = np.random.randn(ndims)
 
             # Normalize the vectors to make them unit vectors
-            vector1 = vector1 / np.linalg.norm(vector1)
-            vector2 = vector2 / np.linalg.norm(vector2)
+            vector1 /= np.linalg.norm(vector1)
+            vector2 /= np.linalg.norm(vector2)
 
             # Compute the cosine of the angle between the two vectors
             cos_theta = np.dot(vector1, vector2)
+            cos_theta = np.clip(cos_theta, -1, 1)  # Ensure numerical stability
+            angle = np.arccos(cos_theta)  # Get the angle in radians
 
-            # Ensure the vectors are at least `min_angle_degrees` apart
-            if min_angle_radians <= np.arccos(np.clip(cos_theta, -1, 1)) <= max_angle_radians:
+            # Check if the vectors satisfy the angle constraints
+            if min_angle_radians <= angle <= max_angle_radians:
                 return vector1, vector2
+
         
     @staticmethod
     def sim_binary_trials(p, N, seed=None):
@@ -563,14 +566,14 @@ class sim_MOCS_trials:
         return discrete_stim
     
     @staticmethod
-    def generate_stacked_grids(bds, num_grid_pts, dim = 2):
+    def generate_stacked_grids(bds, num_grid_pts, ndims = 2):
         """
         Generate and stack multiple grids based on given boundaries, number of grid points, and dimensionality.
     
         Args:
             bds (array-like): List or array of boundary values for each grid.
             num_grid_pts (array-like): List or array specifying the number of points per dimension.
-            dim (int): Number of dimensions for the grid.
+            ndims (int): Number of dimensions for the grid.
     
         Returns:
             numpy.ndarray: Stacked grids, with shape (total_points, dim).
@@ -588,9 +591,9 @@ class sim_MOCS_trials:
         # Generate grids for each boundary and corresponding number of points
         for bd, num_pts in zip(bds, num_grid_pts):
             # Generate a list of linspace arrays for each dimension
-            linspaces = [np.linspace(-bd, bd, num_pts) for _ in range(dim)]
+            linspaces = [np.linspace(-bd, bd, num_pts) for _ in range(ndims)]
             grid = np.stack(np.meshgrid(*linspaces, indexing='ij'), axis=-1)  # 'ij' ensures correct order in any dim
-            stacked_grids.append(grid.reshape(-1, dim))  # Flatten the grid
+            stacked_grids.append(grid.reshape(-1, ndims))  # Flatten the grid
         
         # Stack all grids together
         return np.vstack(stacked_grids)
