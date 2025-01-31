@@ -12,13 +12,12 @@ import os
 
 #%%
 class MOCSTrialsVisualization():
-    def __init__(self, fit_PMF_MOCS, color_thres, fig_dir='', save_fig=False, **kwargs):
+    def __init__(self, fit_PMF_MOCS, fig_dir='', save_fig=False, **kwargs):
         """
         Visualize models fits to 
 
         """
         self.fit_PMF_MOCS = fit_PMF_MOCS
-        self.color_thres = color_thres
         self.fig_dir = fig_dir
         self.save_fig = save_fig
         # Default parameters for ellipsoid fitting. Can be overridden by kwargs.
@@ -58,6 +57,7 @@ class MOCSTrialsVisualization():
         method_specific_settings = {
             'fig_size': (4, 5.5),
             'alpha_CI_area': 0.2,
+            'cmap': np.array([0, 0, 0]),
             'xref': None,
             'PMF_label': 'Best-fit psychometric function to MOCS trials',
             'CI_area_label': '95% bootstrap CI of PMF',
@@ -82,33 +82,28 @@ class MOCSTrialsVisualization():
         else:
             fig = ax.figure
         
-        # Define color mapping
-        if self.pltP['xref'] is not None:
-            cmap_i = self.color_thres.M_2DWToRGB @ np.append(slc_PMF_MOCS.unique_stim[-1] + self.pltP['xref'], 1)
-        else:
-            cmap_i = np.array([0, 0, 0])
-        
         # Plot the PMF curve
         ax.grid(True, color='grey', linewidth=0.1)
-        ax.plot(slc_PMF_MOCS.fineVal, slc_PMF_MOCS.fine_pC, c=cmap_i, label=self.pltP['PMF_label'])
+        ax.plot(slc_PMF_MOCS.fineVal, slc_PMF_MOCS.fine_pC, c=self.pltP['cmap'],
+                label=self.pltP['PMF_label'])
         
         # Scatter plot for observed data points (excluding the first filler point)
         ax.scatter(np.sort(slc_PMF_MOCS.unique_stim_L2norm)[1:],
                    np.sort(slc_PMF_MOCS.pC_perLevel)[1:],
-                   c=cmap_i)
+                   c=self.pltP['cmap'])
         
         # Fill 95% confidence interval area
         ax.fill_between(slc_PMF_MOCS.fineVal,
                         slc_PMF_MOCS.fine_pC_95btstCI[0],
                         slc_PMF_MOCS.fine_pC_95btstCI[1],
-                        color=cmap_i, alpha=self.pltP['alpha_CI_area'],
+                        color=self.pltP['cmap'], alpha=self.pltP['alpha_CI_area'],
                         label=self.pltP['CI_area_label'])
         
         # Add error bars for estimated threshold
         ax.errorbar(slc_PMF_MOCS.stim_at_targetPC,
                     slc_PMF_MOCS.target_pC,
                     xerr=slc_PMF_MOCS.stim_at_targetPC_95btstErr[:, np.newaxis],
-                    c=cmap_i, lw=2, capsize=4,
+                    c=self.pltP['cmap'], lw=2, capsize=4,
                     label=self.pltP['CI_thres_label'])
         
         # Plot Wishart model predictions if available
@@ -141,74 +136,85 @@ class MOCSTrialsVisualization():
         return fig, ax
 
 
-    def plot_comparison_thres(self, thres_Wishart, slope_mean, slope_CI, ax = None,
-                              **kwargs):
+    def plot_comparison_thres(self, thres_Wishart, slope_mean, slope_CI, xref_unique,
+                              ax = None, **kwargs):
         # Update plot parameters with method-specific settings and external configurations.
         method_specific_settings = {
             'fig_size': (4.5, 6),
-            'x_bds':np.array([0, 0.14]),
+            'bds':np.array([0, 0.14]), 
             'alpha_CI_area': 0.1,
             'corr_coef_mean': None,
             'corr_coef_CI': None,
+            'cmap': None,
             'corr_text_loc': [0.025, 0.13],
-            'slope_mean': None,
-            'slope_CI':None,
-            'xlabel': "Predicted vector length between xref and x1 for 66.7% correct \n(MOCS trials, Weibull function)",
-            'ylabel': "Predicted vector length between xref and x1 for 66.7% correct \n(AEPsych trials, Wishart model)",
+            'slope_text_loc': [0.025, 0.123],
+            'ms': 7,
+            'lw': 2,
+            'xlabel': "Predicted vector length between xref and x1 \nfor 66.7% correct (MOCS trials, Weibull function)",
+            'ylabel': "Predicted vector length between xref and x1 \nfor 66.7% correct (AEPsych trials, Wishart model)",
             'show_ref_in_title': True,
-            'fontsize': 10,
-            'fig_name': 'Mahalanobis_distance'
+            'fontsize': 9.5,
+            'fig_name': ''
         }
         
         self.pltP.update(method_specific_settings)
         self.pltP.update(kwargs)  
         plt.rcParams['font.sans-serif'] = ['Arial']
         
-        fig2, ax2 = plt.subplots(1, 1, figsize= self.pltP['fig_size'], dpi= self.pltP['dpi'])
+        # Create a new figure and axis if none are provided
+        if ax is None:
+            fig, ax = plt.subplots(1, 1, figsize= self.pltP['fig_size'], dpi= self.pltP['dpi'])
+        else:
+            fig = ax.figure
+            
         #add the best-fit line
-        ax2.fill_between(self.pltP['x_bds'], self.pltP['x_bds'] * slope_CI[0], 
-                        self.pltP['x_bds'] * slope_CI[1], 
+        ax.fill_between(self.pltP['bds'], self.pltP['bds'] * slope_CI[0], 
+                        self.pltP['bds'] * slope_CI[1], 
                         color= [0,0,0], alpha= self.pltP['alpha_CI_area'],
                         label='95% bootstrap CI of a line fit')
-        ax2.plot(self.pltP['x_bds'], self.pltP['x_bds']*slope_mean, 
+        ax.plot(self.pltP['bds'], self.pltP['bds']*slope_mean, 
                  color = 'gray', label = 'Best line fit')
         for n in range(len(self.fit_PMF_MOCS)):
-            ax2.errorbar(
+            if self.pltP['cmap'] is None:
+                cmap_n = np.array([0,0,0])
+            else:
+                cmap_n = self.pltP['cmap'][n]
+            
+            ax.errorbar(
                 self.fit_PMF_MOCS[n].stim_at_targetPC, 
                 thres_Wishart[n],
                 xerr= self.fit_PMF_MOCS[n].stim_at_targetPC_95btstErr[:, np.newaxis], 
                 marker='o',
-                c = [0,0,0],#cmap[n],
-                ms = 7,#10
-                lw = 2 #3
+                c = cmap_n,
+                ms = self.pltP['ms'],#10
+                lw = self.pltP['lw'] #3
             )
         #add stats to the figure
-        #0.035, 0.015
         if (self.pltP['corr_coef_mean'] is not None) and (self.pltP['corr_coef_CI'] is not None):
-            ax2.text(self.pltP['corr_text_loc'],
+            ax.text(*self.pltP['corr_text_loc'],
                      f"Corr coef = {self.pltP['corr_coef_mean']:.2f}; 95% CI:"
                      f" [{self.pltP['corr_coef_CI'][0]:.2f}, {self.pltP['corr_coef_CI'][1]:.2f}]",
-                     fontsize = 9.5)
-        #0.035, 0.0075
-        ax2.text(0.025, 0.123, f"Slope = {slope_mean:.2f}; 95% CI:"
-                 f" [{slope_CI[0]:.2f}, {slope_CI[1]:.2f}]", fontsize = 9.5)
+                     fontsize = self.pltP['fontsize'])
+        ax.text(*self.pltP['slope_text_loc'],
+                     f"Slope = {slope_mean:.2f}; 95% CI: [{slope_CI[0]:.2f}, {slope_CI[1]:.2f}]",
+                     fontsize = self.pltP['fontsize'])
         # Add diagonal line for reference
-        ax2.set_xlim(self.pltP['x_bds'])
-        ax2.set_ylim(self.pltP['x_bds'])
-        ax2.plot(self.pltP['x_bds'], self.pltP['x_bds'], ls='--', c='k', label = 'Identity line')
-        ax2.set_xticks(np.linspace(*self.pltP['x_bds'],6))
-        ax2.set_yticks(np.linspace(*self.pltP['x_bds'],6))
+        ax.set_xlim(self.pltP['bds'])
+        ax.set_ylim(self.pltP['bds'])
+        ax.plot(self.pltP['bds'], self.pltP['bds'], ls='--', c='k', label = 'Identity line')
+        ax.set_xticks(np.linspace(*self.pltP['bds'],6))
+        ax.set_yticks(np.linspace(*self.pltP['bds'],6))
 
         # Set axis square and add grid
-        ax2.set_aspect('equal', adjustable='box')  # Make the axis square
-        ax2.grid(True, color='grey',linewidth=0.2)   # Add grid lines
+        ax.set_aspect('equal', adjustable='box')  # Make the axis square
+        ax.grid(True, color='grey',linewidth=0.2)   # Add grid lines
 
         # Add labels, title, etc. (optional)
-        ax2.set_xlabel(self.pltP['xlabel'])
-        ax2.set_ylabel(self.pltP['ylabel'])
+        ax.set_xlabel(self.pltP['xlabel'])
+        ax.set_ylabel(self.pltP['ylabel'])
 
         # Add legend outside the plot at the bottom
-        ax2.legend(
+        ax.legend(
             loc='lower center', 
             bbox_to_anchor=(0.5, -0.45),  # Center below the plot, with some space
             ncol=1,  # Arrange legend entries in 2 columns
@@ -216,12 +222,12 @@ class MOCSTrialsVisualization():
         )
 
         plt.tight_layout()
-        # if load_actualData:
-        #     fig2.savefig(output_figDir+f"{file_name[:-8]}_comparison_btw_MOCS_WishartPredictions.pdf",
-        #                  format='pdf', bbox_inches='tight')
-        # else:
-        #     fig2.savefig(output_figDir+f"/{file_name[:-4]}_comparison_btw_MOCS_WishartPredictions.pdf",
-        #                  format='pdf', bbox_inches='tight')    
+        
+        if self.save_fig:
+            fig.savefig(os.path.join(self.fig_dir, self.pltP['fig_name']), bbox_inches='tight')            
+        
+        plt.show()
+        return fig, ax
 
     
 #%%

@@ -553,7 +553,8 @@ class sim_MOCS_trials:
         return resp, np.mean(resp)
         
     @staticmethod
-    def create_discrete_stim(endpoint, num_pts, startpoint = np.array([0,0]), ndims = 2):
+    def create_discrete_stim(endpoint, num_pts, startpoint = None, ndims = 2):
+        startpoint = np.array([0]*ndims)
         if endpoint.shape[0] != startpoint.shape[0] != ndims:
             raise ValueError('The dimensions of points do not match!')
          
