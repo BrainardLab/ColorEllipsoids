@@ -21,7 +21,8 @@ class expt_data:
         
 class CrossValidation:
     @staticmethod
-    def shuffle_data(data, xref_unique, tol=5e-2, seed=None, debug_plot = False):
+    def shuffle_data(data, xref_unique = None, tol=5e-2, seed=None, 
+                     nRepeats_shuffle = 1, debug_plot = False):
         """
         Shuffle the data separately for each unique reference location.
 
@@ -53,44 +54,53 @@ class CrossValidation:
         # Unpack input data
         y_all, xref_all, x1_all = data    
 
-        # Initialize shuffled arrays with the same shape
-        y_shuffled = np.empty_like(y_all)
-        xref_shuffled = np.empty_like(xref_all)
-        x1_shuffled = np.empty_like(x1_all)
-
         # Set random seed for reproducibility if provided
         if seed is not None:
             np.random.seed(seed)
 
-        # Shuffle data within each unique reference location
-        for ref_n in xref_unique:
-            # Find the indices of trials matching the current reference location
-            idx_match_original = np.where(np.all(np.abs(xref_all - ref_n) < tol, axis=1))[0]
-
-            # Shuffle indices in place
-            idx_match = np.array(idx_match_original)
-            np.random.shuffle(idx_match)
-
-            lb, ub = np.min(idx_match), np.max(idx_match)+1
-            #put them in the appropirate array
-            y_shuffled[lb:ub] = y_all[idx_match]
-            xref_shuffled[lb:ub] = xref_all[idx_match]
-            x1_shuffled[lb:ub] = x1_all[idx_match]
-            
-            if debug_plot:
-                fig, ax = plt.subplots(1, 2)
-                y_slc = y_all[idx_match_original]
-                x1_slc = x1_all[idx_match_original]
-                ax[0].scatter(x1_slc[y_slc == 1, 0], x1_slc[y_slc == 1, 1], color = 'g', s=1)
-                ax[0].scatter(x1_slc[y_slc == 0, 0], x1_slc[y_slc == 0, 1], color = 'r', marker = 'x',s=1)
-                ax[0].set_title('Before shuffling')
+        # if there is no unique xref, it means the task is 4d, not interleaved 2d
+        if xref_unique is None:
+            idx_shuffle = np.array(list(range(y_all.shape[0])))
+            for _ in range(nRepeats_shuffle):  
+                np.random.shuffle(idx_shuffle)
+            y_shuffled = y_all[idx_shuffle]
+            xref_shuffled = xref_all[idx_shuffle]
+            x1_shuffled = x1_all[idx_shuffle]
+        else:            
+            # Initialize shuffled arrays with the same shape
+            y_shuffled = np.empty_like(y_all)
+            xref_shuffled = np.empty_like(xref_all)
+            x1_shuffled = np.empty_like(x1_all)
+        
+            # Shuffle data within each unique reference location
+            for ref_n in xref_unique:
+                # Find the indices of trials matching the current reference location
+                idx_match_original = np.where(np.all(np.abs(xref_all - ref_n) < tol, axis=1))[0]
+    
+                # Shuffle indices in place
+                idx_match = np.array(idx_match_original)
+                for _ in range(nRepeats_shuffle):
+                    np.random.shuffle(idx_match)
+    
+                lb, ub = np.min(idx_match), np.max(idx_match)+1
+                #put them in the appropirate array
+                y_shuffled[lb:ub] = y_all[idx_match]
+                xref_shuffled[lb:ub] = xref_all[idx_match]
+                x1_shuffled[lb:ub] = x1_all[idx_match]
                 
-                yy_slc = y_shuffled[lb:ub]
-                xx1_slc = x1_shuffled[lb:ub]
-                ax[1].scatter(xx1_slc[yy_slc == 1, 0], xx1_slc[yy_slc == 1, 1], color = 'g')
-                ax[1].scatter(xx1_slc[yy_slc == 0, 0], xx1_slc[yy_slc == 0, 1], color = 'r', marker = 'x')
-                ax[1].set_title('After shuffling')
-                
+                if debug_plot:
+                    fig, ax = plt.subplots(1, 2)
+                    y_slc = y_all[idx_match_original]
+                    x1_slc = x1_all[idx_match_original]
+                    ax[0].scatter(x1_slc[y_slc == 1, 0], x1_slc[y_slc == 1, 1], color = 'g', s=1)
+                    ax[0].scatter(x1_slc[y_slc == 0, 0], x1_slc[y_slc == 0, 1], color = 'r', marker = 'x',s=1)
+                    ax[0].set_title('Before shuffling')
+                    
+                    yy_slc = y_shuffled[lb:ub]
+                    xx1_slc = x1_shuffled[lb:ub]
+                    ax[1].scatter(xx1_slc[yy_slc == 1, 0], xx1_slc[yy_slc == 1, 1], color = 'g')
+                    ax[1].scatter(xx1_slc[yy_slc == 0, 0], xx1_slc[yy_slc == 0, 1], color = 'r', marker = 'x')
+                    ax[1].set_title('After shuffling')
 
         return (y_shuffled, xref_shuffled, x1_shuffled)
 
@@ -195,6 +205,46 @@ class CrossValidation:
                 ax.scatter(x1_keep[y_keep==0,0], x1_keep[y_keep==0,1], color = 'r',s= 3)
                 ax.scatter(x1_heldout[y_heldout==1,0], x1_heldout[y_heldout==1,1],color = 'b',s=3)
                 ax.scatter(x1_heldout[y_heldout==0,0], x1_heldout[y_heldout==0,1],color = 'y',s=3)
+            
+            data_org[n+1] = (data_keep, data_heldout, idx_keep, idx_heldout)
+        
+        return data_org
+    
+    @staticmethod
+    def select_NFold_data_noFixedRef(data, total_folds, nTrials_total, ndims = 2):
+
+        # Unpack input data
+        y_all, xref_all, x1_all = data  
+
+        # Validate that the total number of trials matches expectations
+        if nTrials_total != y_all.shape[0] or \
+           y_all.shape[0] != xref_all.shape[0] or \
+           y_all.shape[0] != x1_all.shape[0]:
+            raise ValueError('Size mismatch: The number of trials does not match expectations!')  
+            
+        data_org = {key: None for key in range(1, total_folds+1)}
+        
+        for n in range(total_folds):
+            # Determine column indices for the held-out fold
+            row_lb = int(nTrials_total/ total_folds * n)  # Lower bound
+            row_ub = int(nTrials_total / total_folds * (n + 1))  # Upper bound
+            
+            # Compute row indices
+            idx_all = np.arange(nTrials_total)
+            idx_heldout = idx_all[row_lb:row_ub]
+            idx_keep = np.delete(idx_all, np.s_[row_lb:row_ub])
+            
+            # Extract held-out (validation) data
+            y_heldout = y_all[idx_heldout]
+            xref_heldout = xref_all[idx_heldout]
+            x1_heldout = x1_all[idx_heldout]
+            data_heldout = (y_heldout, xref_heldout, x1_heldout)
+            
+            # Extract training data
+            y_keep = y_all[idx_keep]
+            xref_keep = xref_all[idx_keep]
+            x1_keep = x1_all[idx_keep]
+            data_keep = (y_keep, xref_keep, x1_keep)
             
             data_org[n+1] = (data_keep, data_heldout, idx_keep, idx_heldout)
         
