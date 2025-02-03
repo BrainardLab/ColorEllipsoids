@@ -12,6 +12,7 @@ import dill as pickled
 import sys
 import numpy as np
 import matplotlib.pyplot as plt
+sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version/')
 from analysis.utils_load import select_file_and_get_path
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
 from plotting.wishart_predictions_plotting import WishartPredictionsVisualization
