@@ -8,6 +8,7 @@ Created on Sun Nov 24 10:48:25 2024
 
 import numpy as np
 from scipy.optimize import minimize
+from scipy.stats.qmc import Sobol
 
 #%%
 class fit_PMF_MOCS_trials():
@@ -599,10 +600,42 @@ class sim_MOCS_trials:
         # Stack all grids together
         return np.vstack(stacked_grids)
         
-        
-        
-        
+    @staticmethod
+    def sample_sobol_MOCS_conditions(N, bounds=(-1, 1), ndims=2, force_center=False, seed=None):
+        """
+        Generate N Sobol-sequenced points within a bounded space,
+        optionally forcing the first point to be at the center.
     
+        Args:
+            N (int): Number of points to sample.
+            bounds (tuple): Lower and upper bounds of the space (default: -1 to 1).
+            ndims (int): Number of dimensions for Sobol sampling.
+            force_center (bool): If True, the first point is set at the center.
+            seed (int, optional): Random seed for reproducibility.
+    
+        Returns:
+            np.ndarray: (N, ndims) array of Sobol samples.
+        """
+        if N < 1:
+            raise ValueError("N must be at least 1.")
+    
+        sobol_sampler = Sobol(d=ndims, scramble=True, seed=seed)  # Use seed for reproducibility
+        samples = sobol_sampler.random(N)  # Generate N Sobol points in [0,1]^ndims
+    
+        # Scale from [0,1] to [bounds[0], bounds[1]]
+        lower, upper = bounds
+        samples = lower + (upper - lower) * samples  
+    
+        if force_center:
+            samples[0] = [0] * ndims  # Force first point to be at the center
+    
+        return samples
+        
+        
+        
+        
+        
+        
     
     
     
