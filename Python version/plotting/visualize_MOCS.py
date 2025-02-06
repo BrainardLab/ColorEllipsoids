@@ -300,6 +300,7 @@ def plot_MOCS_conditions(ndims, xref_unique, comp_unique, color_thres_data, **kw
         ax.set_xlabel(pltP['xlabel'])
         ax.set_ylabel(pltP['ylabel'])
         ax.set_title(pltP['title'])
+        plt.tight_layout()
         plt.show()
     
     else:
