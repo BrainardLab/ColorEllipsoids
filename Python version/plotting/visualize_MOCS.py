@@ -59,11 +59,13 @@ class MOCSTrialsVisualization():
             'alpha_CI_area': 0.2,
             'cmap': np.array([0, 0, 0]),
             'xref': None,
+            'filler_pts': None,
+            'yticks': [0.33, 0.67, 1],
             'PMF_label': 'Best-fit psychometric function to MOCS trials',
             'CI_area_label': '95% bootstrap CI of PMF',
             'CI_thres_label': '95% bootstrap CI of threshold',
             'lw_Wishart': 0.2,
-            'xlabel': 'Vector length between xref and x1 in W space',
+            'xlabel': 'Euclidean distance between ref and comp in W space',
             'show_ref_in_title': True,
             'fontsize': 10,
             'fig_name': 'Mahalanobis_distance'
@@ -87,10 +89,13 @@ class MOCSTrialsVisualization():
         ax.plot(slc_PMF_MOCS.fineVal, slc_PMF_MOCS.fine_pC, c=self.pltP['cmap'],
                 label=self.pltP['PMF_label'])
         
-        # Scatter plot for observed data points (excluding the first filler point)
-        ax.scatter(np.sort(slc_PMF_MOCS.unique_stim_L2norm)[1:],
-                   np.sort(slc_PMF_MOCS.pC_perLevel)[1:],
+        # Scatter plot for observed data points 
+        ax.scatter(slc_PMF_MOCS.unique_stim_L2norm,
+                   slc_PMF_MOCS.pC_perLevel,
                    c=self.pltP['cmap'])
+        #(excluding the first filler point)
+        if self.pltP['filler_pts'] is not None:
+            ax.scatter(*self.pltP['filler_pts'], c = 'white')
         
         # Fill 95% confidence interval area
         ax.fill_between(slc_PMF_MOCS.fineVal,
@@ -120,6 +125,7 @@ class MOCSTrialsVisualization():
         
         ax.set_xlabel(self.pltP['xlabel'])
         ax.set_ylabel('Percent correct')
+        ax.set_yticks(self.pltP['yticks'])
         
         # Set title if reference stimulus is provided
         if self.pltP['show_ref_in_title'] and self.pltP['xref'] is not None:
@@ -150,8 +156,8 @@ class MOCSTrialsVisualization():
             'slope_text_loc': [0.025, 0.123],
             'ms': 7,
             'lw': 2,
-            'xlabel': "Predicted vector length between xref and x1 \nfor 66.7% correct (MOCS trials, Weibull function)",
-            'ylabel': "Predicted vector length between xref and x1 \nfor 66.7% correct (AEPsych trials, Wishart model)",
+            'xlabel': "Predicted Euclidean distance between ref and comp \nfor 66.7% correct (MOCS trials, Weibull function)",
+            'ylabel': "Predicted Euclidean distance between ref and comp \nfor 66.7% correct (AEPsych trials, Wishart model)",
             'show_ref_in_title': True,
             'fontsize': 9.5,
             'fig_name': ''

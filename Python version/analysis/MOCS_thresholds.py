@@ -546,11 +546,15 @@ class sim_MOCS_trials:
         Returns:
             numpy.ndarray: A 1D array of binary responses (0 or 1).
         """
-        if seed is not None:
-            np.random.seed(seed)
+        # if seed is not None:
+        #     np.random.seed(seed)
 
-        # Generate binary responses directly using a binomial distribution
-        resp = np.random.binomial(1, p, N)
+        # # Generate binary responses directly using a binomial distribution
+        # resp = np.random.binomial(1, p, N)
+        
+        rng = np.random.default_rng(seed)  # Ensures rng is always defined
+        random_values = rng.random(N)  # Generate N random numbers between 0 and 1
+        resp = (random_values < p).astype(int)  # Convert to binary responses
         return resp, np.mean(resp)
         
     @staticmethod
