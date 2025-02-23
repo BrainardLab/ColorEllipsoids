@@ -265,9 +265,9 @@ def plot_MOCS_conditions(ndims, xref_unique, comp_unique, color_thres_data, **kw
     pltP = {
         'fig_size': (4, 4),  # Default figure size
         'ticks': np.linspace(-0.6, 0.6, 5),  # Tick marks on axes
-        'xlabel': 'Wishart dimension 1',
-        'ylabel': 'Wishart dimension 2',
-        'zlabel': 'Wishart dimension 3',
+        'xlabel': 'Wishart space dimension 1',
+        'ylabel': 'Wishart space dimension 2',
+        'zlabel': 'Wishart space dimension 3',
         'title': 'Isoluminant plane',  # Default title for 2D plots
         'fontsize': 10,
         'fig_name': '',
