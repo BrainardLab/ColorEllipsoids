@@ -7,17 +7,21 @@
 %% Initialize
 clear all; close all; clc
 flag_save_figures = false; 
-flag_save_data = false;
-flag_pregenerate_MOCS = false;
+flag_save_data = true;
 flag_addExpt_trials = false;
 
 %% Retrieve the correct calibration file
-whichCalFile = 'DELL_11092024_withoutGammaCorrection.mat';
+whichCalFile = 'DELL_02222025_texture_right.mat';
 whichCalNumber = 1;
 nDeviceBits = 14; %doesn't have to be the true color depth; we can go higher
 whichCones = 'ss2';
 cal_path = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_materials/Calibration/';
 cal = LoadCalFile(whichCalFile,whichCalNumber,cal_path);
+fig_output_path = fullfile(cal_path, 'Plots');
+% Ensure the output folder exists
+if ~exist(fig_output_path, 'dir')
+    mkdir(fig_output_path);
+end
 
 %% Cone cal object
 calObjCones = ObjectToHandleCalOrCalStruct(cal);
@@ -221,7 +225,7 @@ f_dkl_1 = fill3(ax_dkl, X(ceil(n_contour/2),:),Y(ceil(n_contour/2),:),...
 f_dkl_2 = fill3(ax_dkl, gamutDKLPlane(1,:),gamutDKLPlane(2,:),zeros(nAngles),...
     'k','FaceColor','k', 'FaceAlpha',0.4);
 xticks(-1:1:1); yticks(-1:1:1);zticks(-1:1:1);
-xlabel('DKL L-M'); ylabel('DKL S'); zlabel('DKL lum');
+xlabel('DKL L-M'); ylabel('DKL S'); zlabel('DKL luminance');
 axis square; grid on; view(-30,30);
 
 %% Let's try to find the corners
@@ -375,10 +379,10 @@ if (numCorners == 4)
     f_W_2 = plot(ax_W, cornerPoints2DW(1,:),cornerPoints2DW(2,:),...
         'o','MarkerFaceColor',[0.8,0.8,0.8],'MarkerEdgeColor','k','lineWidth',2,'MarkerSize',10);
     xlim([-1.1 1.1]);  ylim([-1.1 1.1]); axis('square');
-    xlabel('Wishart space dim 1'); ylabel('Wishart space dim 2');
+    xlabel('Wishart space dimension 1'); ylabel('Wishart space dimension 2');
 
     %% select 9 reference locations
-    num_grid_pts = 3;
+    num_grid_pts = 5;
     ref_W_1d = linspace(-0.6,0.6,num_grid_pts);
     [ref_W_x, ref_W_y] = meshgrid(ref_W_1d, ref_W_1d);
     nRef = length(ref_W_x(:));
@@ -450,63 +454,6 @@ assert(min(min(abs(ref_W_ext_check - ref_W_ext))) < 1e-6,...
 % scatter3(ax_rgb,ref_rgb_check(1,:), ref_rgb_check(2,:), ref_rgb_check(3,:), 'k+')
 
 %% determine MOCS trials
-nSets_MOCS = 4;
-nLevels_MOCS = 12;
-%we are actually sampling 21 levels and toss 12-20 away
-nLevels_expand = round(nLevels_MOCS*1.75);
-ref_2DW_MOCS = vertcat([-0.6, 0.6; 0, 0; 0.45, 0.45; -0.15, -0.45]', ones(1, nSets_MOCS));
-
-nChromaDir = 2;
-%!!!!the scalers control the range of MOCS trials, which are completely based
-%on my own pilot data
-% chromaDir_scaler_2DW = [0.2, 0.38; 0.1, 0.1; 0.1, 0.38; 0.2, 0.38];
-chromaDir_scaler_2DW = [0.2, 0.38; 0.05, 0.1; 0.15, 0.38; 0.12, 0.38];
-chromaDir1_2DW = M_DKLPlaneTo2DW * [1,0,1]'; %1st dim: L-M, 2nd dim: S, 3rd dim: filler row (just add 1)
-chromaDir1_2DW(1:2,:) = chromaDir1_2DW(1:2,:)./norm(chromaDir1_2DW(1:2,:));
-
-chromaDir2_2DW = M_DKLPlaneTo2DW * [0,1,1]'; %1st dim: L-M, 2nd dim: S, 3rd dim: filler row (just add 1)
-chromaDir2_2DW(1:2,:) = chromaDir2_2DW(1:2,:)./norm(chromaDir2_2DW(1:2,:));
-chromaDir_2DW = horzcat(chromaDir1_2DW, chromaDir2_2DW);
-
-%store all the MOCS sets
-[MOCS_comp_DKL, MOCS_comp_RGB, MOCS_comp_2DW] = deal(NaN(nSets_MOCS, nChromaDir, nLevels_MOCS, 3));
-for s = 1:nSets_MOCS    
-    for d = 1:nChromaDir
-        %we are actually sampling 21 levels and toss 12-20 away
-        MOCS_comp_2DW_temp_dim1 = linspace(ref_2DW_MOCS(1,s), ...
-            ref_2DW_MOCS(1,s) + chromaDir_2DW(1,d).*chromaDir_scaler_2DW(s,d), nLevels_expand); 
-        MOCS_comp_2DW_temp_dim2 = linspace(ref_2DW_MOCS(2,s), ...
-            ref_2DW_MOCS(2,s) + chromaDir_2DW(2,d).*chromaDir_scaler_2DW(s,d), nLevels_expand);
-        MOCS_comp_2DW_temp = [MOCS_comp_2DW_temp_dim1([2:nLevels_MOCS, nLevels_expand]); ...
-                              MOCS_comp_2DW_temp_dim2([2:nLevels_MOCS, nLevels_expand]); ...
-                              ones(1, nLevels_MOCS)];%add 1s to the useless third dimension
-        %2D W space
-        MOCS_comp_2DW(s, d, :, :) = MOCS_comp_2DW_temp';
-
-        % convert it from W space to DKL and RGB space
-        MOCS_comp_DKL_temp = (M_2DWToDLKPlane * MOCS_comp_2DW_temp);
-        MOCS_comp_DKL_temp = MOCS_comp_DKL_temp(1:2,:)./MOCS_comp_DKL_temp(3,:);
-        MOCS_comp_DKL(s, d, :, :) = (vertcat(bgDKL(1).*ones(1,nLevels_MOCS), MOCS_comp_DKL_temp))';
-        MOCS_comp_RGB(s, d, :, :) = (M_2DWToRGB * MOCS_comp_2DW_temp)';
-
-        % emphasize the easy trial
-        scatter(ax_W, MOCS_comp_2DW_temp(1,end), MOCS_comp_2DW_temp(2,end), 'ro'); 
-        scatter3(ax_rgb, squeeze(MOCS_comp_RGB(s, d, end, 1)), squeeze(MOCS_comp_RGB(s, d, end, 2)),...
-            squeeze(MOCS_comp_RGB(s, d, end, 3)),'ro');
-        %NOTE THAT the matrix for DKL follows this order: 1. lum, 2. L-M, 3. S
-        %But when plotting, x-axis: L-M, y-axis: S, z-axis: lum
-        scatter3(ax_dkl, squeeze(MOCS_comp_DKL(s, d, end, 2)), squeeze(MOCS_comp_DKL(s, d, end, 3)),...
-            squeeze(MOCS_comp_DKL(s, d, end, 1)),'ro');
-
-        %add vectors to the plot
-        plot(ax_W, MOCS_comp_2DW_temp(1,:), MOCS_comp_2DW_temp(2,:), 'k.-'); 
-        plot3(ax_rgb, squeeze(MOCS_comp_RGB(s, d, :, 1)), squeeze(MOCS_comp_RGB(s, d, :, 2)),...
-            squeeze(MOCS_comp_RGB(s, d, :, 3)),'k.-');
-        plot3(ax_dkl, squeeze(MOCS_comp_DKL(s, d, :, 2)), squeeze(MOCS_comp_DKL(s, d, :, 3)),...
-            squeeze(MOCS_comp_DKL(s, d, :, 1)),'k.-');
-    end
-end
-
 legend(ax_W, [f_W_1, f_W_2], ...
     {'The monitor''s gamut', ...
     'Corners'},...
@@ -545,9 +492,9 @@ if flag_save_figures
     %     'Corner points computed using the transformation matrix from LMS to RGB'},...
     %     'Location','north');
 
-    pdf_filename1 = fullfile([cal_path, '/Plots'], sprintf('W_space_%s.pdf',whichCalFile(1:end-4)));
-    pdf_filename2 = fullfile([cal_path, '/Plots'], sprintf('dkl_space_%s.pdf',whichCalFile(1:end-4)));
-    pdf_filename3 = fullfile([cal_path, '/Plots'], sprintf('rgb_space_%s.pdf',whichCalFile(1:end-4)));
+    pdf_filename1 = fullfile(fig_output_path, sprintf('W_space_%s.pdf',whichCalFile(1:end-4)));
+    pdf_filename2 = fullfile(fig_output_path, sprintf('dkl_space_%s.pdf',whichCalFile(1:end-4)));
+    pdf_filename3 = fullfile(fig_output_path, sprintf('rgb_space_%s.pdf',whichCalFile(1:end-4)));
 
     saveas(fig_W, pdf_filename1); %print(fig_rgb, pdf_filename3, '-dpdf', '-opengl', '-bestfit');
     saveas(fig_dkl, pdf_filename2); 
@@ -596,95 +543,30 @@ end
 
 %% save the two transformation matrix to .csv files
 if flag_save_data
+    file_output_path_M = {fullfile(cal_path, 'M_2DWToRGB'), ...
+                       fullfile(cal_path, 'M_RGBTo2DW'), ...
+                       fullfile(cal_path, 'M_2DWToDKL'), ...
+                       fullfile(cal_path, 'M_DKLTo2DW')};
+    % Ensure the output folder exists
+    for i = 1:length(file_output_path_M)
+        if ~exist(file_output_path_M{i}, 'dir')
+            mkdir(file_output_path_M{i});
+        end
+    end
     % Specify the filename
     filename1 = sprintf('M_2DWToRGB_%s.csv', whichCalFile(1:13));
-    outputName1 = fullfile([cal_path,'/M_2DWToRGB'],filename1);
+    outputName1 = fullfile(file_output_path_M{1},filename1);
     filename2 = sprintf('M_RGBTo2DW_%s.csv', whichCalFile(1:13));
-    outputName2 = fullfile([cal_path,'/M_RGBTo2DW'],filename2);
+    outputName2 = fullfile(file_output_path_M{2},filename2);
     filename3 = sprintf('M_2DWToDKLPlane_%s.csv', whichCalFile(1:13));
-    outputName3 = fullfile([cal_path,'/M_2DWToDKL'],filename3);
+    outputName3 = fullfile(file_output_path_M{3},filename3);
     filename4 = sprintf('M_DKLPlaneTo2DW_%s.csv', whichCalFile(1:13));
-    outputName4 = fullfile([cal_path,'/M_DKLTo2DW'],filename4);
+    outputName4 = fullfile(file_output_path_M{4},filename4);
     % Save the matrix to a CSV file
     writematrix(round(M_2DWToRGB,8), outputName1);
     writematrix(round(M_RGBTo2DW,8), outputName2);
     writematrix(round(M_2DWToDLKPlane,8), outputName3);
     writematrix(round(M_DKLPlaneTo2DW,8), outputName4);
-end
-
-%% save MOCS trials
-if flag_pregenerate_MOCS
-    subjN = 5;
-    nTrials_perLevel = 30;
-end
-
-if flag_save_data || flag_pregenerate_MOCS
-    % Construct output directory path
-    outputName3_temp = fullfile(cal_path, 'MOCS_trials', ['MOCS_trials_', whichCalFile(1:13)]);
-    
-    % Check if the directory exists, create it if it doesn't
-    if ~exist(outputName3_temp, 'dir')
-        mkdir(outputName3_temp);
-    end
-    
-    % Loop through each set and chroma direction
-    for n = 1:nSets_MOCS
-        for d = 1:nChromaDir
-            % Generate filename and output path
-            filename3 = sprintf('MOCS_trials_cond%d.csv', (n-1)*nChromaDir+d);
-            outputName3 = fullfile(outputName3_temp, filename3);
-
-            % Save the matrix, rounding to 8 decimal places
-            MOCS_comp_2DW_n_d = squeeze(MOCS_comp_2DW(n, d, :, 1:2));
-            writematrix(MOCS_comp_2DW_n_d, outputName3);
-
-            if flag_pregenerate_MOCS
-                seed_n_d = (subjN*10)+(n-1)*nChromaDir+d;
-                rng(seed_n_d);
-
-                %initialize trial_sequence that will not include reference
-                trial_sequence = [];
-                % Initialize trial_sequence_wRef as an empty cell array
-                trial_sequence_wRef = {};  
-                for m = 1:nTrials_perLevel
-                    % Format1: generate trial sequence that does not include ref stim
-                    rand_MOCS_comp = MOCS_comp_2DW_n_d(randperm(nLevels_MOCS),:);
-                    trial_sequence = [trial_sequence;rand_MOCS_comp];
-
-                    % Format2: generate trial sequence that will include ref stim
-                    % Create W_ref as a column of strings
-                    W_ref_col = repmat({sprintf('[%.6f, %.6f]', ref_2DW_MOCS(1, n), ref_2DW_MOCS(2, n))}, nLevels_MOCS, 1);
-                    % Create W_comp as a column of strings
-                    W_comp_col = arrayfun(@(i) sprintf('[%.6f, %.6f]', rand_MOCS_comp(i, 1), rand_MOCS_comp(i, 2)), ...
-                          (1:nLevels_MOCS)', 'UniformOutput', false);        
-                    new_rows = [W_ref_col, W_comp_col];     
-                    trial_sequence_wRef = [trial_sequence_wRef; new_rows];
-                end
-                % Construct output directory path
-                outputName4_temp = fullfile(cal_path, sprintf('MOCS_trials/sub%d', subjN));
-                
-                % Check if the directory exists, create it if it doesn't
-                if ~exist(outputName4_temp, 'dir')
-                    mkdir(outputName4_temp);
-                end
-                % output comparison stimuli as double/float
-                filename4 = sprintf('MOCS_pregenerated_trials_sub%d_cond%d.csv', subjN, (n-1)*nChromaDir+d);
-                outputName4 = fullfile(outputName4_temp, filename4);
-                writematrix(trial_sequence, outputName4);
-    
-                % A more comprehensive data storage: with headers and with reference stim
-                % Convert matrix to table and add column headers
-                filename4_h = sprintf('MOCS_pregenerated_trials_sub%d_cond%d_wRefs.csv', subjN, (n-1)*nChromaDir+d);
-                outputName4 = fullfile(outputName4_temp, filename4_h);
-                % Create a table with 'W_ref' and 'W_comp'
-                trial_table = table(trial_sequence_wRef(:, 1), trial_sequence_wRef(:, 2), ...
-                    'VariableNames', {'W_ref', 'W_comp'});
-    
-                % Write the table to a CSV file
-                writetable(trial_table, outputName4);
-            end
-        end
-    end
 end
 
 %% save randomization indices
