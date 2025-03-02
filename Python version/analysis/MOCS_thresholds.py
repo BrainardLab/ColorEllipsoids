@@ -605,38 +605,43 @@ class sim_MOCS_trials:
         return np.vstack(stacked_grids)
         
     @staticmethod
-    def sample_sobol_MOCS_conditions(N, bounds=(-1, 1), ndims=2, force_center=False, seed=None):
+    def sample_sobol(N, lb, ub, force_center=False, seed=None):
         """
-        Generate N Sobol-sequenced points within a bounded space,
+        Generate N Sobol-sequenced points within a bounded space in arbitrary dimensions,
         optionally forcing the first point to be at the center.
     
         Args:
             N (int): Number of points to sample.
-            bounds (tuple): Lower and upper bounds of the space (default: -1 to 1).
-            ndims (int): Number of dimensions for Sobol sampling.
+            lb (array-like): Lower bounds for each dimension.
+            ub (array-like): Upper bounds for each dimension.
             force_center (bool): If True, the first point is set at the center.
             seed (int, optional): Random seed for reproducibility.
     
         Returns:
-            np.ndarray: (N, ndims) array of Sobol samples.
+            np.ndarray: (N, len(lb)) array of Sobol samples.
         """
+        lb = np.array(lb)
+        ub = np.array(ub)
+        ndims = len(lb)  # Determine number of dimensions from bounds
+    
         if N < 1:
             raise ValueError("N must be at least 1.")
+        if len(lb) != len(ub):
+            raise ValueError("Lower and upper bounds must have the same length.")
+        
+        # Initialize Sobol sequence generator
+        sobol_sampler = Sobol(d=ndims, scramble=True, seed=seed)
     
-        sobol_sampler = Sobol(d=ndims, scramble=True, seed=seed)  # Use seed for reproducibility
-        samples = sobol_sampler.random(N)  # Generate N Sobol points in [0,1]^ndims
+        # Generate N Sobol points in [0,1]^ndims
+        samples = sobol_sampler.random(N)
     
-        # Scale from [0,1] to [bounds[0], bounds[1]]
-        lower, upper = bounds
-        samples = lower + (upper - lower) * samples  
+        # Scale to [lb, ub] for each dimension
+        samples = lb + (ub - lb) * samples  
     
         if force_center:
-            samples[0] = [0] * ndims  # Force first point to be at the center
+            samples[0] = (lb + ub) / 2  # Force first point to be at the center
     
         return samples
-        
-        
-        
         
         
         
