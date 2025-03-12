@@ -237,7 +237,7 @@ class MOCSTrialsVisualization():
 
     
 #%%
-def plot_MOCS_conditions(ndims, xref_unique, comp_unique, color_thres_data, **kwargs):
+def plot_MOCS_conditions(ndims, xref_unique, comp_unique, color_thres_data, ax = None, **kwargs):
     """
     Plot MOCS (Method of Constant Stimuli) conditions in 2D or 3D.
 
@@ -270,6 +270,9 @@ def plot_MOCS_conditions(ndims, xref_unique, comp_unique, color_thres_data, **kw
         'zlabel': 'Wishart space dimension 3',
         'title': 'Isoluminant plane',  # Default title for 2D plots
         'fontsize': 10,
+        'ref_ms': 100,
+        'ref_lw':3,
+        'easyTrials_highlight': True,
         'fig_name': '',
         'output_dir': '',
         'save_fig': False
@@ -279,8 +282,11 @@ def plot_MOCS_conditions(ndims, xref_unique, comp_unique, color_thres_data, **kw
     plt.rcParams['font.family'] = 'Arial'
     
     if ndims == 2:
-        # Create a 2D figure
-        fig, ax = plt.subplots(figsize=pltP['fig_size'], dpi=1024)
+        # Create a new figure and axis if none are provided
+        if ax is None:
+            fig, ax = plt.subplots(figsize=pltP['fig_size'], dpi=1024)
+        else:
+            fig = ax.figure
         
         for idx_slc in range(len(xref_unique)):
             xref = xref_unique[idx_slc]
@@ -290,11 +296,12 @@ def plot_MOCS_conditions(ndims, xref_unique, comp_unique, color_thres_data, **kw
             ax.scatter(comp[:, 0], comp[:, 1], marker='.', color='k', s=1)
             ax.plot([xref[0], comp[-1, 0]],
                     [xref[1], comp[-1, 1]], lw=0.4, color='gray')
-            ax.scatter(*comp[-1,:], marker='o', facecolor='none', edgecolor='r', alpha=0.5, s=10)
+            if pltP['easyTrials_highlight']:
+                ax.scatter(*comp[-1,:], marker='o', facecolor='none', edgecolor='r', alpha=0.5, s=10)
             
             # Color mapping for reference points
             cmap_n = color_thres_data.M_2DWToRGB @ np.append(xref, 1)
-            ax.scatter(*xref, color=cmap_n, marker='+', lw=3, s=100)
+            ax.scatter(*xref, color=cmap_n, marker='+', lw=pltP['ref_lw'], s=pltP['ref_ms'])
             
         # Set plot limits and labels
         ax.set_xlim([-1, 1])
@@ -311,8 +318,12 @@ def plot_MOCS_conditions(ndims, xref_unique, comp_unique, color_thres_data, **kw
     
     else:
         # Create a 3D figure
-        fig = plt.figure(figsize=pltP['fig_size'], dpi=1024)
-        ax = fig.add_subplot(111, projection='3d')
+        # Create a new figure and axis if none are provided
+        if ax is None:
+            fig = plt.figure(figsize=pltP['fig_size'], dpi=1024)
+            ax = fig.add_subplot(111, projection='3d')
+        else:
+            fig = ax.figure
         
         for idx_slc in range(len(xref_unique)):
             xref = xref_unique[idx_slc]
@@ -327,7 +338,8 @@ def plot_MOCS_conditions(ndims, xref_unique, comp_unique, color_thres_data, **kw
             # Plot comparison stimuli
             ax.scatter(comp[:, 0], comp[:, 1], comp[:, 2], marker='.', color='k', s=1)
             ax.plot(comp[:, 0], comp[:, 1], comp[:, 2], lw=0.4, color='gray')
-            ax.scatter(*comp[-1, :], marker='o', facecolor='none', edgecolor='r', alpha=0.5, s=10)
+            if pltP['easyTrials_highlight']:
+                ax.scatter(*comp[-1, :], marker='o', facecolor='none', edgecolor='r', alpha=0.5, s=10)
         
         # Set plot limits, labels, and aspect ratio
         ax.set_xlim([-1, 1])
@@ -351,6 +363,6 @@ def plot_MOCS_conditions(ndims, xref_unique, comp_unique, color_thres_data, **kw
     if pltP['save_fig'] and os.path.exists(pltP['output_dir']) and pltP['fig_name']:
         fig.savefig(os.path.join(pltP['output_dir'], pltP['fig_name']))
     plt.show()
-
     
+    return fig, ax
     
