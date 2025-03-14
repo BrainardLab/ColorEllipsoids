@@ -7,8 +7,9 @@
 %% Initialize
 clear all; close all; clc
 flag_save_figures = false; 
-flag_save_data = true;
+flag_save_data = false;
 flag_addExpt_trials = false;
+flag_addCIE_predictions = true;
 
 %% Retrieve the correct calibration file
 whichCalFile = 'DELL_02242025_texture_right.mat';
@@ -202,7 +203,7 @@ fill3(ax_rgb,[0,0,0,0],[1,0,0,1],[0,0,1,1],'k','FaceAlpha',0.05);
 fill3(ax_rgb,[1,0,0,1],[1,1,1,1],[0,0,1,1],'k','FaceAlpha',0.05); 
 fill3(ax_rgb,[1,1,1,1],[1,0,0,1],[0,0,1,1],'k','FaceAlpha',0.05); 
 %real plots
-f_rgb_1 = scatter3(ax_rgb,bgPrimary(1),bgPrimary(2),bgPrimary(3),200,'g+','lineWidth',2);  
+%f_rgb_1 = scatter3(ax_rgb,bgPrimary(1),bgPrimary(2),bgPrimary(3),200,'g+','lineWidth',2);  
 scatter3(ax_rgb,gamut_bg_primary(1,:), gamut_bg_primary(2,:), ...
     gamut_bg_primary(3,:), 2, 'k.', 'filled'); 
     % gamut_bg_primary(3,:), 20, 'k', 'filled', 'MarkerEdgeColor','g'); 
@@ -218,12 +219,12 @@ axis square; grid on
 %%  Make a plot of the gamut in the DKL isoluminant plane
 fig_dkl = figure; ax_dkl = axes(fig_dkl);
 [X, Y, Z] = sphere; n_contour = size(Z,2);
-surf(ax_dkl, X, Y, Z,'FaceColor', 'k', 'FaceAlpha', 0.01,'EdgeColor',...
-    [0.8,0.8,0.8]); hold on
+surf(ax_dkl, X, Y, Z,'FaceColor', [0.3,0.3,0.3],'FaceAlpha',0.01,'EdgeColor',...
+    [0.8,0.8,0.8]); hold on;
 f_dkl_1 = fill3(ax_dkl, X(ceil(n_contour/2),:),Y(ceil(n_contour/2),:),...
     Z(ceil(n_contour/2),:), 'k','FaceAlpha',0.1,'EdgeColor','none'); 
-f_dkl_2 = fill3(ax_dkl, gamutDKLPlane(1,:),gamutDKLPlane(2,:),zeros(nAngles),...
-    'k','FaceColor','k', 'FaceAlpha',0.4);
+f_dkl_2 = fill3(ax_dkl, gamutDKLPlane(1,:),gamutDKLPlane(2,:),0.001*ones(nAngles),...%slightly offset the plane to avoid white artifacts in the plot
+    'k','FaceColor','k', 'FaceAlpha',0.4); 
 xticks(-1:1:1); yticks(-1:1:1);zticks(-1:1:1);
 xlabel('DKL L-M'); ylabel('DKL S'); zlabel('DKL luminance');
 axis square; grid on; view(-30,30);
@@ -402,12 +403,12 @@ if (numCorners == 4)
         M_DKLToConeInc*ref_dkl_ext(:,idx),bgLMS), 1:nRef,'UniformOutput', false); %loop through the four corners
     ref_rgb = M_LMSTORGB*(cell2mat(ref_theLMSExcitations) - ambientLMS);
     
-    % add ref to the plots
-    cmap = colormap('parula');
-    colors_W = ref_rgb';
-    
-    scatter(ax_W, ref_W_x(:), ref_W_y(:),100, colors_W,...
-        'filled','MarkerEdgeColor','k','Marker','o','lineWidth',2);
+    % add ref to the plots    
+    if flag_addCIE_predictions; colors_W = [0,0,0]; marker_ref = '+'; ms_ref = 15; lw_ref = 1;
+    else; colors_W = ref_rgb'; marker_ref = 'o'; ms_ref = 100; lw_ref = 2;
+    end
+    scatter(ax_W, ref_W_x(:), ref_W_y(:), ms_ref, colors_W, ...
+        'filled','MarkerEdgeColor','k','Marker',marker_ref,'lineWidth',lw_ref);
     set(ax_W, 'XTick', [-1,-0.6:0.3:0.6,1]);
     set(ax_W, 'YTick', [-1,-0.6:0.3:0.6,1]); grid on; box on;
     set(ax_W,'FontSize',12);
@@ -415,13 +416,13 @@ if (numCorners == 4)
     
     %NOTE THAT the matrix for DKL follows this order: 1. lum, 2. L-M, 3. S
     %But when plotting, x-axis: L-M, y-axis: S, z-axis: lum
-    scatter3(ax_dkl, ref_dkl_ext(2,:), ref_dkl_ext(3,:), ref_dkl_ext(1,:), 100, colors_W,...
-        'filled', 'MarkerEdgeColor','k','Marker','o','lineWidth',2);
+    scatter3(ax_dkl, ref_dkl_ext(2,:), ref_dkl_ext(3,:), ref_dkl_ext(1,:), ms_ref, colors_W,...
+        'filled', 'MarkerEdgeColor','k','Marker',marker_ref,'lineWidth', lw_ref);
     set(ax_dkl,'FontSize',12);
     set(fig_dkl, 'PaperSize', [10, 10]);
     
-    scatter3(ax_rgb, ref_rgb(1,:), ref_rgb(2,:), ref_rgb(3,:),100,colors_W,...
-        'filled', 'MarkerEdgeColor','k','Marker','o','lineWidth',2);
+    scatter3(ax_rgb, ref_rgb(1,:), ref_rgb(2,:), ref_rgb(3,:), ms_ref,colors_W,...
+        'filled', 'MarkerEdgeColor','k','Marker',marker_ref,'lineWidth', lw_ref);
     set(ax_rgb, 'XTick', [0, 0.2:0.15:0.8, 1]);
     set(ax_rgb, 'YTick', [0, 0.2:0.15:0.8, 1]); 
     set(ax_rgb, 'ZTick', [0, 0.2:0.15:0.8, 1]); 
@@ -452,6 +453,131 @@ assert(min(min(abs(ref_W_ext_check - ref_W_ext))) < 1e-6,...
     'The matrix that is supposed to take us from W to RGB is not computed correctly!')
 %add it to the rgb plot
 % scatter3(ax_rgb,ref_rgb_check(1,:), ref_rgb_check(2,:), ref_rgb_check(3,:), 'k+')
+
+%% compute CIELab ellipsoids at those locations
+% Load in XYZ color matching functions
+load T_xyzCIEPhys2.mat
+T_xyz = SplineCmf(S_xyzCIEPhys2,T_xyzCIEPhys2,Scolor);
+M_LMSToXYZ = ((T_cones)'\(T_xyz)')';
+primary_monitor = calObjCones.cal.P_device;
+param.T_cones = T_cones; 
+param.B_monitor = primary_monitor;
+param.M_LMSToXYZ = M_LMSToXYZ;
+
+% Define a neutral background RGB value for the simulations
+stim.background_RGB    = ones(3,1).*0.5;
+% Define angular sampling for simulating chromatic directions on a sphere
+% Sample 17 directions along the XY plane (azimuthal)
+stim.numDirPts_xy = 17; 
+% Sample directions along Z (polar), fewer due to spherical geometry
+stim.numDirPts_z  = ceil(stim.numDirPts_xy/2);
+% Azimuthal angle, 0 to 360 degrees
+stim.grid_theta   = linspace(0, 2*pi,stim.numDirPts_xy);
+% Polar angle, 0 to 180 degrees
+stim.grid_phi     = linspace(0, pi, stim.numDirPts_z); 
+% Create a grid of angles, excluding the redundant final theta
+[stim.grid_THETA, stim.grid_PHI] = meshgrid(stim.grid_theta(1:end-1), stim.grid_phi);
+
+% Calculate Cartesian coordinates for direction vectors on a unit sphere
+stim.grid_x       = sin(stim.grid_PHI).*cos(stim.grid_THETA);
+stim.grid_y       = sin(stim.grid_PHI).*sin(stim.grid_THETA);
+stim.grid_z       = cos(stim.grid_PHI);
+stim.grid_xyz     = cat(3, stim.grid_x, stim.grid_y, stim.grid_z);
+stim.deltaE_1JND  = 1;
+
+%the raw isothreshold contour is very tiny, we can amplify it by 5 times
+%for the purpose of visualization
+results.ellipsoid_scaler = 5;%2.5;
+%make a finer grid for the direction (just for the purpose of
+%visualization)
+plt.nThetaEllipsoid    = 200;
+plt.nPhiEllipsoid      = 100;
+plt.circleIn3D         = UnitCircleGenerate_3D(plt.nThetaEllipsoid, ...
+    plt.nPhiEllipsoid);
+
+% Determine which color difference metric to use ('CIE1976', 'CIE94', 'CIEDE2000')
+color_diff_alg = 'CIE1976'; % Specify the desired color difference algorithm
+
+% Create a string suffix based on the selected algorithm
+if strcmp(color_diff_alg, 'CIE1976'); str_color_diff_alg = '';
+else; str_color_diff_alg = ['_', color_diff_alg];
+end
+
+%for each reference stimulus
+for i = 1:size(ref_rgb,2)
+    disp(i)
+    %grab the reference stimulus's RGB
+    rgb_ref_i = squeeze(ref_rgb(:,i));
+    %convert it to Lab
+    [ref_Lab_i, ~, ~] = convert_rgb_lab(primary_monitor,...
+        stim.background_RGB, T_cones, M_LMSToXYZ, rgb_ref_i);
+    results.ref_Lab(i,:) = ref_Lab_i;
+    
+    %for each chromatic direction
+    for l = 1:stim.numDirPts_z
+        for m = 1:stim.numDirPts_xy-1
+            %determine the direction we are going 
+            vecDir = [stim.grid_x(l,m); stim.grid_y(l,m);...
+                      stim.grid_z(l,m)];
+
+            %run fmincon to search for the magnitude of vector that
+            %leads to a pre-determined deltaE
+            results.opt_vecLen(i,l,m) = find_vecLen(...
+                stim.background_RGB, rgb_ref_i, ref_Lab_i, ...
+                vecDir, param, stim, color_diff_alg);
+        end
+    end
+
+    %fit an ellipsoid
+    [results.fitEllipsoid(i,:,:), ...
+        results.fitEllipsoid_unscaled(i,:,:), ...
+        results.rgb_surface_scaled(i,:,:,:),...
+        results.rgb_surface_cov(i,:,:), ...
+        results.ellipsoidParams{i}] = ...
+        fit_3d_isothreshold_ellipsoid(rgb_ref_i, [],stim.grid_xyz, ...
+        'vecLength',squeeze(results.opt_vecLen(i,:,:)),...
+        'nThetaEllipsoid',plt.nThetaEllipsoid,...
+        'nPhiEllipsoid',plt.nPhiEllipsoid,...
+        'ellipsoid_scaler',results.ellipsoid_scaler);
+
+    %add it to the plot
+    ell_i = squeeze(results.fitEllipsoid(i,:,:));
+    ell_i_x = reshape(ell_i(:,1), [plt.nPhiEllipsoid, plt.nThetaEllipsoid]);
+    ell_i_y = reshape(ell_i(:,2), [plt.nPhiEllipsoid, plt.nThetaEllipsoid]); 
+    ell_i_z = reshape(ell_i(:,3), [plt.nPhiEllipsoid, plt.nThetaEllipsoid]);
+
+    %compute 2D intersectional contour
+    %Subtract the centroid to center the points
+    centered_points = corner_PointsRGB' - [0.5,0.5,0.5];
+    %Perform Singular Value Decomposition (SVD)
+    [~, ~, Vt] = svd(centered_points);
+    [results.sliced_ellipse_rgb(i,:,:), ~] = slice_ellipsoid_byPlane(rgb_ref_i,...
+        results.ellipsoidParams{i}{2}*results.ellipsoid_scaler,...
+        results.ellipsoidParams{i}{3},...
+        Vt(:,1),...
+        Vt(:,2));
+    %visualize the 3D ellipsoids on the RGB cube
+    surf(ax_rgb, ell_i_x, ell_i_y, ell_i_z,'FaceColor', rgb_ref_i,...
+        'EdgeColor','none','FaceAlpha', 0.4); hold on
+    %visualize the sliced ellipsoids by the plane
+    plot3(ax_rgb, squeeze(results.sliced_ellipse_rgb(i,1,:)), ...
+        squeeze(results.sliced_ellipse_rgb(i,2,:)),...
+        squeeze(results.sliced_ellipse_rgb(i,3,:)),...
+        'Color', [0,0,0],'LineWidth', 1); hold on
+
+    %map it back to the dkl space
+    results.sliced_ellipse_2DW(i,:,:) = M_RGBTo2DW * squeeze(results.sliced_ellipse_rgb(i,:,:));
+    results.sliced_ellipse_dkl(i,:,:) = M_2DWToDLKPlane * squeeze(results.sliced_ellipse_2DW(i,:,:));
+
+    plot(ax_W, squeeze(results.sliced_ellipse_2DW(i,1,:)), ...
+        squeeze(results.sliced_ellipse_2DW(i,2,:)),...
+        'Color', rgb_ref_i,'LineWidth', 3); hold on
+    plot3(ax_dkl, squeeze(results.sliced_ellipse_dkl(i,1,:)), ...
+        squeeze(results.sliced_ellipse_dkl(i,2,:)), ...
+        0.*squeeze(results.sliced_ellipse_dkl(i,3,:)),...
+        'Color', rgb_ref_i,'LineWidth', 2); hold on
+
+end
 
 %% determine MOCS trials
 legend(ax_W, [f_W_1, f_W_2], ...
