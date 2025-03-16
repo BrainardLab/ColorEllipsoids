@@ -14,6 +14,8 @@ import sys
 import os
 from scipy.io import loadmat
 import numpy as np
+import matplotlib.pyplot as plt
+import dill as pickled
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version")
 from analysis.simulations_CIELab import SimThresCIELab
 from plotting.sim_CIELab_plotting import CIELabVisualization
@@ -34,11 +36,14 @@ os.chdir(path_str)
 
 # Initialize simulation object for CIELab calculations
 background_RGB = np.array([0.5, 0.5, 0.5])  # Mid-gray background
-sim_thres_CIELab = SimThresCIELab(path_str, background_RGB)
+sim_thres_CIELab = SimThresCIELab(path_str, 
+                                  background_RGB, 
+                                  plane_2D_list= ['Isoluminant plane'])
 
 # Load color space transformation matrices
 mat_file   = loadmat('Transformation_btw_color_spaces.mat')
 iso_mat    = mat_file['DELL_02242025_texture_right'][0]
+gamut_rgb  = iso_mat['gamut_bg_primary'][0]
 M_RGBTo2DW = iso_mat['M_RGBTo2DW'][0]  # Transform RGB to 2D W space
 M_2DWToRGB = iso_mat['M_2DWToRGB'][0]  # Transform W space back to RGB
 
@@ -52,7 +57,7 @@ numDirPts = 16  # Number of chromatic directions (angles)
 grid_theta_xy = sim_thres_CIELab.set_chromatic_directions(num_dir_pts=numDirPts)
 
 deltaE_1JND = 1  # Just-noticeable difference threshold (ΔE = 1)
-color_diff_algorithm = 'CIE2000'  # Choose from 'CIE2000', 'CIE1994', 'CIE1976'
+color_diff_algorithm = 'CIE1994'  # Choose from 'CIE2000', 'CIE1994', 'CIE1976'
 
 # Parameters for ellipse fitting
 contour_scaler = 2.5  # Scaling factor for visualization
@@ -128,7 +133,7 @@ for i in range(nGridPts_ref):
         fitEllipse_scaled[i, j], fitEllipse_unscaled[i, j], rgb_comp_contour_scaled[i, j], _, ellParams[i, j, :] = fit_results
 
 
-#%% PLOTTING AND SAVING DATA
+#%% PLOTTING 
 # Define coarse grid bounds for the varying color dimension
 color_range = np.linspace(0.2, 0.8, nGridPts_ref)  # Lower bound: 0.2, Upper bound: 0.8
 
@@ -151,3 +156,59 @@ sim_CIE_vis.plot_2D_single_plane(grid_est,
                                  rawData=rgb_comp_contour_scaled, 
                                  rgb_background=None, 
                                  ell_lc=cmap_bg)
+
+#%% save the data
+#convert fitted ellipses to RGB space for future uses (maybe we want to visualize that in the RGB space)
+fitEllipse_scaled_RGB_temp1 = np.reshape(np.transpose(color_thres_data.N_unit_to_W_unit(fitEllipse_scaled), (2, 0,1,3)), (2,-1))
+fitEllipse_scaled_RGB_temp2 = np.vstack((fitEllipse_scaled_RGB_temp1, 
+                                         np.ones((1, nGridPts_ref**2 * nThetaEllipse))))
+fitEllipse_scaled_RGB_temp3 = M_2DWToRGB @ fitEllipse_scaled_RGB_temp2
+fitEllipse_scaled_RGB = np.transpose(np.reshape(fitEllipse_scaled_RGB_temp3, 
+                                                (3, nGridPts_ref, nGridPts_ref, nThetaEllipse)), (1,2,3,0))
+
+#repeat the same for fitEllipse_unscaled
+fitEllipse_unscaled_RGB_temp1 = np.reshape(np.transpose(color_thres_data.N_unit_to_W_unit(fitEllipse_unscaled), (2, 0,1,3)), (2,-1))
+fitEllipse_unscaled_RGB_temp2 = np.vstack((fitEllipse_unscaled_RGB_temp1, 
+                                         np.ones((1, nGridPts_ref**2 * nThetaEllipse))))
+fitEllipse_unscaled_RGB_temp3 = M_2DWToRGB @ fitEllipse_unscaled_RGB_temp2
+fitEllipse_unscaled_RGB = np.transpose(np.reshape(fitEllipse_unscaled_RGB_temp3,
+                                                  (3, nGridPts_ref, nGridPts_ref, nThetaEllipse)), (1,2,3,0))
+
+# fig = plt.figure(figsize=(8, 6))
+# ax = fig.add_subplot(111, projection='3d')
+# ax.plot(*gamut_rgb,color ='k')
+# # Scatter plot
+# ax.scatter(*fitEllipse_scaled_RGB_temp3, cmap='viridis', marker='.', s=10, alpha=0.7, edgecolors='none')
+# ax.view_init(elev=30, azim=-120)
+# ax.set_xlim([0,1]); ax.set_ylim([0,1]); ax.set_zlim([0,1]); ax.set_aspect('equal')
+
+
+#% save data
+output_file = f'Isothreshold_ellipses_isoluminant_{color_diff_algorithm}.pkl'
+full_path = os.path.join(output_fileDir, output_file)
+
+variable_names = ['color_thres_data','sim_thres_CIELab', 'mat_file','iso_mat',
+                  'gamut_rgb', 'M_RGBTo2DW', 'M_2DWToRGB', 'nGridPts_ref',
+                  'ref_points', 'numDirPts', 'grid_theta_xy', 'deltaE_1JND',
+                  'color_diff_algorithm', 'contour_scaler','nThetaEllipse',
+                  'rgb_comp', 'W_comp', 'N_comp', 'W_ref', 'N_ref', 'vecDir',
+                  'opt_vecLen', 'fitEllipse_scaled', 'fitEllipse_unscaled',
+                  'rgb_comp_contour_scaled', 'ellParams', 'fitEllipse_scaled_RGB',
+                  'fitEllipse_unscaled_RGB']
+vars_dict = {}
+for var_name in variable_names:
+    try:
+        # Check if the variable exists in the global scope
+        vars_dict[var_name] = eval(var_name)
+    except NameError:
+        # If the variable does not exist, assign None and print a message
+        vars_dict[var_name] = None
+        print(f"Variable '{var_name}' does not exist. Assigned as None.")
+        
+# Write the list of dictionaries to a file using pickle
+with open(full_path, 'wb') as f:
+    pickled.dump(vars_dict, f)
+        
+
+
+
