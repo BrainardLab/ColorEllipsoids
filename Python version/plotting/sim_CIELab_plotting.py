@@ -196,77 +196,125 @@ class CIELabVisualization(WishartModelBasicsVisualization):
         plt.show()
         return fig, ax
 
-    def plot_2D(self, grid_est, fitEllipse, rawData = None, ax = None, **kwargs):
-        #default values for optional parameters
-        method_specific_settings = {
-            'visualize_raw_data': False,
-            'rgb_background': None,
-            'ref_mc':[0,0,0],
-            'ref_ms': 40,
-            'ref_lw':2,
-            'ell_lc':[0,0,0],
-            'ell_ls':'-',
-            'ell_lw':2,
-            'data_m':'o',
-            'data_alpha':1,
-            'data_ms':20,
-            'data_mc':[0.5,0.5,0.5],
-            'ticks': np.linspace(0,1,5),
-            'fontsize':15,
-            'fig_name':'Isothreshold_contour',
-            }
-        
-        # Update plot parameters with method-specific settings and external configurations.
-        self.pltP.update(method_specific_settings)
-        self.pltP.update(kwargs)  
+    def plot_2D_all_planes(self, grid_est, fitEllipse, rawData=None, ax=None, **kwargs):
+        """
+        Generate multiple subplots (one for each plane) to visualize isothreshold contours.
+        Calls `plot_2D_single_plane` for each plane and modifies plot parameters as needed.
+        """
+        # Allow customization by passing kwargs
+        plot_settings = kwargs.copy()  # Ensure we do not modify original kwargs
+        plot_settings.setdefault('plane_names', ['RG plane', 'GB plane', 'RB plane'])
+    
         plt.rcParams['font.sans-serif'] = ['Arial']
-        num_grid_pts_x, num_grid_pts_y = grid_est.shape[0:2]
         
-        # Create a new figure and axes if not provided.
+        num_grid_pts_x, num_grid_pts_y = grid_est.shape[0:2]
+    
+        # Create a figure with multiple subplots if `ax` is not provided.
         if ax is None:
-            fig, ax =  plt.subplots(1, self.sim_CIE.nPlanes,figsize=(20, 6),
-                                    dpi= self.pltP['dpi'])
+            fig, axes = plt.subplots(1, self.sim_CIE.nPlanes, figsize=(20, 6), 
+                                     dpi=self.pltP.get('dpi', 100))
         else:
             fig = ax.figure
-                
+            axes = ax
+    
+        # Generate plots for each plane
         for p in range(self.sim_CIE.nPlanes):
             if self.pltP['rgb_background'] is not None:
-                #fill in RGB color
-                ax[p].imshow(self.pltP['rgb_background'][p], extent = [0,1,0,1],
-                             origin='lower')
-            
-            #Ground truth
-            for i in range(num_grid_pts_x):
-                for j in range(num_grid_pts_y):
-                    
-                    #reference location 
-                    ax[p].scatter(*grid_est[i,j],s = self.pltP['ref_ms'],
-                                  c = self.pltP['ref_mc'],
-                                  marker ='+',linewidth = self.pltP['ref_lw'])
-                    
-                    #ellipses
-                    ax[p].plot(*fitEllipse[p,i,j],
-                              linestyle = self.pltP['ell_ls'],
-                              color = self.pltP['ell_lc'],
-                              linewidth = self.pltP['ell_lw'])
-                        
-                    #thresholds
-                    if self.pltP['visualize_raw_data'] and rawData is not None:
-                        ax[p].scatter(*rawData[p,i,j],\
-                                          marker = self.pltP['data_m'],
-                                          color = self.pltP['data_mc'],
-                                          s = self.pltP['data_ms'],
-                                          alpha = self.pltP['data_alpha'])
-            self._update_axes_limits(ax[p], lim = [0,1])
-            self._update_axes_labels(ax[p], self.pltP['ticks'], self.pltP['ticks'],nsteps =1)
-            self.pltP['plane_2D'] = self.sim_CIE.plane_2D_list[p]
-            self._configure_labels_and_title(ax[p])
-        # Show the figure after all subplots have been drawn
+                bg = self.pltP['rgb_background'][p]
+            else:
+                bg = None
+            self.pltP['plane_2D'] = self.pltP['plane_names'][p]
+            self.plot_2D_single_plane(grid_est, fitEllipse[p], rawData[p], 
+                                      axes[p], rgb_background = bg)
+    
+        # Save and display the figure
         if self.fig_dir and self.save_fig:
             plt.savefig(self.fig_dir + self.pltP['fig_name'])
         plt.show()
+    
+        return fig, axes
+    
+    
+    def plot_2D_single_plane(self, grid_est, fitEllipse, rawData=None, ax=None,
+                             rgb_background = None, **kwargs):
+        """
+        Generate a single plot for a specific plane index.
+        All default settings are defined here, but can be overridden via kwargs.
+        """
+        
+        # Default plot parameters
+        pltP = {
+            'visualize_raw_data': False,
+            'rgb_background': None,
+            'plane_2D': 'Isoluminant plane',
+            'xlabel': 'DKL L-M',
+            'ylabel': 'DKL S',
+            'ref_mc': [0, 0, 0],
+            'ref_ms': 40,
+            'ref_lw': 2,
+            'ell_lc': [0, 0, 0],
+            'ell_ls': '-',
+            'ell_lw': 2,
+            'data_m': 'o',
+            'data_alpha': 1,
+            'data_ms': 20,
+            'data_mc': [0.5, 0.5, 0.5],
+            'ticks': np.linspace(0, 1, 5),
+            'fontsize': 12,
+            'dpi': 100,
+            'fig_name': 'Isothreshold_contour',
+        }
+    
+        # Update defaults with any user-provided settings
+        pltP.update(kwargs)
+        plt.rcParams['font.sans-serif'] = ['Arial']
+        # Set font size for everything in one line
+        plt.rc('font', size=pltP['fontsize'])
+        num_grid_pts_x, num_grid_pts_y = grid_est.shape[0:2]
+        
+        # Determine if `ell_lc` is a single color or a color matrix
+        ell_lc_is_matrix = isinstance(pltP['ell_lc'], np.ndarray) and pltP['ell_lc'].shape == (num_grid_pts_x, num_grid_pts_y, 3)
+        ref_mc_is_matrix = isinstance(pltP['ref_mc'], np.ndarray) and pltP['ref_mc'].shape == (num_grid_pts_x, num_grid_pts_y, 3)
+        data_mc_is_matrix = isinstance(pltP['data_mc'], np.ndarray) and pltP['data_mc'].shape == (num_grid_pts_x, num_grid_pts_y, 3)
+    
+        if ax is None:
+            fig, ax = plt.subplots(figsize=(6, 6), dpi=pltP['dpi'])
+        else:
+            fig = ax.figure
+    
+        # Set background if provided
+        if rgb_background is not None:
+            ax.imshow(rgb_background, extent=[0, 1, 0, 1], origin='lower')
+    
+        # Plot reference locations, ellipses, and threshold data
+        for i in range(num_grid_pts_x):
+            for j in range(num_grid_pts_y):
+                # Reference location
+                ref_color = pltP['ref_mc'][i, j] if ref_mc_is_matrix else pltP['ref_mc']
+                ax.scatter(*grid_est[i, j], s=pltP['ref_ms'], c= ref_color,
+                           marker='+', linewidth=pltP['ref_lw'])
+    
+                # Ellipses
+                ellipse_color = pltP['ell_lc'][i, j] if ell_lc_is_matrix else pltP['ell_lc']
+                ax.plot(*fitEllipse[i, j], linestyle=pltP['ell_ls'],
+                        color=ellipse_color, linewidth=pltP['ell_lw'])
+    
+                # Threshold points
+                if pltP['visualize_raw_data'] and rawData is not None:
+                    data_color = pltP['data_mc'][i, j] if data_mc_is_matrix else pltP['data_mc']
+                    ax.scatter(*rawData[i, j], marker=pltP['data_m'],
+                               color= data_color, s=pltP['data_ms'],
+                               alpha=pltP['data_alpha'])
+    
+        # Configure plot limits, ticks, and labels
+        self._update_axes_limits(ax, lim=[0, 1])
+        self._update_axes_labels(ax, pltP['ticks'], pltP['ticks'], nsteps=1)
+        ax.set_xlabel(pltP['xlabel'])
+        ax.set_ylabel(pltP['ylabel'])
+        ax.set_title(pltP['plane_2D'])
+    
         return fig, ax
-      
+
     #%%
     def plot_3D(self, grid_est, fitEllipsoid, nTheta = 200, nPhi = 100, ax = None, **kwargs):
         #default values for optional parameters

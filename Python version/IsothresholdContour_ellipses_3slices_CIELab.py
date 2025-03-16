@@ -117,10 +117,10 @@ for p in range(sim_thres_CIELab.nPlanes):
 #%% PLOTTING AND SAVING DATA
 sim_CIE_vis = CIELabVisualization(sim_thres_CIELab,
                                   fig_dir=output_figDir, 
-                                  save_fig= True)
+                                  save_fig= False)
 
 grid_est = np.stack((X,Y), axis = 2)
-sim_CIE_vis.plot_2D(grid_est, 
+sim_CIE_vis.plot_2D_all_planes(grid_est, 
                     fitEllipse_scaled, 
                     visualize_raw_data = True,
                     rawData= rgb_comp_contour_scaled, 
@@ -134,7 +134,7 @@ file_name   = f'Isothreshold_contour_CIELABderived_fixedVal{fixed_RGBvec}{str_ap
 full_path   = f"{output_fileDir}{file_name}"
 
 #save all the stim info
-stim_keys = ['fixed_RGBvec', 'plane_points', 'grid_ref', 'nGridPts_ref', \
+stim_keys = ['fixed_RGBvec', 'plane_points', 'grid_ref', 'nGridPts_ref', 
              'ref_points', 'background_RGB','numDirPts', 'grid_theta_xy', 'deltaE_1JND']
 stim = {}
 for i in stim_keys: stim[i] = eval(i)
@@ -148,11 +148,6 @@ for i in results_keys: results[i] = eval(i)
 # Write the list of dictionaries to a file using pickle
 with open(full_path, 'wb') as f:
     pickle.dump([sim_thres_CIELab, stim, results], f)
-
-#Here is what we do if we want to load the data
-# with open(full_path, 'rb') as f:
-#     # Load the object from the file
-#     data_load = pickle.load(f)
 
 
 
