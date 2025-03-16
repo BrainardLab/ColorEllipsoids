@@ -174,7 +174,7 @@ except:
 #%%visualize ellipsoids
 sim_CIE_vis = CIELabVisualization(sim_thres_CIELab,
                                   fig_dir=output_figDir, 
-                                  save_fig= True)
+                                  save_fig= False)
 ndims = 3
 sim_CIE_vis.plot_3D(np.reshape(stim['ref_points'],(stim['nGridPts_ref']**ndims,-1)), 
                             np.reshape(results['fitEllipsoid_scaled'],(stim['nGridPts_ref']**ndims,ndims,-1)),

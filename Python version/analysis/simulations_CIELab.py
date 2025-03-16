@@ -22,7 +22,7 @@ setattr(np, "asscalar", patch_asscalar)
 
 #%%
 class SimThresCIELab:
-    def __init__(self, fileDir, background_rgb):
+    def __init__(self, fileDir, background_rgb, plane_2D_list = ['GB plane', 'RB plane', 'RG plane']):
         """
         Parameters:
         - background_RGB (array; 3 x 1): Background RGB values used for normalization.
@@ -46,10 +46,14 @@ class SimThresCIELab:
         self.M_LMS_TO_XYZ = M_LMSToXYZ_mat['M_LMSToXYZ'] #size: (3, 3)
         
         #number of selected planes
-        self.plane_2D_list  = ['GB plane', 'RB plane', 'RG plane']   
+        self.plane_2D_list  = plane_2D_list
         self.nPlanes        = len(self.plane_2D_list)
-        self.plane_2D_dict  = dict(zip(self.plane_2D_list, list(range(self.nPlanes))))
-        self.varying_dims   = [[1,2],[0,2],[0,1]]
+        
+        #Note that if plane_2D_list is 'Isoluminant plane', some of the following methods are not applicable
+        #come back to this class in the future and refine the code to be more generalizable
+        if self.nPlanes == 3:
+            self.plane_2D_dict  = dict(zip(self.plane_2D_list, list(range(self.nPlanes))))
+            self.varying_dims   = [[1,2],[0,2],[0,1]]
 
     #%% methods
     def _get_plane_1slice(self, grid_lb, grid_ub, num_grid_pts,fixed_val, plane_2D):
@@ -305,4 +309,3 @@ class SimThresCIELab:
         grid_theta_xy   = np.stack((np.cos(grid_theta),np.sin(grid_theta)),axis = 0)
         return grid_theta_xy
             
-

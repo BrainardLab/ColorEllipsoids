@@ -124,7 +124,7 @@ class load_4D_expt_data:
         return xref_MOCS_list, x1_MOCS_list, y_MOCS_list, xref_MOCS, x1_MOCS, y_MOCS
 
         
-    def org_MOCS_by_condition(xref_MOCS, x1_MOCS, y_MOCS):
+    def org_MOCS_by_condition(xref_MOCS, x1_MOCS, y_MOCS, leave_out_conditions = []):
         """
         Organize MOCS data by unique reference stimulus conditions.
 
@@ -152,13 +152,21 @@ class load_4D_expt_data:
 
         # Initialize lists to store grouped data by reference stimulus condition
         refStimulus_MOCS, compStimulus_MOCS, responses_MOCS = [], [], []
+        
+        #initialize lists to save leaved out data
+        refStimulus_MOCS_leaveout, compStimulus_MOCS_leaveout, responses_MOCS_leaveout = [], [], []
 
         # Iterate through each unique reference stimulus and collect matching trials
         for i in range(nRefs_MOCS):
             matching_indices = np.where((xref_MOCS == xref_unique_MOCS[i]).all(axis=1))[0]
-            refStimulus_MOCS.append(xref_MOCS[matching_indices])
-            compStimulus_MOCS.append(x1_MOCS[matching_indices])
-            responses_MOCS.append(y_MOCS[matching_indices])
+            if i not in leave_out_conditions:
+                refStimulus_MOCS.append(xref_MOCS[matching_indices])
+                compStimulus_MOCS.append(x1_MOCS[matching_indices])
+                responses_MOCS.append(y_MOCS[matching_indices])
+            else:
+                refStimulus_MOCS_leaveout.append(xref_MOCS[matching_indices])
+                compStimulus_MOCS_leaveout.append(x1_MOCS[matching_indices])
+                responses_MOCS_leaveout.append(y_MOCS[matching_indices])                
 
         # Determine the number of unique comparison stimulus levels per condition
         nLevels_MOCS = np.unique(x1_MOCS[matching_indices], axis=0).shape[0]
@@ -167,7 +175,8 @@ class load_4D_expt_data:
         nTrials_MOCS = y_MOCS.shape[0]
         
         return xref_unique_MOCS, nRefs_MOCS, refStimulus_MOCS, compStimulus_MOCS, \
-            responses_MOCS, nLevels_MOCS, nTrials_MOCS            
+            responses_MOCS, nLevels_MOCS, nTrials_MOCS, refStimulus_MOCS_leaveout, \
+            compStimulus_MOCS_leaveout, responses_MOCS_leaveout
     
     def load_AEPsych_data(data_allSessions):
         """
@@ -201,6 +210,63 @@ class load_4D_expt_data:
 
         return xref_AEPsych_list, x1_AEPsych_list, y_AEPsych_list, time_elapsed_list, \
                xref_AEPsych, x1_AEPsych, y_AEPsych, time_elapsed
+               
+    def load_AEPsych_data_before_last_MOCS(data_allSessions):
+        """
+        Extract and preprocess AEPsych trial data from all sessions, **excluding trials that occur after the last MOCS trial**.
+    
+        This method differs from `load_AEPsych_data` by limiting the included AEPsych trials to only those 
+        occurring **before** the last MOCS trial in each session. This allows testing the hypothesis that 
+        the mismatch in thresholds between AEPsych and MOCS trials is due to the failure of interleaving 
+        the two trial types near the end of each session during the pilot study.
+    
+        Parameters:
+        data_allSessions (list of dict): List containing data from multiple experimental sessions.
+    
+        Returns: check load_AEPsych_data
+        """
+    
+        # Initialize lists to store results per session
+        last_idx_included_AEPsych = []  # Index of the last AEPsych trial before the final MOCS trial
+        nTrials_included_AEPsych = []   # Number of AEPsych trials included
+        time_elapsed_list = []          # List of time elapsed arrays per session
+        xref_AEPsych_list = []          # List of reference stimuli arrays per session
+        x1_AEPsych_list = []            # List of comparison stimuli arrays per session
+        y_AEPsych_list = []             # List of response arrays per session
+    
+        # Iterate through all sessions
+        for idx, d in enumerate(data_allSessions):
+            # Extract the trial sequence array for the session
+            sequence_array = d['sim_interleaved_trial_sequence'].final_sequence[0]
+    
+            # Find the index of the last 'MOCS' trial in the sequence
+            last_mocs_index = next((i for i in range(len(sequence_array) - 1, -1, -1) 
+                                    if sequence_array[i].startswith('MOCS')), None)
+    
+            # Define the number of AEPsych trials to include (all trials up to the last MOCS trial)
+            last_idx_included_AEPsych.append(last_mocs_index + 1)
+    
+            # Extract the trial number from the last included AEPsych trial
+            match = re.search(r'AEPsych_(\d+)', sequence_array[last_idx_included_AEPsych[-1]])
+            trial_num = int(match.group(1)) if match else None  # Convert to integer if found, otherwise None
+    
+            # Store the number of AEPsych trials included for this session
+            nTrials_included_AEPsych.append(trial_num)
+    
+            # Extract and truncate AEPsych trial data up to the last included trial
+            time_elapsed_list.append(d['expt_trials'].time_elapsed[:trial_num])
+            xref_AEPsych_list.append(jnp.array(d['expt_trials'].xref_all[:trial_num]))
+            x1_AEPsych_list.append(jnp.array(d['expt_trials'].x1_all[:trial_num]))
+            y_AEPsych_list.append(jnp.array(d['expt_trials'].binaryResp_all[:trial_num]))
+    
+        # Concatenate data across all sessions along axis 0
+        xref_AEPsych, x1_AEPsych, y_AEPsych, time_elapsed = map(
+            lambda lst: np.concatenate(lst, axis=0), 
+            [xref_AEPsych_list, x1_AEPsych_list, y_AEPsych_list, time_elapsed_list]
+        )
+    
+        return xref_AEPsych_list, x1_AEPsych_list, y_AEPsych_list, time_elapsed_list, \
+               xref_AEPsych, x1_AEPsych, y_AEPsych, time_elapsed
     
     def combine_AEPsych_MOCS(data_AEPsych, data_MOCS, flag_combine=True):
         """
@@ -229,6 +295,7 @@ class load_4D_expt_data:
             xref_jnp, x1_jnp, y_jnp = data_AEPsych
 
         return xref_jnp, x1_jnp, y_jnp
+    
     
     def split_AEPsych_data(xref_AEPsych, x1_AEPsych, y_AEPsych, flag_first_half = True):
         if flag_first_half:

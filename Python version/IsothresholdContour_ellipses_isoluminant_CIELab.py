@@ -57,7 +57,7 @@ numDirPts = 16  # Number of chromatic directions (angles)
 grid_theta_xy = sim_thres_CIELab.set_chromatic_directions(num_dir_pts=numDirPts)
 
 deltaE_1JND = 1  # Just-noticeable difference threshold (ΔE = 1)
-color_diff_algorithm = 'CIE1994'  # Choose from 'CIE2000', 'CIE1994', 'CIE1976'
+color_diff_algorithm = 'CIE2000'  # Choose from 'CIE2000', 'CIE1994', 'CIE1976'
 
 # Parameters for ellipse fitting
 contour_scaler = 2.5  # Scaling factor for visualization

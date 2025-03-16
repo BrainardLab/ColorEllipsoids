@@ -350,7 +350,7 @@ class fit_PMF_MOCS_trials():
         self.fine_pC = self._reconstruct_PsychometricFunc(self.bestfit_result.x)
         
     #%% Bootstrap related methods 
-    def bootstrap_and_refit(self, flag_groupwise_btst = False):
+    def bootstrap_and_refit(self, flag_groupwise_btst = False, seed = None):
         """
         Perform bootstrap resampling and refit the psychometric function.
     
@@ -386,6 +386,8 @@ class fit_PMF_MOCS_trials():
         - self.stim_at_targetPC_btst : np.ndarray
             Stimulus value corresponding to the target performance level for each iteration.
         """
+        if seed is not None:
+            np.random.seed(seed)
         
         if flag_groupwise_btst:
             # Draw random integers to generate bootstrap samples (trial indices)

@@ -4,6 +4,14 @@
 Created on Wed Aug 28 12:45:28 2024
 
 @author: fangfang
+
+This script visualizes ellipsoidal thresholds across a grid of reference 
+stimuli on the isoluminant plane. It also computes 2D elliptical contours, 
+which represent the intersections between the ellipsoidal thresholds and the 
+isoluminant plane. These elliptical thresholds are derived from Wishart Process 
+model fits applied to simulated data, positioned near the CIE-based threshold 
+contours.
+
 """
 
 import matplotlib.pyplot as plt
@@ -27,8 +35,10 @@ from plotting.sim_CIELab_plotting import CIELabVisualization
 path_str = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox/"
 os.chdir(path_str)
 #load data
-iso_mat = loadmat('W_from_PlanarGamut.mat')
-gamut_rgb = iso_mat['gamut_bg_primary']
+#iso_mat = loadmat('W_from_PlanarGamut.mat')
+mat_file = loadmat('Transformation_btw_color_spaces.mat')
+iso_mat = mat_file['DELL_02242025_texture_right'][0]
+gamut_rgb = iso_mat['gamut_bg_primary'][0]
 corner_points_rgb = iso_mat['cornerPointsRGB']
 
 #%% define output directory for output files and figures
@@ -38,9 +48,9 @@ baseDir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
 # Create an instance of the class
 color_thres_data = color_thresholds(COLOR_DIMENSION, baseDir + 'ELPS_analysis/')
     
-color_thres_data.load_CIE_data()
+color_thres_data.load_CIE_data(CIE_version= 'CIE2000')
 # Load Wishart model fits
-color_thres_data.load_model_fits()  
+color_thres_data.load_model_fits(CIE_version = 'CIE2000')  
 
 # Retrieve specific data from Wishart_data
 CIE_stim = color_thres_data.get_data('stim3D', dataset='CIE_data')
@@ -58,7 +68,7 @@ ax.plot(*gamut_rgb,color='k',lw =1)
 # Add the filled area
 verts = [list(zip(*gamut_rgb))]
 ax.add_collection3d(Poly3DCollection(verts, color=[0.5,0.5,0.5], alpha=0.4))
-idx_slc = np.array([0,2,4])
+idx_slc = np.arange(5)#np.array([0,2,4])
 nIdx_slc = len(idx_slc)
 nRef_slc = nIdx_slc**COLOR_DIMENSION
 ref_points_slc = ref_points[idx_slc][:,idx_slc][:,:,idx_slc]
@@ -74,20 +84,19 @@ vis.plot_3D(np.reshape(ref_points_slc,(nRef_slc,COLOR_DIMENSION)),
                             scatter_alpha = 1,
                             scatter_ms = 1,
                             ref_ms = 3,
+                            view_angle = [30,-120],
                             threshold_points = np.reshape(thres_points_slc,(nRef_slc,)+thres_points_slc.shape[3:]))
 plt.show()
 
 #%%
-os.chdir("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
-
-ref_points_on_plane = color_thres_data.N_unit_to_W_unit(np.transpose(iso_mat['ref_rgb'],(1,0)))
+ref_points_on_plane = color_thres_data.N_unit_to_W_unit(np.transpose(iso_mat['ref_rgb'][0],(1,0)))
 nRef_on_plane = ref_points_on_plane.shape[0]
 # Transpose the grid to match the expected input format of the model's prediction functions.
 # The transposition is dependent on the color dimension to ensure the correct orientation of the data.
 grid_trans = jnp.array(ref_points_on_plane[np.newaxis, np.newaxis,:,:])
 # batch compute 78% threshold contour based on estimated weight matrix
 test_Wishart = gt_Wishart
-test_Wishart.convert_Sig_Threshold_oddity_batch(grid_trans[0])
+test_Wishart.convert_Sig_Threshold_oddity_batch(grid_trans)
 
 #%% Calculate the mean of the points (centroid)
 #here we can use either gamut_rgb or corner_points_rgb
@@ -122,6 +131,7 @@ for n in range(nRef_on_plane):
 ax1.add_collection3d(Poly3DCollection(verts, color=[0.5,0.5,0.5], alpha=0.35))
 #plot Vt, which is an orthogonal matrix where each row represents a basis vector 
 #in the input space (the 3-dimensional space of the original data)
+
 for s in range(COLOR_DIMENSION):
     ax1.plot([centroid[0], centroid[0]+Vt[s,0]],
              [centroid[1], centroid[1]+Vt[s,1]],

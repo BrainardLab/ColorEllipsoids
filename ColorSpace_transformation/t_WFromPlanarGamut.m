@@ -7,9 +7,9 @@
 %% Initialize
 clear all; close all; clc
 flag_save_figures = false; 
-flag_save_data = false;
+flag_save_data = true;
 flag_addExpt_trials = false;
-flag_addCIE_predictions = true;
+flag_addCIE_predictions = false;
 
 %% Retrieve the correct calibration file
 whichCalFile = 'DELL_02242025_texture_right.mat';
@@ -455,130 +455,131 @@ assert(min(min(abs(ref_W_ext_check - ref_W_ext))) < 1e-6,...
 % scatter3(ax_rgb,ref_rgb_check(1,:), ref_rgb_check(2,:), ref_rgb_check(3,:), 'k+')
 
 %% compute CIELab ellipsoids at those locations
-% Load in XYZ color matching functions
-load T_xyzCIEPhys2.mat
-T_xyz = SplineCmf(S_xyzCIEPhys2,T_xyzCIEPhys2,Scolor);
-M_LMSToXYZ = ((T_cones)'\(T_xyz)')';
-primary_monitor = calObjCones.cal.P_device;
-param.T_cones = T_cones; 
-param.B_monitor = primary_monitor;
-param.M_LMSToXYZ = M_LMSToXYZ;
-
-% Define a neutral background RGB value for the simulations
-stim.background_RGB    = ones(3,1).*0.5;
-% Define angular sampling for simulating chromatic directions on a sphere
-% Sample 17 directions along the XY plane (azimuthal)
-stim.numDirPts_xy = 17; 
-% Sample directions along Z (polar), fewer due to spherical geometry
-stim.numDirPts_z  = ceil(stim.numDirPts_xy/2);
-% Azimuthal angle, 0 to 360 degrees
-stim.grid_theta   = linspace(0, 2*pi,stim.numDirPts_xy);
-% Polar angle, 0 to 180 degrees
-stim.grid_phi     = linspace(0, pi, stim.numDirPts_z); 
-% Create a grid of angles, excluding the redundant final theta
-[stim.grid_THETA, stim.grid_PHI] = meshgrid(stim.grid_theta(1:end-1), stim.grid_phi);
-
-% Calculate Cartesian coordinates for direction vectors on a unit sphere
-stim.grid_x       = sin(stim.grid_PHI).*cos(stim.grid_THETA);
-stim.grid_y       = sin(stim.grid_PHI).*sin(stim.grid_THETA);
-stim.grid_z       = cos(stim.grid_PHI);
-stim.grid_xyz     = cat(3, stim.grid_x, stim.grid_y, stim.grid_z);
-stim.deltaE_1JND  = 1;
-
-%the raw isothreshold contour is very tiny, we can amplify it by 5 times
-%for the purpose of visualization
-results.ellipsoid_scaler = 5;%2.5;
-%make a finer grid for the direction (just for the purpose of
-%visualization)
-plt.nThetaEllipsoid    = 200;
-plt.nPhiEllipsoid      = 100;
-plt.circleIn3D         = UnitCircleGenerate_3D(plt.nThetaEllipsoid, ...
-    plt.nPhiEllipsoid);
-
-% Determine which color difference metric to use ('CIE1976', 'CIE94', 'CIEDE2000')
-color_diff_alg = 'CIE1976'; % Specify the desired color difference algorithm
-
-% Create a string suffix based on the selected algorithm
-if strcmp(color_diff_alg, 'CIE1976'); str_color_diff_alg = '';
-else; str_color_diff_alg = ['_', color_diff_alg];
-end
-
-%for each reference stimulus
-for i = 1:size(ref_rgb,2)
-    disp(i)
-    %grab the reference stimulus's RGB
-    rgb_ref_i = squeeze(ref_rgb(:,i));
-    %convert it to Lab
-    [ref_Lab_i, ~, ~] = convert_rgb_lab(primary_monitor,...
-        stim.background_RGB, T_cones, M_LMSToXYZ, rgb_ref_i);
-    results.ref_Lab(i,:) = ref_Lab_i;
+if flag_addCIE_predictions
+    % Load in XYZ color matching functions
+    load T_xyzCIEPhys2.mat
+    T_xyz = SplineCmf(S_xyzCIEPhys2,T_xyzCIEPhys2,Scolor);
+    M_LMSToXYZ = ((T_cones)'\(T_xyz)')';
+    primary_monitor = calObjCones.cal.P_device;
+    param.T_cones = T_cones; 
+    param.B_monitor = primary_monitor;
+    param.M_LMSToXYZ = M_LMSToXYZ;
     
-    %for each chromatic direction
-    for l = 1:stim.numDirPts_z
-        for m = 1:stim.numDirPts_xy-1
-            %determine the direction we are going 
-            vecDir = [stim.grid_x(l,m); stim.grid_y(l,m);...
-                      stim.grid_z(l,m)];
-
-            %run fmincon to search for the magnitude of vector that
-            %leads to a pre-determined deltaE
-            results.opt_vecLen(i,l,m) = find_vecLen(...
-                stim.background_RGB, rgb_ref_i, ref_Lab_i, ...
-                vecDir, param, stim, color_diff_alg);
-        end
+    % Define a neutral background RGB value for the simulations
+    stim.background_RGB    = ones(3,1).*0.5;
+    % Define angular sampling for simulating chromatic directions on a sphere
+    % Sample 17 directions along the XY plane (azimuthal)
+    stim.numDirPts_xy = 17; 
+    % Sample directions along Z (polar), fewer due to spherical geometry
+    stim.numDirPts_z  = ceil(stim.numDirPts_xy/2);
+    % Azimuthal angle, 0 to 360 degrees
+    stim.grid_theta   = linspace(0, 2*pi,stim.numDirPts_xy);
+    % Polar angle, 0 to 180 degrees
+    stim.grid_phi     = linspace(0, pi, stim.numDirPts_z); 
+    % Create a grid of angles, excluding the redundant final theta
+    [stim.grid_THETA, stim.grid_PHI] = meshgrid(stim.grid_theta(1:end-1), stim.grid_phi);
+    
+    % Calculate Cartesian coordinates for direction vectors on a unit sphere
+    stim.grid_x       = sin(stim.grid_PHI).*cos(stim.grid_THETA);
+    stim.grid_y       = sin(stim.grid_PHI).*sin(stim.grid_THETA);
+    stim.grid_z       = cos(stim.grid_PHI);
+    stim.grid_xyz     = cat(3, stim.grid_x, stim.grid_y, stim.grid_z);
+    stim.deltaE_1JND  = 1;
+    
+    %the raw isothreshold contour is very tiny, we can amplify it by 5 times
+    %for the purpose of visualization
+    results.ellipsoid_scaler = 2.5;
+    %make a finer grid for the direction (just for the purpose of
+    %visualization)
+    plt.nThetaEllipsoid    = 200;
+    plt.nPhiEllipsoid      = 100;
+    plt.circleIn3D         = UnitCircleGenerate_3D(plt.nThetaEllipsoid, ...
+        plt.nPhiEllipsoid);
+    
+    % Determine which color difference metric to use ('CIE1976', 'CIE94', 'CIEDE2000')
+    color_diff_alg = 'CIE2000'; % Specify the desired color difference algorithm
+    
+    % Create a string suffix based on the selected algorithm
+    if strcmp(color_diff_alg, 'CIE1976'); str_color_diff_alg = '';
+    else; str_color_diff_alg = ['_', color_diff_alg];
     end
-
-    %fit an ellipsoid
-    [results.fitEllipsoid(i,:,:), ...
-        results.fitEllipsoid_unscaled(i,:,:), ...
-        results.rgb_surface_scaled(i,:,:,:),...
-        results.rgb_surface_cov(i,:,:), ...
-        results.ellipsoidParams{i}] = ...
-        fit_3d_isothreshold_ellipsoid(rgb_ref_i, [],stim.grid_xyz, ...
-        'vecLength',squeeze(results.opt_vecLen(i,:,:)),...
-        'nThetaEllipsoid',plt.nThetaEllipsoid,...
-        'nPhiEllipsoid',plt.nPhiEllipsoid,...
-        'ellipsoid_scaler',results.ellipsoid_scaler);
-
-    %add it to the plot
-    ell_i = squeeze(results.fitEllipsoid(i,:,:));
-    ell_i_x = reshape(ell_i(:,1), [plt.nPhiEllipsoid, plt.nThetaEllipsoid]);
-    ell_i_y = reshape(ell_i(:,2), [plt.nPhiEllipsoid, plt.nThetaEllipsoid]); 
-    ell_i_z = reshape(ell_i(:,3), [plt.nPhiEllipsoid, plt.nThetaEllipsoid]);
-
-    %compute 2D intersectional contour
-    %Subtract the centroid to center the points
-    centered_points = corner_PointsRGB' - [0.5,0.5,0.5];
-    %Perform Singular Value Decomposition (SVD)
-    [~, ~, Vt] = svd(centered_points);
-    [results.sliced_ellipse_rgb(i,:,:), ~] = slice_ellipsoid_byPlane(rgb_ref_i,...
-        results.ellipsoidParams{i}{2}*results.ellipsoid_scaler,...
-        results.ellipsoidParams{i}{3},...
-        Vt(:,1),...
-        Vt(:,2));
-    %visualize the 3D ellipsoids on the RGB cube
-    surf(ax_rgb, ell_i_x, ell_i_y, ell_i_z,'FaceColor', rgb_ref_i,...
-        'EdgeColor','none','FaceAlpha', 0.4); hold on
-    %visualize the sliced ellipsoids by the plane
-    plot3(ax_rgb, squeeze(results.sliced_ellipse_rgb(i,1,:)), ...
-        squeeze(results.sliced_ellipse_rgb(i,2,:)),...
-        squeeze(results.sliced_ellipse_rgb(i,3,:)),...
-        'Color', [0,0,0],'LineWidth', 1); hold on
-
-    %map it back to the dkl space
-    results.sliced_ellipse_2DW(i,:,:) = M_RGBTo2DW * squeeze(results.sliced_ellipse_rgb(i,:,:));
-    results.sliced_ellipse_dkl(i,:,:) = M_2DWToDLKPlane * squeeze(results.sliced_ellipse_2DW(i,:,:));
-
-    plot(ax_W, squeeze(results.sliced_ellipse_2DW(i,1,:)), ...
-        squeeze(results.sliced_ellipse_2DW(i,2,:)),...
-        'Color', rgb_ref_i,'LineWidth', 3); hold on
-    plot3(ax_dkl, squeeze(results.sliced_ellipse_dkl(i,1,:)), ...
-        squeeze(results.sliced_ellipse_dkl(i,2,:)), ...
-        0.*squeeze(results.sliced_ellipse_dkl(i,3,:)),...
-        'Color', rgb_ref_i,'LineWidth', 2); hold on
-
+    
+    %for each reference stimulus
+    for i = 1:size(ref_rgb,2)
+        disp(i)
+        %grab the reference stimulus's RGB
+        rgb_ref_i = squeeze(ref_rgb(:,i));
+        %convert it to Lab
+        [ref_Lab_i, ~, ~] = convert_rgb_lab(primary_monitor,...
+            stim.background_RGB, T_cones, M_LMSToXYZ, rgb_ref_i);
+        results.ref_Lab(i,:) = ref_Lab_i;
+        
+        %for each chromatic direction
+        for l = 1:stim.numDirPts_z
+            for m = 1:stim.numDirPts_xy-1
+                %determine the direction we are going 
+                vecDir = [stim.grid_x(l,m); stim.grid_y(l,m);...
+                          stim.grid_z(l,m)];
+    
+                %run fmincon to search for the magnitude of vector that
+                %leads to a pre-determined deltaE
+                results.opt_vecLen(i,l,m) = find_vecLen(...
+                    stim.background_RGB, rgb_ref_i, ref_Lab_i, ...
+                    vecDir, param, stim, color_diff_alg);
+            end
+        end
+    
+        %fit an ellipsoid
+        [results.fitEllipsoid(i,:,:), ...
+            results.fitEllipsoid_unscaled(i,:,:), ...
+            results.rgb_surface_scaled(i,:,:,:),...
+            results.rgb_surface_cov(i,:,:), ...
+            results.ellipsoidParams{i}] = ...
+            fit_3d_isothreshold_ellipsoid(rgb_ref_i, [],stim.grid_xyz, ...
+            'vecLength',squeeze(results.opt_vecLen(i,:,:)),...
+            'nThetaEllipsoid',plt.nThetaEllipsoid,...
+            'nPhiEllipsoid',plt.nPhiEllipsoid,...
+            'ellipsoid_scaler',results.ellipsoid_scaler);
+    
+        %add it to the plot
+        ell_i = squeeze(results.fitEllipsoid(i,:,:));
+        ell_i_x = reshape(ell_i(:,1), [plt.nPhiEllipsoid, plt.nThetaEllipsoid]);
+        ell_i_y = reshape(ell_i(:,2), [plt.nPhiEllipsoid, plt.nThetaEllipsoid]); 
+        ell_i_z = reshape(ell_i(:,3), [plt.nPhiEllipsoid, plt.nThetaEllipsoid]);
+    
+        %compute 2D intersectional contour
+        %Subtract the centroid to center the points
+        centered_points = corner_PointsRGB' - [0.5,0.5,0.5];
+        %Perform Singular Value Decomposition (SVD)
+        [~, ~, Vt] = svd(centered_points);
+        [results.sliced_ellipse_rgb(i,:,:), ~] = slice_ellipsoid_byPlane(rgb_ref_i,...
+            results.ellipsoidParams{i}{2}*results.ellipsoid_scaler,...
+            results.ellipsoidParams{i}{3},...
+            Vt(:,1),...
+            Vt(:,2));
+        %visualize the 3D ellipsoids on the RGB cube
+        surf(ax_rgb, ell_i_x, ell_i_y, ell_i_z,'FaceColor', rgb_ref_i,...
+            'EdgeColor','none','FaceAlpha', 0.4); hold on
+        %visualize the sliced ellipsoids by the plane
+        plot3(ax_rgb, squeeze(results.sliced_ellipse_rgb(i,1,:)), ...
+            squeeze(results.sliced_ellipse_rgb(i,2,:)),...
+            squeeze(results.sliced_ellipse_rgb(i,3,:)),...
+            'Color', [0,0,0],'LineWidth', 1); hold on
+    
+        %map it back to the dkl space
+        results.sliced_ellipse_2DW(i,:,:) = M_RGBTo2DW * squeeze(results.sliced_ellipse_rgb(i,:,:));
+        results.sliced_ellipse_dkl(i,:,:) = M_2DWToDLKPlane * squeeze(results.sliced_ellipse_2DW(i,:,:));
+    
+        plot(ax_W, squeeze(results.sliced_ellipse_2DW(i,1,:)), ...
+            squeeze(results.sliced_ellipse_2DW(i,2,:)),...
+            'Color', rgb_ref_i,'LineWidth', 3); hold on
+        plot3(ax_dkl, squeeze(results.sliced_ellipse_dkl(i,1,:)), ...
+            squeeze(results.sliced_ellipse_dkl(i,2,:)), ...
+            0.*squeeze(results.sliced_ellipse_dkl(i,3,:)),...
+            'Color', rgb_ref_i,'LineWidth', 2); hold on
+    
+    end
 end
-
 %% determine MOCS trials
 legend(ax_W, [f_W_1, f_W_2], ...
     {'The monitor''s gamut', ...
@@ -591,9 +592,8 @@ legend(ax_dkl,[f_dkl_1, f_dkl_2(1), f_dkl_3], ...
     'Corners'},...
     'Location','northoutside', 'Orientation', 'vertical');
 
-legend(ax_rgb,[f_rgb_1, f_rgb_2, f_rgb_3], ...
-    {'Background primary',...
-    'The monitor''s gamut',...
+legend(ax_rgb,[f_rgb_2, f_rgb_3], ...
+    {'The monitor''s gamut',...
     'Corners'},...
     'Location','northoutside', 'Orientation', 'vertical');
 
