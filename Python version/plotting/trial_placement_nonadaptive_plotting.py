@@ -146,7 +146,7 @@ class TrialPlacementVisualization(WishartModelBasicsVisualization):
         grid_ref_x = sim['grid_ref']
         grid_ref_y = sim['grid_ref']
         
-        method_specific_settings = {
+        pltP = {
             'slc_x_grid_ref': np.arange(len(grid_ref_x)),
             'slc_y_grid_ref': np.arange(len(grid_ref_y)),
             'ground_truth': None,
@@ -170,11 +170,10 @@ class TrialPlacementVisualization(WishartModelBasicsVisualization):
             }
         
         # Update plot parameters with method-specific settings and external configurations.
-        self.pltP.update(method_specific_settings)
-        self.pltP.update(kwargs) 
+        pltP.update(kwargs) 
         plt.rcParams['font.sans-serif'] = ['Arial']
         # Set default font size for all elements
-        plt.rcParams.update({'font.size': self.pltP['fontsize']})
+        plt.rcParams.update({'font.size': pltP['fontsize']})
         
         nGrid_x = len(grid_ref_x)
         nGrid_y = len(grid_ref_y)
@@ -187,38 +186,38 @@ class TrialPlacementVisualization(WishartModelBasicsVisualization):
                 # Access the subplot from bottom to top
                 ax_idx = ax[nGrid_x - 1 - i, j]  # Reverse row order
 
-                x_axis = np.linspace(*self.pltP['xbds'], self.pltP['nFinerGrid']) + grid_ref_x[j]
-                y_axis = np.linspace(*self.pltP['ybds'], self.pltP['nFinerGrid']) + grid_ref_y[i]    
+                x_axis = np.linspace(*pltP['xbds'], pltP['nFinerGrid']) + grid_ref_x[j]
+                y_axis = np.linspace(*pltP['ybds'], pltP['nFinerGrid']) + grid_ref_y[i]    
                 
                 #plot the ground truth
-                if self.pltP['ground_truth'] is not None:
-                    ax_idx.plot(self.pltP['ground_truth'][i,j,0],
-                             self.pltP['ground_truth'][i,j,1],
-                             color=self.pltP['lc'],
-                             linestyle = self.pltP['ls'], 
-                             linewidth = self.pltP['lw'])
+                if pltP['ground_truth'] is not None:
+                    ax_idx.plot(pltP['ground_truth'][i,j,0],
+                             pltP['ground_truth'][i,j,1],
+                             color= pltP['lc'],
+                             linestyle = pltP['ls'], 
+                             linewidth = pltP['lw'])
                 
                 #find indices that correspond to a response of 1 / 0
                 idx_1 = np.where(sim['resp_binary'][i,j] == 1)
                 idx_0 = np.where(sim['resp_binary'][i,j] == 0)
                 ax_idx.scatter(sim['rgb_comp'][i, j, sim['varying_RGBplane'][0], idx_1],
                             sim['rgb_comp'][i, j, sim['varying_RGBplane'][1], idx_1],
-                            s = self.pltP['ms'], 
-                            marker=self.pltP['m1'],
-                            c=self.pltP['mc1'],
-                            alpha= self.pltP['alpha'])
+                            s = pltP['ms'], 
+                            marker= pltP['m1'],
+                            c= pltP['mc1'],
+                            alpha= pltP['alpha'])
                     
                 ax_idx.scatter(sim['rgb_comp'][i, j, sim['varying_RGBplane'][0], idx_0], 
                             sim['rgb_comp'][i, j, sim['varying_RGBplane'][1], idx_0], 
-                            s = self.pltP['ms'], 
-                            marker=self.pltP['m0'], 
-                            c=self.pltP['mc0'],
-                            alpha= self.pltP['alpha'])
+                            s = pltP['ms'], 
+                            marker= pltP['m0'], 
+                            c= pltP['mc0'],
+                            alpha= pltP['alpha'])
                 
                 ax_idx.set_xlim([x_axis[0], x_axis[-1]])
                 ax_idx.set_ylim([y_axis[0], y_axis[-1]])
-                if i == 0 and j == nGrid_y//2: ax_idx.set_xlabel(self.pltP['x_label'])
-                if i == nGrid_x//2 and j == 0: ax_idx.set_ylabel(self.pltP['y_label'])
+                if i == 0 and j == nGrid_y//2: ax_idx.set_xlabel(pltP['x_label'])
+                if i == nGrid_x//2 and j == 0: ax_idx.set_ylabel(pltP['y_label'])
                 
                 if j == 0: ax_idx.set_yticks(np.round(grid_ref_y[i] + np.array([-0.1, 0, 0.1]),2))
                 else: ax_idx.set_yticks([])
@@ -230,7 +229,7 @@ class TrialPlacementVisualization(WishartModelBasicsVisualization):
         plt.tight_layout()
         plt.show()
         if self.save_fig and self.fig_dir != '':
-            full_path2 = os.path.join(self.fig_dir, self.pltP['fig_name']+'.pdf')
+            full_path2 = f"{self.fig_dir}/{pltP['fig_name']}.pdf"
             fig.savefig(full_path2) 
         return fig, ax
         

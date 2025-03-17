@@ -46,17 +46,27 @@ class SimThresCIELab:
         self.M_LMS_TO_XYZ = M_LMSToXYZ_mat['M_LMSToXYZ'] #size: (3, 3)
         
         #number of selected planes
+        # Validate plane_2D_list
+        self._validate_plane_list(plane_2D_list)
         self.plane_2D_list  = plane_2D_list
         self.nPlanes        = len(self.plane_2D_list)
         
         #Note that if plane_2D_list is 'Isoluminant plane', some of the following methods are not applicable
         #come back to this class in the future and refine the code to be more generalizable
+        self.plane_2D_dict  = dict(zip(self.plane_2D_list, list(range(self.nPlanes))))
         if self.nPlanes == 3:
-            self.plane_2D_dict  = dict(zip(self.plane_2D_list, list(range(self.nPlanes))))
-            self.varying_dims   = [[1,2],[0,2],[0,1]]
-
+            self.varying_dims = [[1,2],[0,2],[0,1]]
+        elif self.nPlanes == 1:
+            self.varying_dims = [[0,1]] #treat it as RG plane with the third dimension fixed at 1
+            
+    def _validate_plane_list(self, plane_2D_list):
+        """Internal method to validate plane_2D_list."""
+        valid_plane_options = [['GB plane', 'RB plane', 'RG plane'], ['Isoluminant plane']]
+        if plane_2D_list not in valid_plane_options:
+            raise ValueError(f"Invalid plane_2D_list: {plane_2D_list}. Must be one of {valid_plane_options}.")
+            
     #%% methods
-    def _get_plane_1slice(self, grid_lb, grid_ub, num_grid_pts,fixed_val, plane_2D):
+    def get_plane_1slice(self, grid_lb, grid_ub, num_grid_pts,fixed_val, plane_2D):
         """
         Generates a 2D slice of a 3D plane with one fixed dimension.
         
@@ -125,7 +135,7 @@ class SimThresCIELab:
                                  num_grid_pts), np.nan)
         # Iterate over each 2D plane identifier and generate its corresponding slice
         for i, plane_str in enumerate(self.plane_2D_list):
-            plane_3slices[i], grid_1d, X, Y = self._get_plane_1slice(grid_lb,
+            plane_3slices[i], grid_1d, X, Y = self.get_plane_1slice(grid_lb,
                                                      grid_ub, 
                                                      num_grid_pts, 
                                                      fixed_val, 

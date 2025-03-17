@@ -247,8 +247,8 @@ class CIELabVisualization(WishartModelBasicsVisualization):
             'visualize_raw_data': False,
             'rgb_background': None,
             'plane_2D': 'Isoluminant plane',
-            'xlabel': 'DKL L-M',
-            'ylabel': 'DKL S',
+            'xlabel': 'Wishart space dimemsion 1',
+            'ylabel': 'Wishart space dimension 2',
             'ref_mc': [0, 0, 0],
             'ref_ms': 40,
             'ref_lw': 2,
@@ -260,6 +260,7 @@ class CIELabVisualization(WishartModelBasicsVisualization):
             'data_ms': 20,
             'data_mc': [0.5, 0.5, 0.5],
             'ticks': np.linspace(0, 1, 5),
+            'lim': [0,1],
             'fontsize': 12,
             'dpi': 100,
             'fig_name': 'Isothreshold_contour',
@@ -307,7 +308,7 @@ class CIELabVisualization(WishartModelBasicsVisualization):
                                alpha=pltP['data_alpha'])
     
         # Configure plot limits, ticks, and labels
-        self._update_axes_limits(ax, lim=[0, 1])
+        self._update_axes_limits(ax, lim= pltP['lim'])
         self._update_axes_labels(ax, pltP['ticks'], pltP['ticks'], nsteps=1)
         ax.set_xlabel(pltP['xlabel'])
         ax.set_ylabel(pltP['ylabel'])
