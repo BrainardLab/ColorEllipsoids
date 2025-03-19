@@ -13,22 +13,19 @@ import numpy as np
 import pickle
 import dill as pickled
 
-sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/"+\
-                "Python version")
+sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version")
 from analysis.simulations_CIELab import SimThresCIELab
 from plotting.sim_CIELab_plotting import CIELabVisualization
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
 from analysis.ellipsoids_tools import UnitCircleGenerate_3D, fit_3d_isothreshold_ellipsoid
                 
 base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
-output_figDir = os.path.join(base_dir,'ELPS_analysis','Simulation_FigFiles',
-                             'Python_version','CIE')
+output_figDir = os.path.join(base_dir,'ELPS_analysis','Simulation_FigFiles', 'Python_version','CIE')
 output_fileDir = os.path.join(base_dir, 'ELPS_analysis','Simulation_DataFiles')
 
 #%%import functions from the other script
 # Define the path to the directory containing the necessary files for the simulation
-path_str = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/"+\
-                "FilesFromPsychtoolbox/"
+path_str = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox/"
 # Set the background RGB color values used for normalization (in this case, a neutral gray)
 background_RGB = np.array([0.5,0.5,0.5])
 

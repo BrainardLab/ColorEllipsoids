@@ -8,11 +8,15 @@ Created on Wed Dec 18 21:10:09 2024
 import tkinter as tk
 from tkinter import filedialog
 import os
+import sys
 import re
 import dill as pickled
 import jax.numpy as jnp
 import numpy as np
+sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
+from analysis.color_thres import color_thresholds
 
+#%%
 def select_file_and_get_path():
     # Create a hidden Tkinter root window
     root = tk.Tk()

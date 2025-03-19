@@ -12,8 +12,7 @@ import sys
 import os
 
 #import functions from the other script
-func_path = '/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version/'
-sys.path.append(func_path)
+sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version/')
 from analysis.trial_placement import TrialPlacementWithoutAdaptiveSampling
 from analysis.simulations_CIELab import SimThresCIELab
 from plotting.trial_placement_nonadaptive_plotting import TrialPlacementVisualization
@@ -41,8 +40,7 @@ with open(full_path, 'rb') as f:
     gt_CIE = pickle.load(f)
 
 # Initialize the SimThresCIELab object with a path to necessary files and background RGB value
-path_str2 = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/"+\
-                "FilesFromPsychtoolbox/"
+path_str2 = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox/"
 background_RGB = np.reshape(gt_CIE[1]['background_RGB'],(-1))
 sim_CIELab = SimThresCIELab(path_str2, background_RGB)
 
@@ -89,13 +87,14 @@ for test in 'RGB':
                                         slc_grid_ref_dim1 = [0,2,4], #[0,2,4]
                                         slc_grid_ref_dim2 = [0,2,4],
                                         title = ttl_new,
-                                        saveFig= True,
+                                        saveFig= False,
                                         figDir = output_figDir, 
                                         figName = figName_i)
     
 #%% save to pkl
 file_name = f"Sims_isothreshold_ellipsoids_sim{sim['nSims']}" +\
-    f"perCond_sampling{sim['method_sampling']}_jitter{sim['random_jitter']}_seed{rnd_seed}{str_colordiff_alg}.pkl"
+    f"perCond_sampling{sim['method_sampling']}_jitter{sim['random_jitter']}_"+\
+    f"seed{rnd_seed}{str_colordiff_alg}.pkl"
 full_path = f"{output_fileDir}/ellipsoids/{file_name}"
         
 # Write the list of dictionaries to a file using pickle

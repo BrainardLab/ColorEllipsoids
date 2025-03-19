@@ -74,7 +74,7 @@ class TrialPlacementWithoutAdaptiveSampling:
     
         if input_plane == '[]':  # Case for 3D ellipsoid
             self.ndims = 3
-            self.flag_Wishart = False
+            self.flag_W_space = False
             return None, None, None  
         
         if input_plane in plane_mappings:
@@ -261,7 +261,7 @@ class TrialPlacementWithoutAdaptiveSampling:
         jitter = self.sim['random_jitter']
 
         #Uniformly distributed angles between 0 and 2*pi
-        randtheta = self._add_jitters(0, 2*np.pi)
+        randtheta = np.random.rand(1, N) * 2 * np.pi
         
         #If you were to sample phi uniformly, you'd place too many points near 
         #the poles and too few points near the equator, because the surface area 
@@ -346,8 +346,7 @@ class TrialPlacementWithoutAdaptiveSampling:
         #stuff other than rgb_comp_sim are returned because we may want to plot
         #the transformation from unit circle to simulated data
         return rgb_comp_sim, np.vstack((randx_stretched, randy_stretched)),\
-            np.vstack((randx, randy)), np.vstack((randx_noNoise, randy_noNoise))
-            
+            np.vstack((randx, randy)), np.vstack((randx_noNoise, randy_noNoise))   
 
     def sample_rgb_comp_3DNearContour(self, rgb_ref, paramEllipsoid, 
                                       random_seed = None, uniform_inv_phi = True):
@@ -367,7 +366,8 @@ class TrialPlacementWithoutAdaptiveSampling:
         """
         radii, eigenVec = paramEllipsoid['radii'], paramEllipsoid['evecs']
         
-        randx, randy, randz, _, _, _ = self._random_points_on_unit_sphere()
+        randx, randy, randz, randx_noNoise, randy_noNoise, randz_noNoise = \
+            self._random_points_on_unit_sphere()
         
         #Stretch the random points by the ellipsoid's semi-axes lengths to fit
         # the ellipsoid's shape. This effectively scales the unit sphere points
@@ -390,7 +390,11 @@ class TrialPlacementWithoutAdaptiveSampling:
         #make sure the sampled comparison stimuli are within the desired boundaries
         rgb_comp_sim = self._validate_sampled_comp(rgb_comp_sim)
         
-        return rgb_comp_sim
+        #stuff other than rgb_comp_sim are returned because we may want to plot
+        #the transformation from unit circle to simulated data
+        return rgb_comp_sim, np.vstack((randx_stretched, randy_stretched, randz_stretched)),\
+            np.vstack((randx, randy, randz)), \
+            np.vstack((randx_noNoise, randy_noNoise, randz_noNoise))
 
     #%%
     def setup_WeibullFunc(self, alpha=1.1729, beta=1.2286, guessing_rate=1/3):
@@ -560,8 +564,8 @@ class TrialPlacementWithoutAdaptiveSampling:
                     for k in range(N):
                         rgb_ref_ijk = self.sim['ref_points'][i,j,k]
                         ellPara = self._extract_ground_truth([i, j, k])
-                        self.sim['rgb_comp'][i,j,k], _, _, _ = self.sample_rgb_comp_2DNearContour(rgb_ref_ij,
-                                                                                    ellPara)      
+                        self.sim['rgb_comp'][i,j,k], _, _, _ = \
+                            self.sample_rgb_comp_3DNearContour(rgb_ref_ijk, ellPara)      
                         
                         self.sim['lab_comp'][i,j,k], self.sim['deltaE'][i,j,k],\
                         self.sim['probC'][i,j,k], self.sim['resp_binary'][i,j,k] = \
