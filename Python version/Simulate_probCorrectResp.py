@@ -25,14 +25,19 @@ base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_analysis
 output_figDir = os.path.join(base_dir, 'Simulation_FigFiles','Python_version','transformation')
 output_fileDir = os.path.join(base_dir, 'Simulation_DataFiles', 'Isoluminant plane')
 
-#%% specify the seed
-rnd_seed = 0
+#%% 
+#specify the seed
+################################################################
+rnd_seed = 1
 
-#% Load precomputed ground truth data from a pickle file
-#file_name = 'Isothreshold_contour_CIELABderived_fixedVal0.5.pkl'
+#load this file if we want to sample trials on GB, RG, RB planes
+#file_name = 'Isothreshold_contour_CIELABderived_fixedVal0.5_CIE2000.pkl'
+
+#load this file if we want to sample trials on the isoluminant plane
 file_name = 'Isothreshold_ellipses_isoluminant_CIE2000.pkl'
-full_path = f"{output_fileDir}/{file_name}"
-#os.chdir(output_fileDir)
+################################################################
+
+full_path = f"{base_dir}/Simulation_DataFiles/{file_name}"
 
 #Here is what we do if we want to load the data
 with open(full_path, 'rb') as f:
@@ -45,9 +50,8 @@ sim_CIELab = SimThresCIELab(path_str2, background_RGB)
 
 # Set up the simulation object
 # QUESTION 1: Ask the user which RGB plane to fix during the simulation
-# QUESTION 2: Ask the user to choose the sampling method
-# QUESTION 3: For 'NearContour', ask for the jitter variability
-# QUESTION 4: Ask how many simulation trials
+# QUESTION 2: For 'NearContour', ask for the jitter variability
+# QUESTION 3: Ask how many simulation trials
 sim_trial = TrialPlacementWithoutAdaptiveSampling(gt_CIE)
 
 #% Define the Weibull psychometric function with specified parameters
@@ -72,7 +76,7 @@ sim_trial.run_sim(sim_CIELab,
                   colordiff_alg= colordiff_alg)
 
 #% Visualize the sampled data from the simulation
-sim_trial_2D_vis.plot_2D_sampledComp(xbds = [-0.08, 0.08],
+sim_trial_2D_vis.plot_2D_sampledComp(xbds = [-0.08, 0.08], #[-0.08, 0.08]
                                      ybds = [-0.08, 0.08])  
 
 #%% If the sampling method is 'NearContour', visualize the entire transformation process
@@ -80,12 +84,12 @@ sim_trial_2D_vis.plot_2D_sampledComp(xbds = [-0.08, 0.08],
 row_eg = 4
 col_eg = 0
 # Retrieve parameters for the ellipsoid at the selected location
-ellPara_eg = sim_trial.gt_CIE_results['ellParams'][sim_trial.sim['slc_RGBplane']][row_eg, col_eg]
+ellPara_eg = sim_trial.gt_CIE_results['ellParams'][sim_trial.sim['slc_RGBplane'],row_eg, col_eg]
 # Extract the reference RGB values at the selected location
-rgb_ref_eg = sim_trial.sim['ref_points'][sim_trial.sim['varying_RGBplane'],row_eg, col_eg]
+rgb_ref_eg = sim_trial.sim['ref_points'][:,row_eg, col_eg] #sim_trial.sim['varying_RGBplane']
 # Retrieve the ground truth ellipses during the transformation process
 rgb_comp_eg, rgb_comp_eg_1stepback, rgb_comp_eg_2stepback, rgb_comp_eg_3stepback =\
-    sim_trial.sample_rgb_comp_2DNearContour(rgb_ref_eg, ellPara_eg, random_seed = rnd_seed) 
+    sim_trial.sample_rgb_comp_2DNearContour(rgb_ref_eg, ellPara_eg) 
     
 # Compute the ground truth for each step of the transformation process
 nTheta = 200

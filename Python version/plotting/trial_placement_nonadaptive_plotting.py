@@ -219,10 +219,10 @@ class TrialPlacementVisualization(WishartModelBasicsVisualization):
                 if i == 0 and j == nGrid_y//2: ax_idx.set_xlabel(pltP['x_label'])
                 if i == nGrid_x//2 and j == 0: ax_idx.set_ylabel(pltP['y_label'])
                 
-                if j == 0: ax_idx.set_yticks(np.round(grid_ref_y[i] + np.array([-0.1, 0, 0.1]),2))
+                if j == 0: ax_idx.set_yticks([grid_ref_y[i]])
                 else: ax_idx.set_yticks([])
                 
-                if i == 0: ax_idx.set_xticks(np.round(grid_ref_x[j] + np.array([-0.1, 0, 0.1]),2))
+                if i == 0: ax_idx.set_xticks([grid_ref_x[j]])
                 else: ax_idx.set_xticks([])
             
         plt.subplots_adjust(wspace = 0, hspace = 0)

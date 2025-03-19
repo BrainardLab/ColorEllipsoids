@@ -11,15 +11,27 @@ import matplotlib.pyplot as plt
 import sys
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
 from analysis.color_thres import color_thresholds
+from analysis.ellipses_tools import rotAngle_to_eigenvectors
 
 #%%
 class TrialPlacementWithoutAdaptiveSampling:
     def __init__(self, gt_CIE = None, gt_Wishart = None, skip_sim = False):
+        """
+        This class simulates trials near the threshold contours. 
+        The thresholds can be based on either CIE-derived values or Wishart model fits.
+        
+        Note: Initially, we sliced the GB, RG, and RB planes, but later decided 
+        that it makes more sense to use the isoluminant plane. As a result, this 
+        code is structured more generally than necessary, since we no longer consider 
+        the GB, RG, or RB planes. However, we are keeping the generalized structure 
+        for potential future flexibility.
+
+        """
         if skip_sim is False:
             self.sim = self._query_simCondition()
         if gt_CIE is not None:
             self.flag_Wishart = False
-            self.gt_CIE_param = gt_CIE[0]
+            self.gt_CIE_param = gt_CIE[0]    
             self.gt_CIE_stim = gt_CIE[1]
             self.gt_CIE_results = gt_CIE[2]
             self._extract_ref_points()
@@ -32,51 +44,48 @@ class TrialPlacementWithoutAdaptiveSampling:
                 self.sim['nGridPts_ref'] = self.gt_model_pred.num_grid_pts
                 self.sim['grid_ref'] = color_thresholds.W_unit_to_N_unit(np.unique(gt_Wishart['grid']))
             
-    # Helper function to validate and process RGB plane input
-    def _get_fixed_plane(self, input_plane, default_plane):
+    def _parse_plane_selection(self, input_plane, default_plane):
         """
-        Determines the selected plane, varying dimensions, and plane name based on the input.
-        
+        Identifies the selected plane, its varying dimensions, and its corresponding name 
+        based on the input. Also sets relevant flags for later transformations.
+
         Args:
-            input_plane (str): The selected input plane ('R', 'G', 'B', 'lum', or '[]').
-            default_plane (str): Default plane in case of an invalid input.
-        
+            input_plane (str): The selected plane ('R', 'G', 'B', 'lum', or '[]' for 3D case).
+            default_plane (str): Default plane to use in case of an invalid input.
+
         Returns:
             tuple: (selected plane index, list of varying dimensions, name of the 2D plane)
-            
-        Notes on plane_mappings:
-            - The mapping for the isoluminant plane is conceptually a bit tricky.  
-            - The selected plane index is 2, and the varying plane indices are [0, 1]. This means 
-                the isoluminant plane is effectively treated as the RG plane** for convenience.  
-            - Later, we insert a third row filled with 1’s** to facilitate the transformation 
-                between W space and RGB space.  
 
-            - Additionally, when dealing with the **isoluminant plane**, the ground truth 
-                thresholds derived from CIELAB are in the Wishart space, which is **bounded 
-                between -1 and 1**.
+        Notes on `plane_mappings`:
+            - The isoluminant plane ('lum') is treated as the RG plane for convenience, 
+              with the selected index set to 2 and the varying indices as [0, 1].
+            - A third row filled with ones is later inserted to facilitate transformation 
+              between W space and RGB space.
+            - When working with the isoluminant plane, ground-truth thresholds derived 
+              from CIELAB are already in Wishart space (bounded between -1 and 1). 
+              A flag is set to prevent unnecessary double conversion in subsequent processing.
         """
         plane_mappings = {
-            'R': (0, [1, 2], 'GB plane', False, 2),
-            'G': (1, [0, 2], 'RB plane', False, 2),
-            'B': (2, [0, 1], 'RG plane', False, 2),
-            'lum': (2, [0, 1], 'Isoluminant plane', True, 2)  # Treat 'lum' similar to 'B', but different flag_W_space
+            'R': (0, [1, 2], 'GB plane', False, 2),  # Varying G and B
+            'G': (1, [0, 2], 'RB plane', False, 2),  # Varying R and B
+            'B': (2, [0, 1], 'RG plane', False, 2),  # Varying R and G
+            'lum': (2, [0, 1], 'Isoluminant plane', True, 2)  # Treated as RG plane but with a Wishart space flag
         }
     
-        if input_plane == '[]':
+        if input_plane == '[]':  # Case for 3D ellipsoid
             self.ndims = 3
             self.flag_Wishart = False
-            return None, None, None  # 3D ellipsoid case
+            return None, None, None  
         
         if input_plane in plane_mappings:
             slc_plane, varying_RGBplane, plane_2D, self.flag_W_space, self.ndims = \
                 plane_mappings[input_plane]
             return slc_plane, varying_RGBplane, plane_2D
         
-        # Invalid input case
-        raise ValueError(f"Invalid input: '{input_plane}'. "+\
-                         "Please select one of 'R', 'G', 'B', 'lum', or '[]'. "+\
+        # Handle invalid input
+        raise ValueError(f"Invalid input: '{input_plane}'. "
+                         "Please select one of 'R', 'G', 'B', 'lum', or '[]'. "
                          f"Default is '{default_plane}'.")
-
             
     def _query_simCondition(self, default_fixed_plane = 'lum', 
                             default_jitter = 0.3, 
@@ -95,11 +104,11 @@ class TrialPlacementWithoutAdaptiveSampling:
         
         # QUESTION 1: Ask which RGB plane to fix during the simulation
         slc_RGBplane_input = self.get_input(
-            'Which plane would you like to fix (R/G/B/lum/[]); default: lum. '
-            'If you are simulating ellipsoids, please enter []: ',
+            'Which plane would you like to fix (lum/R/G/B/[]); default: lum. '
+            'If you are simulating 3D ellipsoids, please enter []: ',
             default_fixed_plane
         )
-        slc_RGBplane, varying_RGBplane, plane_2D = self._get_fixed_plane(slc_RGBplane_input, default_fixed_plane)
+        slc_RGBplane, varying_RGBplane, plane_2D = self._parse_plane_selection(slc_RGBplane_input, default_fixed_plane)
         
         # QUESTION 2: Ask the user to choose the sampling method
         # Ask for jitter variability
@@ -117,7 +126,9 @@ class TrialPlacementWithoutAdaptiveSampling:
         sim = {
             'slc_RGBplane': slc_RGBplane,
             'varying_RGBplane': varying_RGBplane,
-            'method_sampling': 'NearContour',
+            'method_sampling': 'NearContour',  # Currently redundant, but kept for consistency 
+                                               # since previous versions included other methods 
+                                               # (e.g., random sampling)
             'random_jitter': random_jitter,
             'nSims': nSims,
         }
@@ -137,12 +148,12 @@ class TrialPlacementWithoutAdaptiveSampling:
         
                 # Use dynamic indexing to extract data based on the selected plane
                 self.sim.update({
+                    'nGridPts_ref': len(stim['grid_ref']),
                     'ref_points': stim['ref_points'][idx], #while ref points are coarsely sampled (e.g., 5 grid points)
                     'background_RGB': stim['background_RGB'],
                     'slc_fixedVal': stim['fixed_RGBvec'],
                     'deltaE_1JND': stim['deltaE_1JND'],
-                    'grid_ref': stim['grid_ref'], #1d grid (5 points)
-                    'nGridPts_ref': len(stim['grid_ref'])
+                    'grid_ref': stim['grid_ref'] #1d grid (5 points)
                 })
             else: #3D
                 self.sim.update({
@@ -159,69 +170,131 @@ class TrialPlacementWithoutAdaptiveSampling:
                 
     def _initialize(self):
         """
-        Initializes simulation arrays to hold computed data such as RGB comparisons, 
-        Lab values, deltaE values, probability of correct response, and binary responses.
-        """
-        nGridPts_ref = self.sim['nGridPts_ref']
-        nSims = self.sim['nSims']
-        if self.ndims == 2:
-            base_shape = (nGridPts_ref, nGridPts_ref)
+        Initializes simulation arrays to store computed data, including:
+        - RGB comparison values
+        - Probability of correct response
+        - Binary response (correct/incorrect)
+        - (Optional) Lab values and deltaE differences
+            - They are only applicable when the ground truth is derived by CIELAB
     
-        elif self.ndims == 3:
-            base_shape = (nGridPts_ref, nGridPts_ref, nGridPts_ref)
-            
-        if self.flag_Wishart:
-            # Allocate memory for the simulation arrays
+        The arrays are preallocated with NaNs for efficient storage and processing.
+    
+        """
+        nGridPts_ref, nSims = self.sim['nGridPts_ref'], self.sim['nSims']
+        #determine the base shape (note that here we assume we do equal grid 
+        #sampling for each dimension)
+        base_shape = (nGridPts_ref,) * self.ndims  
+    
+        # Common arrays for all cases
+        self.sim.update({
+            'rgb_comp': np.full(base_shape + (3, nSims), np.nan),
+            'probC': np.full(base_shape + (nSims,), np.nan),
+            'resp_binary': np.full(base_shape + (nSims,), np.nan)
+        })
+    
+        # Additional arrays for CIE cases
+        if not self.flag_Wishart:
             self.sim.update({
-                'rgb_comp': np.full(base_shape + (3, nSims), np.nan),
-                'probC': np.full(base_shape + (nSims,), np.nan),
-                'resp_binary': np.full(base_shape + (nSims,), np.nan)
-            })   
-        else:
-            self.sim.update({
-                'rgb_comp': np.full(base_shape + (3, nSims), np.nan),
                 'lab_comp': np.full(base_shape + (3, nSims), np.nan),
-                'deltaE': np.full(base_shape + (nSims,), np.nan),
-                'probC': np.full(base_shape + (nSims,), np.nan),
-                'resp_binary': np.full(base_shape + (nSims,), np.nan)
-            })               
+                'deltaE': np.full(base_shape + (nSims,), np.nan)
+            })
     
-    def _generate_comparison_stimuli(self, rgb_ref, ref_idx):
+    def _extract_ground_truth(self, ref_idx):
         """
-        Generate comparison stimuli based on the selected sampling method.
+        Extract the parameters that define the elliptical / ellipsoidal threshold contours
         
-        Parameters:
-        - rgb_ref: Reference RGB values for the current grid point.
-        - i, j: Grid indices.
-        
-        Returns:
-        - rgb_comp_temp: The generated comparison stimuli.
         """
-        
         if self.ndims == 2:
-            varying_plane_idx = self.sim['varying_RGBplane']
-            # Use ellipsoidal parameters to generate comparison stimuli
             if self.flag_Wishart:
                 ellPara = self.gt_Wishart_ellParams[ref_idx[0]][ref_idx[1]]
                 #the function self.sample_rgb_comp_2DNearContour assumes the values are in the N unit
                 #however, the estimated ell parameters are in the W unit, so we need to divide 
                 #the axis lengths by 2
                 ellPara[2] = ellPara[2]/2 #major semi-axis length
-                ellPara[3] = ellPara[3]/2 #minor semi-axis length
-                rgb_comp_temp, _, _, _ = self.sample_rgb_comp_2DNearContour(rgb_ref,
-                                                                            ellPara)      
+                ellPara[3] = ellPara[3]/2 #minor semi-axis length    
             else:
-                ellPara = self.gt_CIE_results['ellParams'][self.sim['slc_RGBplane']][*ref_idx]
-                rgb_comp_temp, _, _, _ = self.sample_rgb_comp_2DNearContour(rgb_ref[varying_plane_idx],
-                                                                            ellPara)         
+                ellPara = self.gt_CIE_results['ellParams'][self.sim['slc_RGBplane']][*ref_idx]      
         else:
             # Use ellipsoidal parameters to generate comparison stimuli
             ellPara = self.gt_CIE_results['ellipsoidParams'][ref_idx[0]][ref_idx[1]][ref_idx[2]]
-            rgb_comp_temp = self.sample_rgb_comp_3DNearContour(rgb_ref, ellPara)      
-        return rgb_comp_temp
+        return ellPara
+    
+    def _validate_sampled_comp(self, rgb_comp):
+        if self.ndims == 2:
+            if self.flag_Wishart:
+                rgb_comp[-1,:] = 0 #fill the last dimension to be 0, indicating it's an isoluminant plane
+            else:
+                rgb_comp[self.sim['slc_RGBplane'],:] = self.sim['slc_fixedVal'];
+            
+        #RGB values can't exceed 1 and go below 0
+        if self.flag_W_space:
+            return np.clip(rgb_comp, -1, 1)
+        else:
+            return np.clip(rgb_comp, 0, 1)
+    
+    def _random_points_on_unit_circle(self):
+        """
+        Generates random points near the unit circle with independent jitter for x and y.
+    
+        """
+        N = self.sim['nSims']
+        jitter = self.sim['random_jitter']
+    
+        # Generate random angles and compute unit circle coordinates
+        randTheta = np.random.rand(1, N) * 2 * np.pi
+        randx_noNoise, randy_noNoise = np.cos(randTheta), np.sin(randTheta)
+    
+        # Apply independent Gaussian noise to x and y coordinates
+        noise_x = np.random.randn(1, N) * jitter
+        noise_y = np.random.randn(1, N) * jitter
+        randx, randy = randx_noNoise + noise_x, randy_noNoise + noise_y
+    
+        return randx, randy, randx_noNoise, randy_noNoise
+    
+    def _random_points_on_unit_sphere(self, uniform_inv_phi = True):
+        """
+        Generates random points near the surface of a unit sphere with independent jitter 
+        applied to each coordinate.
+        
+        """
+        N = self.sim['nSims']
+        jitter = self.sim['random_jitter']
+
+        #Uniformly distributed angles between 0 and 2*pi
+        randtheta = self._add_jitters(0, 2*np.pi)
+        
+        #If you were to sample phi uniformly, you'd place too many points near 
+        #the poles and too few points near the equator, because the surface area 
+        #decreases near the poles. To correct for this, we uniformly sample 
+        #cos(phi). This ensures that points are spaced evenly across the sphere's
+        #surface because the cosine of phi (which ranges from -1 to 1) accounts 
+        #for the different sizes of latitude bands as you move from pole to pole.
+        if uniform_inv_phi:
+            #Uniformly sampled from [-1, 1] ensures uniform distribution along
+            #the z-axis
+            randphi_temp = np.random.uniform(-1, 1, N)    # cos(theta) for polar angle
+    
+            # Converted from costheta using the inverse cosine function to get the angle.
+            randphi = np.arccos(randphi_temp)
+        else:
+            #Uniformly distributed angles between 0 and pi
+            randphi = np.random.rand(1, N) * np.pi
+        
+        # Convert spherical coordinates to Cartesian (unit sphere)
+        randx_noNoise = np.sin(randphi) * np.cos(randtheta)
+        randy_noNoise = np.sin(randphi) * np.sin(randtheta)
+        randz_noNoise = np.cos(randphi)
+
+        # Apply independent Gaussian noise to each coordinate
+        noise_x = np.random.randn(1, N) * jitter
+        noise_y = np.random.randn(1, N) * jitter
+        noise_z = np.random.randn(1, N) * jitter
+        randx, randy, randz = randx_noNoise + noise_x, randy_noNoise + noise_y, randz_noNoise + noise_z
+
+        return randx, randy, randz, randx_noNoise, randy_noNoise, randz_noNoise
     
     #%%
-    def sample_rgb_comp_2DNearContour(self, rgb_ref, paramEllipse, random_seed = None):
+    def sample_rgb_comp_2DNearContour(self, rgb_ref, paramEllipse):
         """
         Samples RGB compositions near an isothreshold ellipsoidal contour.
         This function generates simulated RGB compositions based on a reference
@@ -247,50 +320,34 @@ class TrialPlacementWithoutAdaptiveSampling:
             an RGB composition near the specified ellipsoidal contour in RGB color 
             space. The row order corresponds to R, G, and B dimensions, respectively.
     
-    
         """
-    
-        # Set the random seed if provided, otherwise generate a random seed
-        if random_seed is not None:
-            np.random.seed(random_seed)
             
         #Initialize the output matrix with nans
         rgb_comp_sim = np.full((3, self.sim['nSims']), np.nan)
         
         #Generate random angles to simulate points around the ellipse.
-        randTheta = np.random.rand(1, self.sim['nSims']) * 2 * np.pi
-        
-        #calculate x and y coordinates with added jitter
-        randx_noNoise = np.cos(randTheta)
-        randy_noNoise = np.sin(randTheta)
-        randx = randx_noNoise + np.random.randn(1, self.sim['nSims']) *\
-            self.sim['random_jitter']
-        randy = randy_noNoise + np.random.randn(1, self.sim['nSims']) *\
-            self.sim['random_jitter']
+        randx, randy, randx_noNoise, randy_noNoise = self._random_points_on_unit_circle()
         
         #adjust coordinates based on the ellipsoid's semi-axis lengths
         randx_stretched, randy_stretched = self.stretch_unit_circle(\
             randx, randy, paramEllipse[2], paramEllipse[3])
         
         #calculate the varying RGB dimensions, applying rotation and translation 
-        #based on the reference RGB values and ellipsoid parameters
-        rgb_comp_sim[self.sim['varying_RGBplane'][0],:] = \
-            randx_stretched * np.cos(np.deg2rad(paramEllipse[-1])) - \
-            randy_stretched * np.sin(np.deg2rad(paramEllipse[-1])) + rgb_ref[0]
-        rgb_comp_sim[self.sim['varying_RGBplane'][1],:] = \
-            randx_stretched * np.sin(np.deg2rad(paramEllipse[-1])) + \
-            randy_stretched * np.cos(np.deg2rad(paramEllipse[-1])) + rgb_ref[1]
+        #based on the reference RGB values and ellipsoid parameters            
+        rgb_comp_sim[self.sim['varying_RGBplane'],:] = \
+            self.rotate_relocate_stretched_ellipse(randx_stretched,
+                                                   randy_stretched, 
+                                                   paramEllipse[-1], 
+                                                   *rgb_ref[self.sim['varying_RGBplane']])
             
-        #set the fixed RGB dimension to the specificed fixed value for all simulations
-        if self.flag_Wishart:
-            rgb_comp_sim[-1,:] = 0 #fill the last dimension to be 0, indicating it's an isoluminant plane
-        else:
-            rgb_comp_sim[self.sim['slc_RGBplane'],:] = self.sim['slc_fixedVal'];
+        #make sure the sampled comparison stimuli are within the desired boundaries
+        rgb_comp_sim = self._validate_sampled_comp(rgb_comp_sim)
         
         #stuff other than rgb_comp_sim are returned because we may want to plot
         #the transformation from unit circle to simulated data
         return rgb_comp_sim, np.vstack((randx_stretched, randy_stretched)),\
             np.vstack((randx, randy)), np.vstack((randx_noNoise, randy_noNoise))
+            
 
     def sample_rgb_comp_3DNearContour(self, rgb_ref, paramEllipsoid, 
                                       random_seed = None, uniform_inv_phi = True):
@@ -310,38 +367,7 @@ class TrialPlacementWithoutAdaptiveSampling:
         """
         radii, eigenVec = paramEllipsoid['radii'], paramEllipsoid['evecs']
         
-        # Set the random seed if provided, otherwise generate a random seed
-        if random_seed is not None:
-            np.random.seed(random_seed)
-        
-        #Uniformly distributed angles between 0 and 2*pi
-        randtheta = np.random.rand(1, self.sim['nSims']) * 2 * np.pi
-        
-        #If you were to sample theta uniformly, you'd place too many points near 
-        #the poles and too few points near the equator, because the surface area 
-        #decreases near the poles. To correct for this, we uniformly sample 
-        #cos(theta). This ensures that points are spaced evenly across the sphere's
-        #surface because the cosine of theta (which ranges from -1 to 1) accounts 
-        #for the different sizes of latitude bands as you move from pole to pole.
-        if uniform_inv_phi:
-            #Uniformly sampled from [-1, 1] ensures uniform distribution along
-            #the z-axis
-            randphi_temp = np.random.uniform(-1, 1, self.sim['nSims'])    # cos(theta) for polar angle
-    
-            # Converted from costheta using the inverse cosine function to get the angle.
-            randphi = np.arccos(randphi_temp)
-        else:
-            #Uniformly distributed angles between 0 and pi
-            randphi = np.random.rand(1, self.sim['nSims']) * np.pi
-        
-        #Generate random points on the surface of a unit sphere by converting
-        # spherical coordinates to Cartesian coordinates, then add Gaussian noise
-        # (jitter) to each coordinate to simulate points near the surface.
-        randx = np.sin(randphi) * np.cos(randtheta) + \
-            np.random.randn(1, self.sim['nSims']) * self.sim['random_jitter']
-        randy = np.sin(randphi) * np.sin(randtheta) + \
-            np.random.randn(1, self.sim['nSims']) * self.sim['random_jitter']
-        randz = np.cos(randphi) + np.random.rand(1, self.sim['nSims']) * self.sim['random_jitter']
+        randx, randy, randz, _, _, _ = self._random_points_on_unit_sphere()
         
         #Stretch the random points by the ellipsoid's semi-axes lengths to fit
         # the ellipsoid's shape. This effectively scales the unit sphere points
@@ -360,6 +386,9 @@ class TrialPlacementWithoutAdaptiveSampling:
         #at the reference RGB value. This step aligns the ellipsoid with its
         #proper orientation and position as defined by the input parameters.
         rgb_comp_sim = eigenVec @ xyz + np.reshape(rgb_ref,(3,1))
+        
+        #make sure the sampled comparison stimuli are within the desired boundaries
+        rgb_comp_sim = self._validate_sampled_comp(rgb_comp_sim)
         
         return rgb_comp_sim
 
@@ -413,7 +442,6 @@ class TrialPlacementWithoutAdaptiveSampling:
             deltaE[n] = sim_CIELab.compute_deltaE(actual_rgb_ref, None,None,
                                         comp_RGB=actual_rgb_comp[:,n], 
                                         method=colordiff_alg)
-
             
             # Calculate the probability of correct identification using the 
             #Weibull function.
@@ -421,8 +449,9 @@ class TrialPlacementWithoutAdaptiveSampling:
                                         self.sim['alpha'], 
                                         self.sim['beta'], 
                                         self.sim['guessing_rate'])
-            # Simulate binary responses (0 or 1) based on the calculated probabilities.
-            resp_binary[n] = np.random.binomial(1, probC[n])
+        # Simulate binary responses (0 or 1) based on the calculated probabilities.
+        randNum = np.random.rand(self.sim['nSims']) 
+        resp_binary = (randNum < probC).astype(int)
             
         return lab_comp, deltaE, probC, resp_binary
     
@@ -451,7 +480,7 @@ class TrialPlacementWithoutAdaptiveSampling:
         
         return probC, resp_binary
 
-    def run_sim(self, sim_CIELab = None, random_seed = None, colordiff_alg = 'CIE1976'):
+    def run_sim(self, sim_CIELab = None, random_seed = None, colordiff_alg = 'CIE2000'):
         """
         Runs the simulation to generate comparison stimuli, calculate color differences,
         determine the probability of correct identification, and simulate binary responses.
@@ -477,11 +506,7 @@ class TrialPlacementWithoutAdaptiveSampling:
 
         self._initialize()
         # Set the random seed if provided, otherwise generate a random seed
-        if random_seed is not None:
-            np.random.seed(random_seed)
-        else:
-            random_seed = np.random.randint(0, 2**32 - 1)
-            np.random.seed(random_seed)
+        np.random.seed(random_seed)
             
         # Store the random seed in the sim dictionary for reproducibility
         self.sim['random_seed'] = random_seed
@@ -492,22 +517,21 @@ class TrialPlacementWithoutAdaptiveSampling:
                 "The `sim_CIELab` argument is required when `flag_Wishart` is False."
             )
     
+        N = self.sim['nGridPts_ref']
         if self.ndims == 2:
             # Iterate over the grid points of the reference stimulus.
-            for i in range(self.sim['nGridPts_ref']):
-                for j in range(self.sim['nGridPts_ref']):
+            for i in range(N):
+                for j in range(N):
                     # Extract the reference stimulus' RGB values for the current grid point.
                     rgb_ref_ij = self.sim['ref_points'][:,i,j]
                     
-                    # Generate the comparison stimulus based on the sampling method.
-                    rgb_comp_temp = self._generate_comparison_stimuli(rgb_ref_ij, [i,j])
-                            
-                    #RGB values can't exceed 1 and go below 0
-                    if self.flag_W_space:
-                        self.sim['rgb_comp'][i,j] = np.clip(rgb_comp_temp, -1, 1)
-                    else:
-                        self.sim['rgb_comp'][i,j] = np.clip(rgb_comp_temp, 0, 1)
+                    # extract the ground truth
+                    ellPara = self._extract_ground_truth([i,j])
+                    
+                    #Generate the comparison stimulus based on the sampling method
+                    self.sim['rgb_comp'][i,j], _, _, _ = self.sample_rgb_comp_2DNearContour(rgb_ref_ij, ellPara)      
                         
+                    #if the ground truth is some Wishart fits
                     if self.flag_Wishart:
                         #if the ground truth is the Wishart fit, then we
                         #repeat the ref to match the size of the sampled comparison stimuli
@@ -530,12 +554,15 @@ class TrialPlacementWithoutAdaptiveSampling:
                             
         else:
             # Generalize the code above for 3d case
-            for i in range(self.sim['nGridPts_ref']):
-                for j in range(self.sim['nGridPts_ref']):
-                    for k in range(self.sim['nGridPts_ref']):
+            # we do not use 3D wishart fits as ground truth yet!
+            for i in range(N):
+                for j in range(N):
+                    for k in range(N):
                         rgb_ref_ijk = self.sim['ref_points'][i,j,k]
-                        rgb_comp_temp = self._generate_comparison_stimuli(rgb_ref_ijk, [i, j, k])
-                        self.sim['rgb_comp'][i,j,k] = np.clip(rgb_comp_temp, 0, 1)
+                        ellPara = self._extract_ground_truth([i, j, k])
+                        self.sim['rgb_comp'][i,j,k], _, _, _ = self.sample_rgb_comp_2DNearContour(rgb_ref_ij,
+                                                                                    ellPara)      
+                        
                         self.sim['lab_comp'][i,j,k], self.sim['deltaE'][i,j,k],\
                         self.sim['probC'][i,j,k], self.sim['resp_binary'][i,j,k] = \
                             self.run_sim_1ref(sim_CIELab, 
@@ -554,6 +581,14 @@ class TrialPlacementWithoutAdaptiveSampling:
         else:
             z_stretched = z * ax_length_z
             return  x_stretched, y_stretched, z_stretched
+        
+    @staticmethod
+    def rotate_relocate_stretched_ellipse(x, y, rot_angle, x0, y0):
+        R = rotAngle_to_eigenvectors(rot_angle)
+        xy = np.vstack((x,y))
+        rot_xy = R @ xy 
+        reloc_xy = rot_xy + np.array([[x0, y0]]).T
+        return reloc_xy
     
     @staticmethod
     # Helper function to get user input with a default value and type conversion
