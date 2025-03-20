@@ -496,7 +496,7 @@ class sim_MOCS_trials:
     @staticmethod
     def generate_vectors_min_angle(min_angle_degrees=60, max_angle_degrees=160,
                                    ndims=2, seed=None):
-        """
+        """        
         Generate two random vectors in a given dimension (2D or 3D) such that their angle is 
         at least `min_angle_degrees` apart and at most `max_angle_degrees` apart.
 
@@ -508,6 +508,7 @@ class sim_MOCS_trials:
 
         Returns:
             tuple: Two numpy arrays representing the two vectors.
+            
         """
         if seed is not None:
             np.random.seed(seed)

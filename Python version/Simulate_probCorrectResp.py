@@ -10,15 +10,21 @@ import sys
 import os
 import numpy as np
 import pickle
+import matplotlib.pyplot as plt
+import jax
+jax.config.update("jax_enable_x64", True)
+import jax.numpy as jnp
 
 #import functions from the other script
 func_path = '/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version/'
 sys.path.append(func_path)
-from analysis.trial_placement import TrialPlacementWithoutAdaptiveSampling
+from analysis.trial_placement import TrialPlacement_Isoluminant_sobolRef_gtCIE, TrialPlacement_RGB_gridRef_gtCIE
 from analysis.simulations_CIELab import SimThresCIELab
 from plotting.trial_placement_nonadaptive_plotting import TrialPlacementVisualization
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
 from analysis.ellipses_tools import PointsOnEllipseQ, UnitCircleGenerate
+from analysis.color_thres import color_thresholds
+from plotting.adaptive_sampling_plotting import SamplingRefCompPairVisualization
 
 # Define base directories for saving figure and data files
 base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_analysis/'
@@ -26,37 +32,59 @@ output_figDir = os.path.join(base_dir, 'Simulation_FigFiles','Python_version','t
 output_fileDir = os.path.join(base_dir, 'Simulation_DataFiles', 'Isoluminant plane')
 
 #%% 
+flag_grid = True
+
 #specify the seed
-################################################################
 rnd_seed = 1
+colordiff_alg = 'CIE2000'
 
-#load this file if we want to sample trials on GB, RG, RB planes
-#file_name = 'Isothreshold_contour_CIELABderived_fixedVal0.5_CIE2000.pkl'
-
-#load this file if we want to sample trials on the isoluminant plane
-file_name = 'Isothreshold_ellipses_isoluminant_CIE2000.pkl'
-################################################################
-
-full_path = f"{base_dir}/Simulation_DataFiles/{file_name}"
-
-#Here is what we do if we want to load the data
-with open(full_path, 'rb') as f:
-    gt_CIE = pickle.load(f)
-    
 # Initialize the SimThresCIELab object with a path to necessary files and background RGB value
 path_str2 = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox/"
-background_RGB = np.reshape(gt_CIE[1]['background_RGB'],(-1))
+background_RGB = np.array([0.5, 0.5, 0.5])
 sim_CIELab = SimThresCIELab(path_str2, background_RGB)
 
-# Set up the simulation object
-# QUESTION 1: Ask the user which RGB plane to fix during the simulation
-# QUESTION 2: For 'NearContour', ask for the jitter variability
-# QUESTION 3: Ask how many simulation trials
-sim_trial = TrialPlacementWithoutAdaptiveSampling(gt_CIE)
+if not flag_grid:
+    color_thres_data = color_thresholds(2, base_dir,
+                                        plane_2D = 'Isoluminant plane')
+    # Load Wishart model fits
+    color_thres_data.load_CIE_data(CIE_version = colordiff_alg)
+    color_thres_data.load_transformation_matrix()
+    
+    # Set up the simulation object
+    sim_trial = TrialPlacement_Isoluminant_sobolRef_gtCIE(M_2DWToRGB = color_thres_data.M_2DWToRGB,
+                                                          M_RGBTo2DW = color_thres_data.M_RGBTo2DW,
+                                                          colordiff_alg = colordiff_alg,
+                                                          random_seed= rnd_seed)
+    
+else:
+    #load this file if we want to sample trials on the isoluminant plane
+    #file_name = 'Isothreshold_ellipses_isoluminant_CIE2000.pkl'
+    
+    #load this file if we want to sample trials on GB, RG, RB planes
+    file_name = 'Isothreshold_contour_CIELABderived_fixedVal0.5_CIE2000.pkl'
+    full_path = f"{base_dir}/Simulation_DataFiles/{file_name}"
+
+    #Here is what we do if we want to load the data
+    with open(full_path, 'rb') as f:
+        gt_CIE = pickle.load(f)
+        
+    # Set up the simulation object
+    # QUESTION 1: Ask the user which RGB plane to fix during the simulation
+    # QUESTION 2: For 'NearContour', ask for the jitter variability
+    # QUESTION 3: Ask how many simulation trials
+    sim_trial = TrialPlacement_RGB_gridRef_gtCIE(gt_CIE,
+                                                 colordiff_alg = colordiff_alg,
+                                                 random_seed = rnd_seed)
+        
+
 
 #% Define the Weibull psychometric function with specified parameters
 # Calculate the probability of correct response given alpha and beta.
-sim_trial.setup_WeibullFunc(alpha = 1.17, beta = 2.33, guessing_rate = 1/3)
+deltaE_1JND = 2.5
+sim_trial.setup_WeibullFunc(alpha = 3.189, 
+                            beta = 1.505, 
+                            guessing_rate = 1/3, 
+                            deltaE_1JND= deltaE_1JND) #1.17, 2.33
 # Print the target probability based on the Weibull function for the given delta E
 print(f"target probability: {sim_trial.sim['pC_given_alpha_beta']}")
 
@@ -65,19 +93,53 @@ sim_trial_2D_vis = TrialPlacementVisualization(sim_trial,
                                                fig_dir= output_figDir, 
                                                save_fig=False) 
 # Visualize the Weibull psychometric function
-x_PMF = np.linspace(0,3,100)
+x_PMF = np.linspace(0,6,100)
 sim_trial_2D_vis.plot_WeibullPMF(x_PMF)
 
-#% specify the seed
-# Run the simulation with the specified random seed
-colordiff_alg = 'CIE2000'
-sim_trial.run_sim(sim_CIELab, 
-                  random_seed = rnd_seed, 
-                  colordiff_alg= colordiff_alg)
+if not flag_grid:
+    sim_trial.run_sim(sim_CIELab, 
+                     [-0.75, -0.75, 0],
+                     [0.75, 0.75, 360])
+else:
+    # Run the simulation with the specified random seed
+    sim_trial.run_sim(sim_CIELab)
+    
 
-#% Visualize the sampled data from the simulation
-sim_trial_2D_vis.plot_2D_sampledComp(xbds = [-0.08, 0.08], #[-0.08, 0.08]
-                                     ybds = [-0.08, 0.08])  
+#%%
+if not flag_grid:
+    sampling_vis = SamplingRefCompPairVisualization(2,
+                                                    color_thres_data,
+                                                    save_fig = False)
+    
+    # This array defines the opacity of markers in the plots, decreasing with more trials.
+    marker_alpha = np.linspace(0.3,1,13)[::-1]
+    slc_datapoints_to_show_lb = np.arange(0, 3800, 200)
+    slc_datapoints_to_show_ub = np.arange(200, 4000, 200)
+    xref_jnp = jnp.array(sim_trial.sim['ref_points'])[:2,:].T
+    x1_jnp = jnp.array(sim_trial.sim['rgb_comp'])[:2,:].T
+    
+    # Loop over the selected data points to generate and visualize each corresponding figure.
+    for i, (lb_i, ub_i) in enumerate(zip(slc_datapoints_to_show_lb, slc_datapoints_to_show_ub)):
+        fig, ax = plt.subplots(1, 1, figsize = (3,3.5), dpi= 1024)
+        # Visualize the trials up to the nth data point with specified marker transparency.
+        sampling_vis.plot_sampling(xref_jnp[lb_i:ub_i],  # Reference points up to the nth data point
+                                   2.5*(x1_jnp[lb_i:ub_i] - xref_jnp[lb_i:ub_i])+xref_jnp[lb_i:ub_i],    # Comparison points up to the nth data point
+                                   ax = ax,
+                                   linealpha = marker_alpha[i],        # Line transparency for this subset of data
+                                   bounds = 0.75 *np.array([-1,1]),
+                                   flag_rescale_axes_label = False,
+                                   comp_markeralpha = marker_alpha[i])              # Filename under which the figure will be saved
+        ax.set_xlabel('Wishart space dimension 1')
+        ax.set_ylabel('Wishart space dimension 2')
+        ax.set_title('Isoluminant plane', fontsize = 10)
+        # Save the figure as a PDF
+        #fig.savefig(os.path.join(output_figDir_fits, fig_name +'.pdf'), bbox_inches='tight')    
+        plt.show()
+else:
+    # Visualize the sampled data from the simulation
+    sim_trial_2D_vis.plot_2D_sampledComp(xbds = [-0.05, 0.05], 
+                                        ybds = [-0.05, 0.05],
+                                        flag_rescale_axes_label = False)  
 
 #%% If the sampling method is 'NearContour', visualize the entire transformation process
 # Select a reference stimulus location (e.g., row 4, column 4)

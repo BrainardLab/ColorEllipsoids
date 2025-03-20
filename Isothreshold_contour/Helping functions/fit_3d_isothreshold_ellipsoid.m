@@ -1,6 +1,5 @@
-function [fitEllipsoid_scaled, fitEllipsoid_unscaled, rgb_comp_scaled, rgb_contour_cov,...
-    ellParams] = fit_3d_isothreshold_ellipsoid(...
-    rgb_ref, rgb_comp, grid_xyz, varargin)
+function [fitEllipsoid_scaled, fitEllipsoid_unscaled, rgb_comp_scaled, ellParams] =...
+    fit_3d_isothreshold_ellipsoid(rgb_ref, rgb_comp, grid_xyz, varargin)
     % Ensure the reference RGB has three components
     assert(length(rgb_ref) == 3);
     
@@ -40,7 +39,6 @@ function [fitEllipsoid_scaled, fitEllipsoid_unscaled, rgb_comp_scaled, rgb_conto
     else
         rgb_comp_unscaled_reshape = rgb_comp_unscaled;
     end
-    rgb_contour_cov = cov(rgb_comp_unscaled_reshape);
 
     %fit an Ellipsoid
     [center, radii, evecs, v, chi2] = ellipsoid_fit(rgb_comp_unscaled_reshape, '');    

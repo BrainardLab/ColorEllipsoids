@@ -28,8 +28,6 @@ output_figDir = os.path.join(base_dir, 'ELPS_analysis','Simulation_FigFiles','Py
 output_fileDir = os.path.join(base_dir, 'ELPS_analysis','Simulation_DataFiles')
 
 #%% **LOAD NECESSARY DATA**
-color_thres_data = color_thresholds(2, os.path.join(base_dir, 'ELPS_analysis'))
-
 # Path to transformation matrices and reference points
 path_str = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox/"
 os.chdir(path_str)
@@ -41,7 +39,7 @@ sim_thres_CIELab = SimThresCIELab(path_str,
                                   plane_2D_list= ['Isoluminant plane'])
 
 # Load color space transformation matrices
-mat_file   = loadmat('Transformation_btw_color_spaces.mat')
+mat_file   = loadmat('Transformation_btw_color_spaces_8x8.mat')
 iso_mat    = mat_file['DELL_02242025_texture_right'][0]
 gamut_rgb  = iso_mat['gamut_bg_primary'][0]
 M_RGBTo2DW = iso_mat['M_RGBTo2DW'][0]  # Transform RGB to 2D W space
@@ -57,11 +55,10 @@ rgb_ref_points  = np.transpose(np.reshape(ref_points_temp, (nGridPts_ref, nGridP
 numDirPts = 16  # Number of chromatic directions (angles)
 grid_theta_xy = sim_thres_CIELab.set_chromatic_directions(num_dir_pts=numDirPts)
 
-deltaE_1JND = 1  # Just-noticeable difference threshold (ΔE = 1)
+deltaE_1JND = 2.5  # Just-noticeable difference threshold (ΔE = 1)
 color_diff_algorithm = 'CIE2000'  # Choose from 'CIE2000', 'CIE1994', 'CIE1976'
 
 # Parameters for ellipse fitting
-contour_scaler = 2.5  # Scaling factor for visualization
 nThetaEllipse = 200  # Number of ellipse points
 
 #a filler entry 
@@ -93,39 +90,26 @@ The logic:
 
 for i in range(nGridPts_ref):
     for j in range(nGridPts_ref):
-        # **Step 1: Convert Reference Stimulus**
+        # Convert Reference Stimulus**
         rgb_ref_pij = rgb_ref_points[:, i, j]  # RGB reference point
         W_ref_ij = M_RGBTo2DW @ rgb_ref_pij  # Transform to W space
         W_ref[i,j] = W_ref_ij
-
-        # **Step 2: Compute Chromatic Directions & Thresholds**
+        
+        #for each chromatic direction, derive the threshold
         for k in range(numDirPts):
-            # Step 2.1: Define a chromatic direction in W-space and convert to RGB
-            chrom_dir_W = grid_theta_xy[:, k] + W_ref[i,j,:2]  # Shifted chromatic direction
-            chrom_dir_rgb = M_2DWToRGB @ np.append(chrom_dir_W, append_W_val)  # Convert back to RGB
-
-            # Step 2.2: Compute normalized direction vector in RGB space
-            rgb_vecDir_k = chrom_dir_rgb - rgb_ref_pij  # Vector difference
-            rgb_vecDir[i, j, :, k] = rgb_vecDir_k / np.linalg.norm(rgb_vecDir_k)  # Normalize
-
-            # Step 2.3: Find vector length that produces ΔE = 1 in CIELab space
-            opt_vecLen[i, j, k] = sim_thres_CIELab.find_vecLen(
-                rgb_ref_pij, rgb_vecDir[i, j, :, k], deltaE_1JND, coloralg=color_diff_algorithm
-            )
-
-            # Step 2.4: Compute threshold point in RGB space
-            rgb_comp_contour_unscaled[i, j,:, k] = opt_vecLen[i, j, k] * rgb_vecDir[i, j, :, k] + rgb_ref_pij
-
-        # **Step 3: Transform Threshold Points from RGB → W → Normalized Space**
-        W_comp_pij = M_RGBTo2DW @ rgb_comp_contour_unscaled[i, j]  # Convert to W-space
-        W_comp_pij = W_comp_pij / W_comp_pij[-1]  # Normalize last row to 1
-        W_comp_contour_unscaled[i,j] = W_comp_pij[:2]
-
-        # **Step 4: Fit Ellipse**
+            rgb_vecDir[i, j, :, k], opt_vecLen[i, j, k], \
+            rgb_comp_contour_unscaled[i, j,:, k],\
+            W_comp_contour_unscaled[i,j,:,k] = \
+                sim_thres_CIELab.find_threshold_point_on_isoluminant_plane(W_ref_ij,
+                                                                           grid_theta_xy[:, k], 
+                                                                           M_RGBTo2DW, 
+                                                                           M_2DWToRGB, 
+                                                                           deltaE= deltaE_1JND,
+                                                                           color_diff_algorithm = 'CIE2000')
+        # Fit Ellipse**
         fit_results = fit_2d_isothreshold_contour(
             W_ref[i,j,:2], None, comp_RGB=W_comp_contour_unscaled[i,j],
-            nThetaEllipse=nThetaEllipse, ellipse_scaler=contour_scaler
-        )
+            nThetaEllipse=nThetaEllipse)
 
         # Store ellipse fitting results (in N space)
         fitEllipse_scaled[i, j], fitEllipse_unscaled[i, j], W_comp_contour_scaled[i, j], _, ellParams[i, j] = fit_results

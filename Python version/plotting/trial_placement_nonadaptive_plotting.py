@@ -24,6 +24,7 @@ class TrialPlacementVisualization(WishartModelBasicsVisualization):
         #default values for optional parameters
         method_specific_settings = {
             'figsize':(2.2,2.2),
+            'xticks': [0,2,4,6],
             'xlabel': r'Perceptual difference ($\Delta E$)',
             'ylabel': 'Percent correct',
             'fontsize':10,
@@ -45,7 +46,7 @@ class TrialPlacementVisualization(WishartModelBasicsVisualization):
             fig = ax.figure
         
         ax.plot(x, y, color = 'k')
-        ax.set_xticks(list(range(4)))
+        ax.set_xticks(self.pltP['xticks'])
         ax.set_yticks(np.round(np.array([1/3, 2/3, 1]),2))
         ax.set_xlabel(self.pltP['xlabel'])
         ax.set_ylabel(self.pltP['ylabel'])

@@ -296,6 +296,34 @@ class SimThresCIELab:
         
         return opt_vecLen
     
+    def find_threshold_point_on_isoluminant_plane(self, W_ref, chrom_dir, M_RGBTo2DW, 
+                                                  M_2DWToRGB, deltaE = 1, 
+                                                  color_diff_algorithm = 'CIE2000'):
+        # Step 1: Define a chromatic direction in W-space and convert to RGB
+        chrom_dir_W = chrom_dir + W_ref[:2]  # Shifted chromatic direction
+        chrom_dir_rgb = M_2DWToRGB @ np.append(chrom_dir_W, 1)  # Convert back to RGB
+
+        # Step 2: Compute normalized direction vector in RGB space
+        rgb_ref = M_2DWToRGB @ W_ref
+        rgb_vecDir_temp = chrom_dir_rgb - rgb_ref  # Vector difference
+        rgb_vecDir = rgb_vecDir_temp / np.linalg.norm(rgb_vecDir_temp)  # Normalize
+
+        # Step 3: Find vector length that produces ΔE = 1 in CIELab space
+        opt_vecLen = self.find_vecLen(
+            rgb_ref, rgb_vecDir, deltaE = deltaE, coloralg=color_diff_algorithm
+        )
+
+        # Step 4: Compute threshold point in RGB space
+        rgb_comp_threshold = opt_vecLen * rgb_vecDir + rgb_ref
+        
+        # Step 5: Transform Threshold Points from RGB → W 
+        W_comp_temp = M_RGBTo2DW @ rgb_comp_threshold  # Convert to W-space
+        W_comp = W_comp_temp / W_comp_temp[-1]  # Normalize last row to 1
+        W_comp_threshold = W_comp[:2]
+        
+        return rgb_vecDir, opt_vecLen, rgb_comp_threshold, W_comp_threshold
+    
+    
     #%%
     @staticmethod
     def set_chromatic_directions(num_dir_pts = 16):
@@ -319,3 +347,4 @@ class SimThresCIELab:
         grid_theta_xy   = np.stack((np.cos(grid_theta),np.sin(grid_theta)),axis = 0)
         return grid_theta_xy
             
+    
