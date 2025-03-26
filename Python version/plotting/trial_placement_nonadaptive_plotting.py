@@ -22,7 +22,7 @@ class PlotWeibullPMFSettings(PlotSettingsBase):
     fig_size: Tuple[float, float] = (2.2, 2.2)
     xticks: List[float] = field(default_factory=lambda: [0, 2, 4, 6])
     xlabel: str = r'Perceptual difference ($\Delta E$)'
-    ylabel: str = 'Percent correct'
+    ylabel: str = 'Proportion correct'
     fig_name: str = field(default_factory=lambda: f'Weibull_PMF_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
    
 @dataclass
@@ -39,8 +39,8 @@ class PlotTransformationSettings(PlotSettingsBase):
     xlim: List[List[float]] = field(default_factory=lambda: [[] for _ in range(4)])
     ylim: List[List[float]] = field(default_factory=lambda: [[] for _ in range(4)])
     ms: float = 25
-    xlabel: str = 'dim 1'
-    ylabel: str = 'dim 2'
+    xlabel: str = 'dimension 1'
+    ylabel: str = 'dimension 2'
     fig_name: str = field(default_factory=lambda: f'samples_transformation_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
     
 @dataclass
@@ -64,7 +64,6 @@ class Plot2DSampledCompSettings(PlotSettingsBase):
     alpha: float = 0.8
     mc1: Union[str, np.ndarray, List[float]] = field(default_factory=lambda: (np.array([173, 216, 230]) / 255).tolist())
     mc0: Union[str, np.ndarray, List[float]] = field(default_factory=lambda: (np.array([255, 179, 138]) / 255).tolist())
-    fontsize: int = 10
     fig_name: str = field(default_factory=lambda: f'Sampled comparison stimuli_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
     
 @dataclass
@@ -115,10 +114,9 @@ class TrialPlacementVisualization(PlottingTools):
         ax.set_ylabel(settings.ylabel)
         ax.grid(True, alpha=0.5)
         plt.tight_layout()
-        # Save the plot with bbox_inches='tight' to ensure labels are not cropped
-        if settings.fig_dir and self.save_fig:
-            plt.savefig(os.path.join(settings.fig_dir, settings.figname))
         plt.show()
+        if settings.fig_dir and self.save_fig:
+            self._save_figure(fig, settings.fig_name)
         return fig, ax  
 
     def plot_transformation(self, ell0, ell1, ell2, ell_final, resp, gt,
@@ -175,10 +173,9 @@ class TrialPlacementVisualization(PlottingTools):
             ax[i].grid(True, alpha=0.5)
             ax[i].set_aspect('equal')
         plt.tight_layout()
-        # Save the plot with bbox_inches='tight' to ensure labels are not cropped
-        if settings.fig_dir and self.save_fig:
-            plt.savefig(settings.fig_dir + settings.fig_name)
         plt.show()
+        if settings.fig_dir and self.save_fig:
+            self._save_figure(fig, settings.fig_name)
         return fig, ax       
     
     #%%
@@ -241,9 +238,8 @@ class TrialPlacementVisualization(PlottingTools):
         plt.subplots_adjust(wspace = 0, hspace = 0)
         plt.tight_layout()
         plt.show()
-        if self.save_fig and settings.fig_dir:
-            full_path2 = f"{settings.fig_dir}/{settings.fig_name}.pdf"
-            fig.savefig(full_path2) 
+        if settings.fig_dir and self.save_fig:
+            self._save_figure(fig, settings.fig_name)
         return fig, ax
         
     @staticmethod

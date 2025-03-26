@@ -14,7 +14,6 @@ import sys
 import os
 from colormath.color_objects import LabColor
 from colormath.color_diff import delta_e_cie2000, delta_e_cie1994, delta_e_cie1976
-
 #in order for delta_e_cie2000 to work, we need to do the following adjustment
 def patch_asscalar(a):
     return a.item()
@@ -32,18 +31,8 @@ class SimThresCIELab:
         """
         self.background_rgb = background_rgb
 
-        sys.path.append(fileDir)
-        os.chdir(fileDir)
-                
-        #load data
-        T_cones_mat     = loadmat('T_cones.mat')
-        self.T_CONES    = T_cones_mat['T_cones'] #size: (3, 61)
-
-        B_monitor_mat   = loadmat('B_monitor.mat')
-        self.B_MONITOR = B_monitor_mat['B_monitor'] #size: (61, 3)
-
-        M_LMSToXYZ_mat  = loadmat('M_LMSToXYZ.mat')
-        self.M_LMS_TO_XYZ = M_LMSToXYZ_mat['M_LMSToXYZ'] #size: (3, 3)
+        #load T_cones, B_monitor, M_LMSToXYZ
+        self._load_required_files(fileDir)
         
         #number of selected planes
         # Validate plane_2D_list
@@ -58,6 +47,16 @@ class SimThresCIELab:
             self.varying_dims = [[1,2],[0,2],[0,1]]
         elif self.nPlanes == 1:
             self.varying_dims = [[0,1]] #treat it as RG plane with the third dimension fixed at 1
+    
+    def _load_required_files(self, fileDir):
+        """Internal helper to load all required .mat files."""
+        sys.path.append(fileDir)
+        os.chdir(fileDir)
+        
+        self.T_CONES = loadmat('T_cones.mat')['T_cones']           # (3, 61)
+        self.B_MONITOR = loadmat('B_monitor.mat')['B_monitor']     # (61, 3)
+        self.M_LMS_TO_XYZ = loadmat('M_LMSToXYZ.mat')['M_LMSToXYZ']  # (3, 3)
+
             
     def _validate_plane_list(self, plane_2D_list):
         """Internal method to validate plane_2D_list."""
@@ -297,7 +296,7 @@ class SimThresCIELab:
         return opt_vecLen
     
     def find_threshold_point_on_isoluminant_plane(self, W_ref, chrom_dir, M_RGBTo2DW, 
-                                                  M_2DWToRGB, deltaE = 1, 
+                                                  M_2DWToRGB, deltaE, 
                                                   color_diff_algorithm = 'CIE2000'):
         # Step 1: Define a chromatic direction in W-space and convert to RGB
         chrom_dir_W = chrom_dir + W_ref[:2]  # Shifted chromatic direction

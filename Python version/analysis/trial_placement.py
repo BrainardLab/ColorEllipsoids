@@ -10,12 +10,24 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 from abc import ABC, abstractmethod
 import sys
+from dataclasses import dataclass 
+from typing import Optional, Literal
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
 from analysis.color_thres import color_thresholds
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version")
 from analysis.MOCS_thresholds import sim_MOCS_trials
 from analysis.ellipses_tools import stretch_unit_circle, rotate_relocate_stretched_ellipse
 
+#%%
+@dataclass
+class StimConfig:
+    fixed_plane: Literal['R', 'G', 'B', 'lum', '[]'] = 'lum'
+    gt: Literal ['CIE1976', 'CIE1994', 'CIE2000'] = 'CIE2000'# Ground truth color difference algorithm name
+    fixed_ref: bool = False                  # Whether reference stimulus is fixed
+    M_RGBTo2DW: Optional[np.ndarray] = None  # Transformation matrix, if applicable
+    M_2DWToRGB: Optional[np.ndarray] = None  # Inverse transformation, if applicable
+    file_name: Optional[str] = None          # Output file name to save results    
+    
 #%%
 class NonAdaptiveTrialPlacement(ABC):
     """ 
@@ -70,7 +82,7 @@ class NonAdaptiveTrialPlacement(ABC):
         return pCorrect
      
     #%%
-    def _parse_plane_selection(self, input_plane):
+    def _parse_plane_selection(self, fixed_plane):
         """
         Identifies the selected plane, its varying dimensions, and its corresponding name 
         based on the input. Also sets relevant flags for later transformations.
@@ -97,14 +109,14 @@ class NonAdaptiveTrialPlacement(ABC):
             'lum': (2, [0, 1], 'Isoluminant plane', True, 2)  # Treated as RG plane but with a Wishart space flag
         }
     
-        if input_plane == '[]':  # Case for 3D ellipsoid
+        if fixed_plane == '[]':  # Case for 3D ellipsoid
             self.ndims = 3
             self.flag_W_space = False
             return None, None, None  
         
-        if input_plane in plane_mappings:
+        if fixed_plane in plane_mappings:
             slc_plane, varying_RGBplane, plane_2D, self.flag_W_space, self.ndims = \
-                plane_mappings[input_plane]
+                plane_mappings[fixed_plane]
             return slc_plane, varying_RGBplane, plane_2D
     
     def setup_WeibullFunc(self, alpha, beta, guessing_rate, deltaE_1JND):
@@ -216,15 +228,12 @@ class NonAdaptiveTrialPlacement(ABC):
     
 #%%
 class TrialPlacement_Isoluminant_sobolRef_gtCIE(NonAdaptiveTrialPlacement):
-    def __init__(self, M_2DWToRGB, M_RGBTo2DW, colordiff_alg = 'CIE2000',
-                 random_seed=None):
+    def __init__(self, config: StimConfig, random_seed=None):
         super().__init__()
-        
-        if colordiff_alg not in ['CIE1976', 'CIE1994', 'CIE2000']:
-            raise ValueError("The method can only be 'CIE1976' or 'CIE1994' or 'CIE2000'.")
-        self.M_2DWToRGB = M_2DWToRGB
-        self.M_RGBTo2DW = M_RGBTo2DW
-        self.colordiff_alg = colordiff_alg
+        self.M_2DWToRGB = config.M_2DWToRGB
+        self.M_RGBTo2DW = config.M_RGBTo2DW
+        self.colordiff_alg = config.gt
+        self.config = config
         self.random_seed = random_seed
         self._query()
         self._initialize()
@@ -384,8 +393,7 @@ class TrialPlacement_Isoluminant_sobolRef_gtCIE(NonAdaptiveTrialPlacement):
                 
 #%%
 class TrialPlacement_RGB_gridRef_gtCIE(NonAdaptiveTrialPlacement):
-    def __init__(self, gt_CIE,  colordiff_alg = 'CIE2000', random_seed=None, 
-                 M_RGBTo2DW = None, M_2DWToRGB = None):
+    def __init__(self, gt_CIE, config: StimConfig, random_seed=None):
         """
         
         colordiff_alg (str): The method for calculating deltaE. Options are:
@@ -395,17 +403,14 @@ class TrialPlacement_RGB_gridRef_gtCIE(NonAdaptiveTrialPlacement):
 
         """
         super().__init__()
-        
-        if colordiff_alg not in ['CIE1976', 'CIE1994', 'CIE2000']:
-            raise ValueError("The method can only be 'CIE1976' or 'CIE1994' or 'CIE2000'.")
-
         self.gt_CIE_param = gt_CIE[0]    
         self.gt_CIE_stim = gt_CIE[1]
         self.gt_CIE_results = gt_CIE[2]
-        self.colordiff_alg = colordiff_alg
+        self.M_RGBTo2DW = config.M_RGBTo2DW
+        self.M_2DWToRGB = config.M_2DWToRGB
+        self.colordiff_alg = config.gt
+        self.config = config #save it for checking the validity of inputs
         self.random_seed = random_seed
-        self.M_RGBTo2DW = M_RGBTo2DW
-        self.M_2DWToRGB = M_2DWToRGB
 
         self._query()
         self._extract_ref_points()
@@ -435,7 +440,12 @@ class TrialPlacement_RGB_gridRef_gtCIE(NonAdaptiveTrialPlacement):
         })
         
     def _validate_sampled_comp(self, rgb_comp):
-        #rgb_comp[self.sim['slc_RGBplane'],:] = self.sim['slc_fixedVal'];
+        #fill in the fixed value
+        #if we are dealing with GB/RB/RG planes, then we need to fill in 0.5 for R/G/B
+        #if we are dealing with the isoluminant plane, then we need to fill in 1 at the last row
+        rgb_comp[self.sim['slc_RGBplane'],:] = self.sim['slc_fixedVal']
+        
+        #check whether the sampled comparison stimuli exceed the boundary
         if self.flag_W_space:
             return np.clip(rgb_comp, -1, 1)
         else:
@@ -462,6 +472,12 @@ class TrialPlacement_RGB_gridRef_gtCIE(NonAdaptiveTrialPlacement):
         )
         slc_RGBplane, varying_RGBplane, plane_2D = self._parse_plane_selection(slc_RGBplane_input)
         
+        #check whether the entered plane is the same as in the config
+        if self.config.fixed_plane != slc_RGBplane_input:
+            raise ValueError(f'The fixed plane saved in the config is {self.config.fixed_plane}, '+
+                             f'which does not match the input {slc_RGBplane_input}!')
+        
+        #check whether transformation matrices are valid
         if (plane_2D == 'Isoluminant plane') and ((self.M_2DWToRGB is None) or (self.M_RGBTo2DW is None)):
             raise ValueError('Since the isoluminant plane is chosen, transformation matrices must be defined!')
         
@@ -474,7 +490,7 @@ class TrialPlacement_RGB_gridRef_gtCIE(NonAdaptiveTrialPlacement):
             
         # QUESTION 3: Ask how many simulation trials
         nSims = self.get_input(
-            f'How many simulation trials per condition (default: {default_trialNum}): ',
+            f'How many simulation trials PER condition (default: {default_trialNum}): ',
             default_trialNum, int)
         
         # Create a dictionary of all simulation parameters
@@ -539,7 +555,7 @@ class TrialPlacement_RGB_gridRef_gtCIE(NonAdaptiveTrialPlacement):
         """
         N = self.sim['nSims']
         jitter = self.sim['random_jitter']
-    
+   
         # Generate random angles and compute unit circle coordinates
         randTheta = np.random.rand(1, N) * 2 * np.pi
         randx_noNoise, randy_noNoise = np.cos(randTheta), np.sin(randTheta)
@@ -672,7 +688,7 @@ class TrialPlacement_RGB_gridRef_gtCIE(NonAdaptiveTrialPlacement):
         
         #calculate the varying RGB dimensions, applying rotation and translation 
         #based on the reference RGB values and ellipsoid parameters            
-        rgb_comp_sim[self.sim['varying_RGBplane'],:] = \
+        rgb_comp_sim[self.sim['varying_RGBplane']] = \
             rotate_relocate_stretched_ellipse(randx_stretched,
                                               randy_stretched, 
                                               paramEllipse[-1], 
@@ -770,44 +786,9 @@ class TrialPlacement_RGB_gridRef_gtCIE(NonAdaptiveTrialPlacement):
             #run the actual simulation
             self.sim['deltaE'][idx], self.sim['probC'][idx], self.sim['resp_binary'][idx] =\
                 self.run_sim_1ref(sim_CIELab, rgb_ref, rgb_comp)
-        
-        # if self.ndims == 2:
-        #     # Iterate over the grid points of the reference stimulus.
-        #     for i in range(N):
-        #         for j in range(N):
-        #             # Extract the reference stimulus' RGB values for the current grid point.
-        #             rgb_ref_ij = self.sim['ref_points'][:,i,j]
-                    
-        #             # extract the ground truth
-        #             ellPara = self._extract_ground_truth([i,j])
-                    
-        #             #Generate the comparison stimulus based on the sampling method
-        #             self.sim['rgb_comp'][i,j], _, _, _ = self.sample_rgb_comp_2DNearContour(\
-        #                                                 rgb_ref_ij, ellPara)      
-                        
-        #             # For each simulation, calculate color difference, probability of 
-        #             #correct identification, and simulate binary responses based on the 
-        #             #probability.
-        #             self.sim['deltaE'][i,j], self.sim['probC'][i,j], self.sim['resp_binary'][i,j] = \
-        #                 self.run_sim_1ref(sim_CIELab, rgb_ref_ij,  self.sim['rgb_comp'][i,j])
-                        
-        # else:
-        #     # Generalize the code above for 3d case
-        #     # we do not use 3D wishart fits as ground truth yet!
-        #     for i in range(N):
-        #         for j in range(N):
-        #             for k in range(N):
-        #                 rgb_ref_ijk = self.sim['ref_points'][i,j,k]
-        #                 ellPara = self._extract_ground_truth([i, j, k])
-        #                 self.sim['rgb_comp'][i,j,k], _, _, _ = \
-        #                     self.sample_rgb_comp_3DNearContour(rgb_ref_ijk, ellPara)      
-                        
-        #                 self.sim['deltaE'][i,j,k], self.sim['probC'][i,j,k], \
-        #                     self.sim['resp_binary'][i,j,k] = \
-        #                     self.run_sim_1ref(sim_CIELab, rgb_ref_ijk, 
-        #                                       self.sim['rgb_comp'][i,j,k])
+
     
-#%%
+#%% NOTE THAT THIS CLASS NEEDS DEBUGGING !!! DO NOT USE IT NOW
 class TrialPlacementWithoutAdaptiveSampling:
     def __init__(self, gt_CIE = None, gt_Wishart = None, skip_sim = False, 
                  M_2DWToRGB = np.eye(3), M_RGBTo2DW = np.eye(3)):
@@ -884,7 +865,6 @@ class TrialPlacementWithoutAdaptiveSampling:
             return np.clip(rgb_comp, 0, 1)
 
     #%%
-    
     def run_sim_1ref(self, rgb_ref, rgb_comp):
         """
         Simulates a single trial of an oddity task using the Wishart model to predict 
@@ -931,9 +911,6 @@ class TrialPlacementWithoutAdaptiveSampling:
             - 'CIE2000': DeltaE using the CIE2000 method (more advanced perceptual uniformity).
     
         """
-        if colordiff_alg not in ['CIE1976', 'CIE1994', 'CIE2000']:
-            raise ValueError("The method can only be 'CIE1976' or 'CIE1994' or 'CIE2000'.")
-
         self._initialize()
         # Set the random seed if provided, otherwise generate a random seed
         np.random.seed(random_seed)

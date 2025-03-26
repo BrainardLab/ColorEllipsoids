@@ -9,16 +9,17 @@ Created on Mon Jul 29 11:15:34 2024
 import numpy as np
 import matplotlib.pyplot as plt
 from dataclasses import dataclass, field
-from typing import List, Tuple, Optional, Union
+from typing import List, Tuple, Optional, Union, ClassVar
 import sys
 import os
+from datetime import datetime
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
 from plotting.wishart_plotting import PlottingTools, PlotSettingsBase
 
 #%%
 @dataclass
 class PlotPrimariesSettings(PlotSettingsBase):
-    figsize: Tuple[float, float] = (2, 2)
+    fig_size: Tuple[float, float] = (2, 2)
     visualize_primaries: bool = True
     cmap: np.ndarray = field(default_factory=lambda: np.array([[178, 34, 34], 
                                                                [0, 100, 0], 
@@ -26,8 +27,7 @@ class PlotPrimariesSettings(PlotSettingsBase):
     ls: List[str] = field(default_factory=lambda: [':', '-', '--'])
     ylim: List[float] = field(default_factory=list)
     lw: float = 2
-    fontsize: int = 10
-    fig_name: str = 'Monitor_primaries'
+    fig_name: str = field(default_factory=lambda: f'Monitor_primaries_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
     
 @dataclass
 class PlotTconesSettings(PlotSettingsBase):
@@ -35,13 +35,12 @@ class PlotTconesSettings(PlotSettingsBase):
                                                                 [0, 100, 0], 
                                                                 [0, 0, 128]]) / 255)
     ylim: List[float] = field(default_factory=list)
-    fontsize: int = 10
     figsize: Tuple[float, float] = (2,2)
-    fig_name: str = 'T_cones'
+    fig_name: str = field(default_factory=lambda: f'T_cones_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
     
 @dataclass
 class PlotRGBToLABSettings(PlotSettingsBase): 
-    figsize: Tuple[float, float] = (4,10)
+    fig_size: Tuple[float, float] = (4,10)
     visualize_raw_data: bool = False
     rgb_lim: List[float] = field(default_factory=lambda: [0, 1])
     rgb_ticks: List[float] = field(default_factory=lambda: np.linspace(0.2, 0.8, 3).tolist())
@@ -53,13 +52,14 @@ class PlotRGBToLABSettings(PlotSettingsBase):
     lab_scatter_ms: float = 5
     lab_scatter_alpha: float = 0.5
     lab_scatter_edgecolor: Union[str, None] = 'none'
-    fontsize: int = 10
-    fig_name: str = 'Isothreshold_contour'
+    fig_name: str = field(default_factory=lambda: f'RGBToLAB_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
     
 @dataclass
 class Plot2DSinglePlaneSettings(PlotSettingsBase):
+    fig_size: Tuple[float, float] = (6, 6)
     visualize_raw_data: bool = False
     rgb_background: Optional[List[float]] = None
+    plane_names: ClassVar[List[str]] = ['RG plane', 'GB plane', 'RB plane']
     plane_2D: str = 'Isoluminant plane'
     xlabel: str = 'Wishart space dimemsion 1'
     ylabel: str = 'Wishart space dimension 2'
@@ -75,7 +75,7 @@ class Plot2DSinglePlaneSettings(PlotSettingsBase):
     data_mc: List[float] = field(default_factory=lambda: [0.5, 0.5, 0.5])
     ticks: List[float] = field(default_factory=lambda: np.linspace(0, 1, 5).tolist())
     lim: List[float] = field(default_factory=lambda: [0, 1])
-    fig_name: str = 'Isothreshold_contour'
+    fig_name: str = field(default_factory=lambda: f'Isothreshold_contour_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
     
 @dataclass
 class Plot3DSettings(PlotSettingsBase):
@@ -96,23 +96,21 @@ class Plot3DSettings(PlotSettingsBase):
     ticks: List[float] = field(default_factory=lambda: np.linspace(0.2, 0.8, 3).tolist())
     view_angle: List[float] = field(default_factory=lambda: [35, -120])
     plane_3D: str = 'RGB space'
-    fig_name: str = 'Isothreshold_ellipsoids'
+    fig_name: str = field(default_factory=lambda: f'Isothreshold_ellipsoids_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
     
 @dataclass
 class PlotStimAtThresSettings(PlotSettingsBase):
-    fontsize: int = 20
-    fig_name: str = 'color_patches'
+    fig_name: str = field(default_factory=lambda: f'color_patches_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
     
 @dataclass
 class PlotDeltaESettings(PlotSettingsBase):
-    fontsize: int = 10
     fig_size: Tuple[float, float] = (3, 4)
     ylim: List[float] = field(default_factory=lambda: [-2, 30])
     marker_size: int = 200
     lw: float = 2
     lc: str = 'k'
     ylabel: str = 'Delta E'
-    figName: str = 'deltaE'
+    fig_name: str = field(default_factory=lambda: f'deltaE_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
 
 
 #%%
@@ -146,8 +144,9 @@ class CIELabVisualization(PlottingTools):
             ax.set_xticks([])
             ax.set_yticks([])
         # Save the plot with bbox_inches='tight' to ensure labels are not cropped
+        plt.show()
         if settings.fig_dir and self.save_fig:
-            plt.savefig(settings.fig_dir + settings.fig_name)
+            self._save_figure(fig, settings.fig_name)
         return fig, ax
     
     def plot_Tcones(self, settings: PlotTconesSettings, ax = None):
@@ -163,9 +162,9 @@ class CIELabVisualization(PlottingTools):
                 ax.set_ylim(settings.ylim)
             ax.set_xticks([])
             ax.set_yticks([])
-        # Save the plot with bbox_inches='tight' to ensure labels are not cropped
+        plt.show()
         if settings.fig_dir and self.save_fig:
-            plt.savefig(settings.fig_dir + settings.fig_name)
+            self._save_figure(fig, settings.fig_name)
         return fig, ax
     
     def plot_RGB_to_LAB(self, ref_rgb, ref_lab, settings: PlotRGBToLABSettings, ax = None):
@@ -191,9 +190,8 @@ class CIELabVisualization(PlottingTools):
         ax[0].scatter(r_slc_f, g_slc_f, b_slc_f, c = colors_flat)
         self._update_axes_limits(ax[0], lim = settings.rgb_lim)
         self._update_axes_labels(ax[0], settings.rgb_ticks, settings.rgb_ticks,nsteps =1)
-        ax[0].set_xlabel('R'); ax[0].set_ylabel('G'); ax[0].set_zlabel('B')
+        self._configure_labels_and_title(ax, title='RGB cube')
         ax[0].set_box_aspect([1,1,1])
-        ax[0].set_title('RGB space')
 
         #CIELAB SPACE
         L_slc, A_slc, B_slc = ref_lab
@@ -255,9 +253,6 @@ class CIELabVisualization(PlottingTools):
         Generate multiple subplots (one for each plane) to visualize isothreshold contours.
         Calls `plot_2D_single_plane` for each plane and modifies plot parameters as needed.
         """
-        # Allow customization by passing kwargs
-        plane_names = ['RG plane', 'GB plane', 'RB plane']
-        
         num_grid_pts_x, num_grid_pts_y = grid_est.shape[0:2]
     
         # Create a figure with multiple subplots if `ax` is not provided.
@@ -274,14 +269,14 @@ class CIELabVisualization(PlottingTools):
                 bg = settings.rgb_background[p]
             else:
                 bg = None
-            settings.plane_2D = plane_names[p]
+            settings.plane_2D = settings.plane_names[p]
             self.plot_2D_single_plane(grid_est, fitEllipse[p], rawData[p], 
                                       axes[p], rgb_background = bg)
     
         # Save and display the figure
-        if settings.fig_dir and self.save_fig:
-            plt.savefig(settings.fig_dir + settings.fig_name)
         plt.show()
+        if settings.fig_dir and self.save_fig:
+            self._save_figure(fig, settings.fig_name)
     
         return fig, axes
     
@@ -303,7 +298,7 @@ class CIELabVisualization(PlottingTools):
             settings.data_mc.shape == (num_grid_pts_x, num_grid_pts_y, 3)
     
         if ax is None:
-            fig, ax = plt.subplots(figsize=(6, 6), dpi=settings.dpi)
+            fig, ax = plt.subplots(figsize=settings.fig_sizse, dpi=settings.dpi)
         else:
             fig = ax.figure
     
@@ -334,9 +329,7 @@ class CIELabVisualization(PlottingTools):
         # Configure plot limits, ticks, and labels
         self._update_axes_limits(ax, lim= settings.lim)
         self._update_axes_labels(ax, settings.ticks, settings.ticks, nsteps=1)
-        ax.set_xlabel(settings.xlabel, fontsize = settings.fontsize)
-        ax.set_ylabel(settings.ylabel, fontsize = settings.fontsize)
-        ax.set_title(settings.plane_2D)
+        self._configure_labels_and_title(ax, settings.plane_2D)
     
         return fig, ax
 
