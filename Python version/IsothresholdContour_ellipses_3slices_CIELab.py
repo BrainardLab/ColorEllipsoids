@@ -58,7 +58,7 @@ numDirPts = 16
 grid_theta_xy = sim_thres_CIELab.set_chromatic_directions(num_dir_pts= numDirPts) 
 
 # Define the threshold value for deltaE (color difference in CIELab space) to be 1
-deltaE_1JND   = 1
+deltaE_1JND   = 2.5
 
 #define the algorithm for computing color difference
 color_diff_algorithm = 'CIE2000' #or 'CIE2000', 'CIE1994', 'CIE1976' (default)
@@ -66,7 +66,6 @@ str_append = '' if color_diff_algorithm == 'CIE1976' else '_'+color_diff_algorit
 
 #%%make a finer grid for the direction (just for the purpose of visualization)
 #the raw isothreshold contou is very tiny, we can amplify it by 5 times for the purpose of visualization
-contour_scaler = 2.5
 nThetaEllipse  = 200
 
 ssize = (sim_thres_CIELab.nPlanes, nGridPts_ref, nGridPts_ref)
@@ -107,11 +106,9 @@ for p in range(sim_thres_CIELab.nPlanes):
             fit_results = fit_2d_isothreshold_contour(
                     rgb_ref_pij[idx_varyingDim], grid_theta_xy,
                     vecLength = opt_vecLen[p,i,j],
-                    nThetaEllipse = nThetaEllipse,
-                    ellipse_scaler = contour_scaler)
+                    nThetaEllipse = nThetaEllipse)
             fitEllipse_scaled[p,i,j],fitEllipse_unscaled[p,i,j],\
-            rgb_comp_contour_scaled[p,i,j],rgb_comp_contour_cov[p,i,j],\
-            ellParams[p,i,j,:] = fit_results
+            rgb_comp_contour_scaled[p,i,j], ellParams[p,i,j,:] = fit_results
                                                     
 
 #%% PLOTTING AND SAVING DATA
@@ -130,24 +127,24 @@ sim_CIE_vis.plot_2D_all_planes(grid_est,
                     fig_name = f'Isothreshold_contour_2D{str_append}.pdf')
 
 #%%save to CSV
-file_name   = f'Isothreshold_contour_CIELABderived_fixedVal{fixed_RGBvec}{str_append}.pkl'
-full_path   = f"{output_fileDir}{file_name}"
+# file_name   = f'Isothreshold_contour_CIELABderived_fixedVal{fixed_RGBvec}{str_append}.pkl'
+# full_path   = f"{output_fileDir}{file_name}"
 
-#save all the stim info
-stim_keys = ['fixed_RGBvec', 'plane_points', 'grid_ref', 'nGridPts_ref', 
-             'ref_points', 'background_RGB','numDirPts', 'grid_theta_xy', 'deltaE_1JND']
-stim = {}
-for i in stim_keys: stim[i] = eval(i)
+# #save all the stim info
+# stim_keys = ['fixed_RGBvec', 'plane_points', 'grid_ref', 'nGridPts_ref', 
+#              'ref_points', 'background_RGB','numDirPts', 'grid_theta_xy', 'deltaE_1JND']
+# stim = {}
+# for i in stim_keys: stim[i] = eval(i)
 
-#save the results
-results_keys = ['opt_vecLen', 'fitEllipse_scaled', 'fitEllipse_unscaled',\
-                'rgb_comp_contour_scaled', 'rgb_comp_contour_cov', 'ellParams']
-results = {}
-for i in results_keys: results[i] = eval(i)
+# #save the results
+# results_keys = ['opt_vecLen', 'fitEllipse_scaled', 'fitEllipse_unscaled',\
+#                 'rgb_comp_contour_scaled', 'rgb_comp_contour_cov', 'ellParams']
+# results = {}
+# for i in results_keys: results[i] = eval(i)
     
-# Write the list of dictionaries to a file using pickle
-with open(full_path, 'wb') as f:
-    pickle.dump([sim_thres_CIELab, stim, results], f)
+# # Write the list of dictionaries to a file using pickle
+# with open(full_path, 'wb') as f:
+#     pickle.dump([sim_thres_CIELab, stim, results], f)
 
 
 

@@ -215,9 +215,65 @@ class load_4D_expt_data:
         return xref_AEPsych_list, x1_AEPsych_list, y_AEPsych_list, time_elapsed_list, \
                xref_AEPsych, x1_AEPsych, y_AEPsych, time_elapsed
                
+    def bootstrap_AEPsych_data(xref, x1, y, trials_split=[900], seed=None):
+        """
+        Bootstraps AEPsych trials by splitting the data into chunks defined by `trials_split`,
+        then resampling each chunk with replacement independently.
+    
+        Parameters
+        ----------
+        xref : np.ndarray, Reference stimuli of shape (n_trials, 2).
+        x1 : np.ndarray, Comparison stimuli of shape (n_trials, ...).
+        y : np.ndarray, Observed responses of shape (n_trials, ...).
+        trials_split : list of int, optional
+            List of trial indices where the data should be split.
+            Example: [900] will split trials into [0:900) and [900:end).
+        seed : int, optional
+            Seed for the random number generator for reproducibility.
+    
+        Returns
+        -------
+        xref_btst : np.ndarray, Bootstrapped xref data.
+        x1_btst : np.ndarray, Bootstrapped x1 data.
+        y_btst : np.ndarray, Bootstrapped y data.
+        """
+        np.random.seed(seed)
+    
+        # Validate trials_split
+        if len(trials_split) > 1:
+            if not all(trials_split[i] < trials_split[i + 1] for i in range(len(trials_split) - 1)):
+                raise ValueError("trials_split must be in strictly increasing order.")
+    
+        #append the first and the last indices    
+        split_points = [0] + trials_split + [xref.shape[0]]
+    
+        # Preallocate arrays for bootstrapped results
+        xref_btst = np.full(xref.shape, np.nan)
+        x1_btst = np.full(x1.shape, np.nan)
+        y_btst = np.full(y.shape, np.nan)
+        sampled_indices_btst = np.full((xref.shape[0],), np.nan)
+    
+        # Resample within each segment defined by trials_split
+        for i in range(len(split_points) - 1):
+            start_idx = split_points[i]
+            end_idx = split_points[i + 1]
+            n = end_idx - start_idx
+            
+            #sample indices with replacement 
+            sample_indices = np.random.randint(start_idx, end_idx, size=n)
+            sampled_indices_btst[start_idx:end_idx] = sample_indices
+    
+            #store bootstrapped dataset
+            xref_btst[start_idx:end_idx] = xref[sample_indices]
+            x1_btst[start_idx:end_idx] = x1[sample_indices]
+            y_btst[start_idx:end_idx] = y[sample_indices]
+    
+        return jnp.array(xref_btst), jnp.array(x1_btst), jnp.array(y_btst), sampled_indices_btst
+               
     def load_AEPsych_data_before_last_MOCS(data_allSessions):
         """
-        Extract and preprocess AEPsych trial data from all sessions, **excluding trials that occur after the last MOCS trial**.
+        Extract and preprocess AEPsych trial data from all sessions, 
+        **excluding trials that occur after the last MOCS trial**.
     
         This method differs from `load_AEPsych_data` by limiting the included AEPsych trials to only those 
         occurring **before** the last MOCS trial in each session. This allows testing the hypothesis that 
