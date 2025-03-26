@@ -15,17 +15,20 @@ import os
 from scipy.io import loadmat
 import numpy as np
 import matplotlib.pyplot as plt
+from dataclasses import replace
 import dill as pickled
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version")
 from analysis.simulations_CIELab import SimThresCIELab
-from plotting.sim_CIELab_plotting import CIELabVisualization
+from plotting.sim_CIELab_plotting import CIELabVisualization, Plot2DSinglePlaneSettings
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
 from analysis.ellipses_tools import fit_2d_isothreshold_contour
 from analysis.color_thres import color_thresholds
+from plotting.wishart_plotting import PlotSettingsBase 
 
 base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
 output_figDir = os.path.join(base_dir, 'ELPS_analysis','Simulation_FigFiles','Python_version','CIE')
 output_fileDir = os.path.join(base_dir, 'ELPS_analysis','Simulation_DataFiles')
+pltSettings_base = PlotSettingsBase(fig_dir=output_figDir, fontsize = 12)
 
 #%% **LOAD NECESSARY DATA**
 # Path to transformation matrices and reference points
@@ -56,7 +59,7 @@ numDirPts = 16  # Number of chromatic directions (angles)
 grid_theta_xy = sim_thres_CIELab.set_chromatic_directions(num_dir_pts=numDirPts)
 
 deltaE_1JND = 2.5  # Just-noticeable difference threshold (ΔE = 1)
-color_diff_algorithm = 'CIE2000'  # Choose from 'CIE2000', 'CIE1994', 'CIE1976'
+color_diff_algorithm = 'CIE1994'  # Choose from 'CIE2000', 'CIE1994', 'CIE1976'
 
 # Parameters for ellipse fitting
 nThetaEllipse = 200  # Number of ellipse points
@@ -97,22 +100,19 @@ for i in range(nGridPts_ref):
         
         #for each chromatic direction, derive the threshold
         for k in range(numDirPts):
-            rgb_vecDir[i, j, :, k], opt_vecLen[i, j, k], \
-            rgb_comp_contour_unscaled[i, j,:, k],\
-            W_comp_contour_unscaled[i,j,:,k] = \
-                sim_thres_CIELab.find_threshold_point_on_isoluminant_plane(W_ref_ij,
-                                                                           grid_theta_xy[:, k], 
-                                                                           M_RGBTo2DW, 
-                                                                           M_2DWToRGB, 
-                                                                           deltaE= deltaE_1JND,
-                                                                           color_diff_algorithm = 'CIE2000')
+            rgb_vecDir[i, j, :, k], opt_vecLen[i, j, k], rgb_comp_contour_unscaled[i, j,:, k],\
+            W_comp_contour_unscaled[i,j,:,k] = sim_thres_CIELab.find_threshold_point_on_isoluminant_plane(\
+                                                W_ref_ij, grid_theta_xy[:, k], 
+                                                M_RGBTo2DW, M_2DWToRGB, 
+                                                deltaE= deltaE_1JND,
+                                                color_diff_algorithm = color_diff_algorithm)
         # Fit Ellipse**
         fit_results = fit_2d_isothreshold_contour(
             W_ref[i,j,:2], None, comp_RGB=W_comp_contour_unscaled[i,j],
             nThetaEllipse=nThetaEllipse)
 
         # Store ellipse fitting results (in N space)
-        fitEllipse_scaled[i, j], fitEllipse_unscaled[i, j], W_comp_contour_scaled[i, j], _, ellParams[i, j] = fit_results
+        fitEllipse_scaled[i, j], fitEllipse_unscaled[i, j], W_comp_contour_scaled[i, j], ellParams[i, j] = fit_results
 
 
 #%% PLOTTING 
@@ -129,16 +129,18 @@ cmap_ell_lc = (M_2DWToRGB @ cmap_W_hom).T.reshape(nGridPts_ref, nGridPts_ref, -1
 
 # Initialize visualization object
 sim_CIE_vis = CIELabVisualization(SimThresCIELab(path_str, background_RGB), 
-                                  fig_dir=output_figDir, save_fig=False)
+                                  settings = pltSettings_base,
+                                  save_fig=False)
 
+pred2D_settings = replace(Plot2DSinglePlaneSettings(), **pltSettings_base.__dict__)
+pred2D_settings = replace(pred2D_settings, 
+                          rgb_background=None, 
+                          lim = [-1,1],
+                          ticks = np.linspace(-1,1,5),
+                          ell_lc=cmap_ell_lc)
 # Plot 2D plane with computed ellipses and thresholds
-sim_CIE_vis.plot_2D_single_plane(grid_est, 
-                                 fitEllipse_scaled, 
-                                 rawData=W_comp_contour_scaled, 
-                                 rgb_background=None, 
-                                 lim = [-1,1],
-                                 ticks = np.linspace(-1,1,5),
-                                 ell_lc=cmap_ell_lc)
+sim_CIE_vis.plot_2D_single_plane(grid_est, fitEllipse_scaled, rawData=W_comp_contour_scaled,
+                                 settings = pred2D_settings)
 
 #%% save the data
 #convert fitted ellipses to RGB space for future uses (maybe we want to visualize that in the RGB space)
@@ -175,7 +177,7 @@ fixed_RGBvec = append_W_val
 ref_points = np.repeat(np.transpose(W_ref[np.newaxis,:,:,:], (0, 3, 1,2)), 3, axis = 0)
 stim_keys = ['fixed_RGBvec', 'grid_ref', 'nGridPts_ref', 'ref_points', 
              'background_RGB','numDirPts', 'grid_theta_xy', 'deltaE_1JND',
-             'cmap_ell_lc','color_diff_algorithm','contour_scaler', 'nThetaEllipse',
+             'cmap_ell_lc','color_diff_algorithm', 'nThetaEllipse',
              'mat_file','iso_mat','gamut_rgb','M_RGBTo2DW', 'M_2DWToRGB']
 stim = {}
 for i in stim_keys: stim[i] = eval(i)

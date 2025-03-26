@@ -181,7 +181,7 @@ class SimThresCIELab:
         
         return color_Lab, color_XYZ, color_LMS
     
-    def compute_deltaE(self, ref_RGB, vecDir, vecLen, comp_RGB=None, method='CIE1976'):
+    def compute_deltaE(self, ref_RGB, vecDir, vecLen, comp_RGB=None, method='CIE2000'):
         """
         Computes the perceptual difference (deltaE) between a reference stimulus
         and a comparison stimulus in the CIELab color space. The comparison stimulus
@@ -240,8 +240,8 @@ class SimThresCIELab:
     
         return deltaE    
     
-    def find_vecLen(self, ref_RGB_test, vecDir_test, deltaE = 1, lb_opt = 0,
-                    ub_opt = 0.1, N_opt = 3, coloralg = 'CIE1976'):
+    def find_vecLen(self, ref_RGB_test, vecDir_test, deltaE, lb_opt = 0,
+                    ub_opt = 0.1, N_opt = 3, coloralg = 'CIE2000'):
         """
         This function finds the optimal vector length for a chromatic direction
         that achieves a target perceptual difference in the CIELab color space.

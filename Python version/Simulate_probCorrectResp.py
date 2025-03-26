@@ -36,13 +36,13 @@ base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_analysis
 CIE_dir = '/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox/'
 output_figDir = os.path.join(base_dir, 'Simulation_FigFiles','Python_version','Isoluminant plane')
 output_fileDir = os.path.join(base_dir, 'Simulation_DataFiles', 'Isoluminant plane')
-pltSettings_base = PlotSettingsBase(fig_dir=os.path.join(output_figDir), fontsize = 8)
+pltSettings_base = PlotSettingsBase(fig_dir=output_figDir, fontsize = 8)
 
 #%% 
 flag_grid = True
 #specify the seed
-rnd_seed = 1
-colordiff_alg = 'CIE2000'
+rnd_seed = 0
+colordiff_alg = 'CIE1994'
 color_thres_data = color_thresholds(2, base_dir, plane_2D = 'Isoluminant plane')
 # Load Wishart model fits
 color_thres_data.load_CIE_data(CIE_version = colordiff_alg)
@@ -57,7 +57,7 @@ stim_config = StimConfig(
     fixed_ref = False,
     M_RGBTo2DW=color_thres_data.M_RGBTo2DW,
     M_2DWToRGB=color_thres_data.M_2DWToRGB,
-    file_name=f'Isothreshold_ellipses_isoluminant_{colordiff_alg}.pkl'
+    file_name=None
 )
 
 EXAMPLE 2: GB/RG/RB plane, fixed ref
@@ -84,12 +84,12 @@ stim_config = StimConfig(
 
 """
 stim_config = StimConfig(
-    fixed_plane = 'lum',
+    fixed_plane ='lum',
     gt = colordiff_alg,
-    fixed_ref = True,
+    fixed_ref = False,
     M_RGBTo2DW=color_thres_data.M_RGBTo2DW,
     M_2DWToRGB=color_thres_data.M_2DWToRGB,
-    file_name = f'Isothreshold_ellipses_isoluminant_{colordiff_alg}.pkl'
+    file_name=None
 )
 
 #%%
@@ -113,7 +113,7 @@ deltaE_1JND = 2.5
 sim_trial.setup_WeibullFunc(alpha = 3.189, 
                             beta = 1.505, 
                             guessing_rate = 1/3, 
-                            deltaE_1JND= deltaE_1JND) #1.17, 2.33
+                            deltaE_1JND= deltaE_1JND) #all these parameters will be saved in sim_trial.sim
 # Print the target probability based on the Weibull function for the given delta E
 print(f"target probability: {sim_trial.sim['pC_given_alpha_beta']}")
 
@@ -126,9 +126,9 @@ if stim_config.fixed_ref:
     # Run the simulation with the specified random seed
     sim_trial.run_sim(sim_CIELab)
 else:
-    sim_trial.run_sim(sim_CIELab, 
-                     sobol_bounds_lb = [-0.75, -0.75, 0],
-                     sobol_bounds_ub = [0.75, 0.75, 360])    
+    sobol_lb = [-0.75, -0.75, 0]
+    sobol_ub = [0.75, 0.75, 360]
+    sim_trial.run_sim(sim_CIELab, sobol_bounds_lb = sobol_lb, sobol_bounds_ub = sobol_ub)    
     
 
 #%%
@@ -139,7 +139,7 @@ pltSettings_PMF = replace(PlotWeibullPMFSettings(), **pltSettings_base.__dict__)
 x_PMF = np.linspace(0,6,100)
 sim_vis.plot_WeibullPMF(x_PMF, settings = pltSettings_PMF)
 
-#if 
+#if the ref is sobol-generated, then we visualize the data using the following way
 if not stim_config.fixed_ref: 
     # Create settings instance with custom fig_dir
     pltSettings_tp = replace(Plot2DSamplingSettings(), **pltSettings_base.__dict__)
@@ -153,9 +153,10 @@ if not stim_config.fixed_ref:
                                                     settings = pltSettings_tp,
                                                     save_fig = False)
     
-    # This array defines the opacity of markers in the plots, decreasing with more trials.
-    slc_datapoints_to_show_lb = [0, 200]
-    slc_datapoints_to_show_ub = [200, 400]
+    # These two sets of data are selected for no particular reason
+    # if we plot too many data, visibility will go down
+    slc_datapoints_to_show_lb = [0, 300]
+    slc_datapoints_to_show_ub = [300, 600]
     xref_jnp = jnp.array(sim_trial.sim['ref_points'])[:2,:].T #the last row is a filler row (all 1's)
     x1_jnp = jnp.array(sim_trial.sim['rgb_comp'])[:2,:].T #so we can just get rid of that row
     
@@ -164,15 +165,17 @@ if not stim_config.fixed_ref:
         fig, ax = plt.subplots(1, 1, figsize = pltSettings_tp.fig_size, dpi= pltSettings_tp.dpi)
         sampling_vis.plot_sampling(xref_jnp[lb_i:ub_i], x1_jnp[lb_i:ub_i], ax = ax,
                                    settings = pltSettings_tp)     
-        ax.set_title('Isoluminant plane')
+        ax.set_title(f'Isoluminant plane ({colordiff_alg})')
+        fig_name = f"Sims_isothreshold_isoluminant_from{lb_i}to{ub_i}_randomRef_"+\
+            f"{colordiff_alg}_jitter{sim_trial.sim['random_jitter']}.pdf"
         # Save the figure as a PDF
-        #fig.savefig(os.path.join(output_figDir_fits, fig_name +'.pdf'), bbox_inches='tight')    
+        fig.savefig(os.path.join(output_figDir, fig_name), bbox_inches='tight')    
         plt.show()
 else:
     pltSettings_2D = replace(Plot2DSampledCompSettings(), **pltSettings_base.__dict__)
     pltSettings_2D = replace(pltSettings_2D, 
-                             xbds = [-0.07, 0.07],
-                             ybds = [-0.07, 0.07])
+                             xbds = [-0.2, 0.2],
+                             ybds = [-0.2, 0.2])
 
     # Visualize the sampled data from the simulation
     sim_vis.plot_2D_sampledComp(settings = pltSettings_2D)  
@@ -220,14 +223,26 @@ else:
                                 settings = pltSettings_ts)
 
 #%% save to pkl
+str_trial = 'perCond' if stim_config.fixed_ref else 'total'
 file_name = f"Sims_isothreshold_{sim_trial.sim['plane_2D']}_{colordiff_alg}_sim"+\
-    f"{sim_trial.sim['nSims']}perCond_samplingNearContour"+\
+    f"{sim_trial.sim['nSims']}{str_trial}_samplingNearContour"+\
     f"_jitter{sim_trial.sim['random_jitter']}_seed{rnd_seed}.pkl"     
-full_path = f"{output_fileDir}/{file_name}"
-    
-sim = sim_trial.sim
+full_path = os.path.join(output_fileDir, file_name)
+
+variable_names = ['sim_trial','color_thres_data','background_RGB', 'sim_CIELab',
+                  'sobol_lb', 'sobol_ub']
+vars_dict = {}
+for var_name in variable_names:
+    try:
+        # Check if the variable exists in the global scope
+        vars_dict[var_name] = eval(var_name)
+    except NameError:
+        # If the variable does not exist, assign None and print a message
+        vars_dict[var_name] = None
+        print(f"Variable '{var_name}' does not exist. Assigned as None.")
+
 # Write the list of dictionaries to a file using pickle
 with open(full_path, 'wb') as f:
-    pickle.dump([sim], f)
+    pickle.dump(vars_dict, f)
 
 

@@ -298,7 +298,7 @@ class CIELabVisualization(PlottingTools):
             settings.data_mc.shape == (num_grid_pts_x, num_grid_pts_y, 3)
     
         if ax is None:
-            fig, ax = plt.subplots(figsize=settings.fig_sizse, dpi=settings.dpi)
+            fig, ax = plt.subplots(figsize=settings.fig_size, dpi=settings.dpi)
         else:
             fig = ax.figure
     
