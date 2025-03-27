@@ -10,13 +10,17 @@ import jax
 jax.config.update("jax_enable_x64", True)
 import dill as pickled
 import sys
+import os
 import numpy as np
 import matplotlib.pyplot as plt
+from dataclasses import replace
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version/')
 from analysis.utils_load import select_file_and_get_path
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
 from plotting.wishart_predictions_plotting import WishartPredictionsVisualization
 from analysis.ellipses_tools import find_inner_outer_contours
+from plotting.wishart_plotting import PlotSettingsBase 
+from plotting.wishart_predictions_plotting import Plot2DPredSettings
 
 #specify the file name
 base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_analysis/'
@@ -30,7 +34,7 @@ base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_analysis
 input_fileDir_fits, file_name = select_file_and_get_path()
 
 # Construct the full path to the selected file
-full_path = f"{input_fileDir_fits}/{file_name}"
+full_path = os.path.join(input_fileDir_fits, file_name)
 
 # Load the necessary variables from the file
 with open(full_path, 'rb') as f:
@@ -51,9 +55,6 @@ expt_trial = vars_dict['expt_trial']
 
 # - Number of grid points per dimension for model prediction computations
 num_grid_pts = grid.shape[0]
-
-# - Number of grid points per dimension for experimental data collection (<= num_grid_pts)
-num_grid_pts_data = int(vars_dict['nRefs']**0.5)
 
 # - Dimensionality of the color space (e.g., 2D for isoluminant planes)
 ndims = color_thres_data.color_dimension
@@ -77,12 +78,12 @@ params_all = np.full((num_grid_pts, num_grid_pts, nBtst, 5), np.nan)
 
 # - `params_indv_fits_all`: Stores ellipse parameters for individual fits to each grid point
 #   - Only for grid points used in data collection (≤ num_grid_pts)
-params_indv_fits_all = np.full((num_grid_pts_data, num_grid_pts_data, nBtst, 5), np.nan)
+params_indv_fits_all = np.full((num_grid_pts, num_grid_pts, nBtst, 5), np.nan)
 
 # Step 3: Loop through each bootstrap dataset and load data
 for r in btst_datasets:
     # Generate the file name for the current bootstrap dataset
-    file_name_btst_r = file_name_btst.replace('btst0', f'btst{r}')
+    file_name_btst_r = file_name_btst.replace('AEPsych[0]', f'AEPsych[{r}]')
     full_path_btst_r = f"{input_fileDir_fits_btst}/{file_name_btst_r}"
     
     # Load the variables from the current bootstrap dataset
@@ -97,18 +98,6 @@ for r in btst_datasets:
     for i in range(num_grid_pts):
         for j in range(num_grid_pts):
             params_all[i, j, r] = param_ell_r[i][j]
-    
-    # Extract individual ellipse fits for each grid point (if available)
-    # - `param_ell_indv_fits_r`: Individual fits for reference locations
-    param_ell_indv_fits_r = vars_dict_btst['model_pred_Wishart_indv_ell']
-    
-    for idx, p in enumerate(param_ell_indv_fits_r):
-        # Map the linear index to a row and column for the data grid
-        row = idx // num_grid_pts_data  # Compute row index
-        col = idx % num_grid_pts_data   # Compute column index
-        
-        # Store individual fit parameters in the appropriate location
-        params_indv_fits_all[row, col, r, :] = np.array(p.params_ell).flatten()
         
 #%%           
 # -----------------------------------------------------------------------------
@@ -165,9 +154,6 @@ def find_CI_for_gridRefs(p_ell, nd=ndims, nTheta=nTheta):
 # Compute confidence intervals for the joint fits across all reference locations
 fitEll_min, fitEll_max = find_CI_for_gridRefs(params_all)
 
-# Compute confidence intervals for the individual fits at each reference location
-fitEll_indv_min, fitEll_indv_max = find_CI_for_gridRefs(params_indv_fits_all)
-
 #%%
 # -----------------------------------------------------------------------------
 # SECTION 4: Visualizse the CI
@@ -176,79 +162,56 @@ def plot_btst_CI(grid, ell_min, ell_max, ax):
     ng = grid.shape[0]
     for i in range(ng):
         for j in range(ng):
-            if i == 0 and j == 0: lbl = f'Confidence interval of {nBtst} bootstrapped datasets'
+            if i == 0 and j == 0: lbl = f'Bootstrapped CI ({nBtst} AEPsych datasets)'
             else: lbl = None
             # Adjust the color map based on the fixed color dimension.
             cm = color_thres_data.M_2DWToRGB @ np.insert(grid[i, j], 2, 1)
             idx_max_nonan = ~np.isnan(ell_max[i, j, 0])
             ax.fill(ell_max[i,j,0,idx_max_nonan], ell_max[i,j,1,idx_max_nonan], 
-                    color= cm, alpha = 0.9, edgecolor = None, label = lbl)
+                    color= cm, alpha = 0.9, lw = 0, label = lbl)
             idx_min_nonan = ~np.isnan(ell_min[i, j, 0])
             ax.fill(ell_min[i,j,0,idx_min_nonan], ell_min[i,j,1,idx_min_nonan], 
-                    color='white')
+                    color='white', lw = 0)
 
-#specify figure name and path
 # -----------------------------------------------------------------------------
 # Plot Joint Fits
 # -----------------------------------------------------------------------------
+# Create the output directory if it doesn't exist
 output_figDir_fits = input_fileDir_fits_btst.replace('DataFiles', 'FigFiles')
-wishart_pred_vis_wCI = WishartPredictionsVisualization(expt_trial,
-                                                      model_pred.model, 
-                                                      model_pred, 
-                                                      color_thres_data,
-                                                      fig_dir = output_figDir_fits, 
-                                                      save_fig = False)
-fig, ax = plt.subplots(1, 1, figsize = (3.81,4.2), dpi= 1024)
-plot_btst_CI(grid, fitEll_min, fitEll_max, ax)
-wishart_pred_vis_wCI.plot_2D(
-    grid, 
-    grid,
-    ax = ax,
-    visualize_samples= True,
-    visualize_gt = False,
-    visualize_model_estimatedCov = False,
-    flag_rescale_axes_label = False,
-    samples_alpha = 0.5,
-    samples_label = 'Experimental data',
-    sigma_lw = 0.5,
-    sigma_alpha = 1,
-    modelpred_alpha = 1,
-    modelpred_lw = 0.5,
-    modelpred_lc = 'k',
-    modelpred_ls = '-') 
-ax.set_xlabel('Wishart space dimension 1');
-ax.set_ylabel('Wishart space dimension 2');
-ax.set_title('Joint fits');
-fig.savefig(output_figDir_fits+f"/{file_name_btst[:-10]}_btstCI_byJointFits_wSamples.pdf",
-             format='pdf', bbox_inches='tight')  
+os.makedirs(output_figDir_fits, exist_ok=True)
 
-#%% 
-# -----------------------------------------------------------------------------
-# Plot Individual Fits
-# -----------------------------------------------------------------------------
-fig2, ax2 = plt.subplots(1, 1, figsize = (3.81,4.2), dpi= 1024)
-grid_data = grid[::2][:,::2]
-plot_btst_CI(grid_data, fitEll_indv_min, fitEll_indv_max, ax2)
-wishart_pred_vis_wCI.plot_2D(
-    grid, 
-    grid,
-    ax = ax2,
-    visualize_samples= True,
-    visualize_gt = False,
-    visualize_model_estimatedCov = False,
-    samples_alpha = 0.5,
-    samples_label = 'Experimental data',
-    sigma_lw = 0.5,
-    sigma_alpha = 1,
-    modelpred_alpha = 1,
-    modelpred_lw = 0.5,
-    modelpred_lc = 'k',
-    modelpred_ls = '-') 
-ax2.set_xlabel('Wishart space dimension 1');
-ax2.set_ylabel('Wishart space dimension 2');
-ax2.set_title('Individual fits');
-fig2.savefig(output_figDir_fits+f"/{file_name_btst[:-10]}_btstCI_byIndvFits_wSamples.pdf",
-             format='pdf', bbox_inches='tight')  
+# Create a base plotting settings instance (shared across plots)
+pltSettings_base = PlotSettingsBase(fig_dir=output_figDir_fits, fontsize = 8)
+
+# Initialize 2D prediction settings by copying from base and overriding method-specific parameters
+pred2D_settings = replace(Plot2DPredSettings(), **pltSettings_base.__dict__)
+pred2D_settings = replace(pred2D_settings, 
+                          visualize_samples= False,
+                          visualize_gt = False,
+                          visualize_model_estimatedCov = False,
+                          flag_rescale_axes_label = False,
+                          modelpred_alpha = 0.5,
+                          modelpred_lw = 0.5,
+                          modelpred_lc = 'k',
+                          modelpred_ls = '-') 
+# Initialize Visualization Class for Wishart Predictions
+wishart_pred_vis_wCI = WishartPredictionsVisualization(expt_trial,
+                                                       model_pred.model, 
+                                                       model_pred, 
+                                                       color_thres_data,
+                                                       settings = pltSettings_base,
+                                                       save_fig = False)
+# Create figure and axes for plotting
+fig, ax = plt.subplots(1, 1, figsize=pred2D_settings.fig_size, dpi=pred2D_settings.dpi)
+
+# Plot the bootstrap confidence intervals on top of the grid
+plot_btst_CI(grid, fitEll_min, fitEll_max, ax)
+
+# Overlay model predictions (joint fits) onto the same axes
+wishart_pred_vis_wCI.plot_2D(grid, grid, ax=ax, settings=pred2D_settings)
+
+# Set the plot title
+ax.set_title('Isoluminant plane')
 
 
 
