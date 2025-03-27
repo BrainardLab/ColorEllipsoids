@@ -143,7 +143,7 @@ class MOCSTrialsVisualization():
 
 
     def plot_comparison_thres(self, thres_Wishart, slope_mean, slope_CI, xref_unique,
-                              ax = None, **kwargs):
+                              ax = None,thres_Wishart_CI=None, **kwargs):
         # Update plot parameters with method-specific settings and external configurations.
         method_specific_settings = {
             'fig_size': (4.5, 6),
@@ -156,6 +156,7 @@ class MOCSTrialsVisualization():
             'slope_text_loc': [0.025, 0.123],
             'ms': 7,
             'lw': 2,
+            'alpha':1,
             'xlabel': "Predicted Euclidean distance between ref and comp \nfor 66.7% correct (MOCS trials, Weibull function)",
             'ylabel': "Predicted Euclidean distance between ref and comp \nfor 66.7% correct (AEPsych trials, Wishart model)",
             'show_ref_in_title': True,
@@ -190,8 +191,10 @@ class MOCSTrialsVisualization():
                 self.fit_PMF_MOCS[n].stim_at_targetPC, 
                 thres_Wishart[n],
                 xerr= self.fit_PMF_MOCS[n].stim_at_targetPC_95btstErr[:, np.newaxis], 
+                yerr= thres_Wishart_CI[n][:, np.newaxis],
                 marker='o',
                 c = cmap_n,
+                alpha = self.pltP['alpha'],
                 ms = self.pltP['ms'],#10
                 lw = self.pltP['lw'] #3
             )

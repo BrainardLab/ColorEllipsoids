@@ -16,6 +16,7 @@ import matplotlib.pyplot as plt
 from dataclasses import replace
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version/')
 from analysis.utils_load import select_file_and_get_path
+from plotting.visualize_MOCS import plot_MOCS_conditions
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
 from plotting.wishart_predictions_plotting import WishartPredictionsVisualization
 from analysis.ellipses_tools import find_inner_outer_contours
@@ -43,6 +44,7 @@ with open(full_path, 'rb') as f:
 # Retrieve the variables of interest from the loaded dictionary
 # - Model predictions using the Wishart process
 model_pred = vars_dict['model_pred_Wishart']
+model = model_pred.model
 
 # - Transformation matrices for converting between DKL, RGB, and W spaces
 color_thres_data = vars_dict['color_thres_data']
@@ -75,10 +77,6 @@ btst_datasets = list(range(nBtst))  # List of bootstrap dataset indices
 # - `params_all`: Stores ellipse parameters for all grid points across bootstrapped datasets
 #   - Ellipse parameters: [x-center, y-center, major axis length, minor axis length, rotation angle]
 params_all = np.full((num_grid_pts, num_grid_pts, nBtst, 5), np.nan)
-
-# - `params_indv_fits_all`: Stores ellipse parameters for individual fits to each grid point
-#   - Only for grid points used in data collection (≤ num_grid_pts)
-params_indv_fits_all = np.full((num_grid_pts, num_grid_pts, nBtst, 5), np.nan)
 
 # Step 3: Loop through each bootstrap dataset and load data
 for r in btst_datasets:
@@ -196,7 +194,7 @@ pred2D_settings = replace(pred2D_settings,
                           modelpred_ls = '-') 
 # Initialize Visualization Class for Wishart Predictions
 wishart_pred_vis_wCI = WishartPredictionsVisualization(expt_trial,
-                                                       model_pred.model, 
+                                                       model, 
                                                        model_pred, 
                                                        color_thres_data,
                                                        settings = pltSettings_base,
@@ -212,6 +210,4 @@ wishart_pred_vis_wCI.plot_2D(grid, grid, ax=ax, settings=pred2D_settings)
 
 # Set the plot title
 ax.set_title('Isoluminant plane')
-
-
 
