@@ -202,11 +202,9 @@ class MOCSTrialsVisualization():
         if (self.pltP['corr_coef_mean'] is not None) and (self.pltP['corr_coef_CI'] is not None):
             ax.text(*self.pltP['corr_text_loc'],
                      f"Corr coef = {self.pltP['corr_coef_mean']:.2f}; 95% CI:"
-                     f" [{self.pltP['corr_coef_CI'][0]:.2f}, {self.pltP['corr_coef_CI'][1]:.2f}]",
-                     fontsize = self.pltP['fontsize'])
+                     f" [{self.pltP['corr_coef_CI'][0]:.2f}, {self.pltP['corr_coef_CI'][1]:.2f}]")
         ax.text(*self.pltP['slope_text_loc'],
-                     f"Slope = {slope_mean:.2f}; 95% CI: [{slope_CI[0]:.2f}, {slope_CI[1]:.2f}]",
-                     fontsize = self.pltP['fontsize'])
+                     f"Slope = {slope_mean:.2f}; 95% CI: [{slope_CI[0]:.2f}, {slope_CI[1]:.2f}]")
         # Add diagonal line for reference
         ax.set_xlim(self.pltP['bds'])
         ax.set_ylim(self.pltP['bds'])
@@ -240,7 +238,8 @@ class MOCSTrialsVisualization():
 
     
 #%%
-def plot_MOCS_conditions(ndims, xref_unique, comp_unique, color_thres_data, ax = None, **kwargs):
+def plot_MOCS_conditions(ndims, xref_unique, comp_unique, color_thres_data,
+                         ax = None, **kwargs):
     """
     Plot MOCS (Method of Constant Stimuli) conditions in 2D or 3D.
 
@@ -275,6 +274,7 @@ def plot_MOCS_conditions(ndims, xref_unique, comp_unique, color_thres_data, ax =
         'fontsize': 10,
         'ref_ms': 100,
         'ref_lw':3,
+        'comp_ms':10,
         'easyTrials_highlight': True,
         'fig_name': '',
         'output_dir': '',
@@ -296,7 +296,7 @@ def plot_MOCS_conditions(ndims, xref_unique, comp_unique, color_thres_data, ax =
             comp = comp_unique[idx_slc]
             
             # Plot comparison stimuli
-            ax.scatter(comp[:, 0], comp[:, 1], marker='.', color='k', s=1)
+            ax.scatter(comp[:, 0], comp[:, 1], marker='.', color='k', s=pltP['comp_ms'])
             ax.plot([xref[0], comp[-1, 0]],
                     [xref[1], comp[-1, 1]], lw=0.4, color='gray')
             if pltP['easyTrials_highlight']:
@@ -317,7 +317,7 @@ def plot_MOCS_conditions(ndims, xref_unique, comp_unique, color_thres_data, ax =
         ax.set_ylabel(pltP['ylabel'])
         ax.set_title(pltP['title'])
         plt.tight_layout()
-        plt.show()
+        #plt.show()
     
     else:
         # Create a 3D figure
@@ -339,7 +339,8 @@ def plot_MOCS_conditions(ndims, xref_unique, comp_unique, color_thres_data, ax =
             ax.scatter(*xref, c=color_map_ref, marker='+', lw=3, s=100)
             
             # Plot comparison stimuli
-            ax.scatter(comp[:, 0], comp[:, 1], comp[:, 2], marker='.', color='k', s=1)
+            
+            ax.scatter(comp[:, 0], comp[:, 1], comp[:, 2], marker='.', color='k', s= pltP['comp_ms'])
             ax.plot(comp[:, 0], comp[:, 1], comp[:, 2], lw=0.4, color='gray')
             if pltP['easyTrials_highlight']:
                 ax.scatter(*comp[-1, :], marker='o', facecolor='none', edgecolor='r', alpha=0.5, s=10)
@@ -365,7 +366,6 @@ def plot_MOCS_conditions(ndims, xref_unique, comp_unique, color_thres_data, ax =
     # Save the figure if required
     if pltP['save_fig'] and os.path.exists(pltP['output_dir']) and pltP['fig_name']:
         fig.savefig(os.path.join(pltP['output_dir'], pltP['fig_name']))
-    plt.show()
     
     return fig, ax
     
