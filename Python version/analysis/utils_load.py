@@ -8,7 +8,6 @@ Created on Wed Dec 18 21:10:09 2024
 import tkinter as tk
 from tkinter import filedialog
 import os
-import sys
 import re
 import dill as pickled
 import jax.numpy as jnp
@@ -271,35 +270,62 @@ class load_4D_expt_data:
             xref_pregSobol, x1_pregSobol, y_pregSobol
             
     def load_combine_AEPsych_pregSobol(data_allSessions):
+        """
+        Loads and combines AEPsych trials with pre-generated Sobol trials, if available.
+    
+        For most subjects, both AEPsych and Sobol trials are included and can be combined.
+        However, for **pilot subject #1**, Sobol trials were not included in the experiment.
+        This function handles that exception gracefully using a try-except block.
+    
+        If subject #1 ever re-runs the experiment using the same version as the other subjects
+        (which includes Sobol trials), this exception will no longer be needed.
+
+        """
         # Load AEPsych data
         (
             xref_AEPsych_list, x1_AEPsych_list, y_AEPsych_list, time_elapsed_list,
             xref_AEPsych, x1_AEPsych, y_AEPsych, time_elapsed
         ) = load_4D_expt_data.load_AEPsych_data(data_allSessions)
     
-        # Load pregenerated Sobol data
-        (
-            xref_pregSobol_list, x1_pregSobol_list, y_pregSobol_list,
-            xref_pregSobol, x1_pregSobol, y_pregSobol
-        ) = load_4D_expt_data.load_pregSobol_data(data_allSessions)
+        try:
+            # Load pre-generated Sobol data
+            (
+                xref_pregSobol_list, x1_pregSobol_list, y_pregSobol_list,
+                xref_pregSobol, x1_pregSobol, y_pregSobol
+            ) = load_4D_expt_data.load_pregSobol_data(data_allSessions)
     
-        # Concatenate AEPsych and pregenerated Sobol data
-        xref_combined = np.concatenate([xref_AEPsych, xref_pregSobol], axis=0)
-        x1_combined = np.concatenate([x1_AEPsych, x1_pregSobol], axis=0)
-        y_combined = np.concatenate([y_AEPsych, y_pregSobol], axis=0)
+            # Combine AEPsych and Sobol data
+            xref_combined = np.concatenate([xref_AEPsych, xref_pregSobol], axis=0)
+            x1_combined   = np.concatenate([x1_AEPsych,   x1_pregSobol],   axis=0)
+            y_combined    = np.concatenate([y_AEPsych,    y_pregSobol],    axis=0)
     
-        return (
-            # AEPsych data
-            [xref_AEPsych_list, x1_AEPsych_list, y_AEPsych_list, time_elapsed_list,
-             xref_AEPsych, x1_AEPsych, y_AEPsych, time_elapsed],
+            return (
+                # AEPsych data
+                [xref_AEPsych_list, x1_AEPsych_list, y_AEPsych_list, time_elapsed_list, 
+                 xref_AEPsych, x1_AEPsych, y_AEPsych, time_elapsed],
+                
+                # Sobol data
+                [xref_pregSobol_list, x1_pregSobol_list, y_pregSobol_list, 
+                 xref_pregSobol, x1_pregSobol, y_pregSobol],
     
-            # pregenerated Sobol data
-            [xref_pregSobol_list, x1_pregSobol_list, y_pregSobol_list,
-             xref_pregSobol, x1_pregSobol, y_pregSobol],
+                # Combined data
+                [xref_combined, x1_combined, y_combined]
+            )
     
-            # Combined data
-            [xref_combined, x1_combined, y_combined]
-        )
+        except:
+            print("No pre-generated Sobol trials found for this participant.")
+    
+            # Return AEPsych data only
+            return (
+                [xref_AEPsych_list, x1_AEPsych_list, y_AEPsych_list, time_elapsed_list, 
+                 xref_AEPsych, x1_AEPsych, y_AEPsych, time_elapsed],
+    
+                # No Sobol data
+                None,
+    
+                # Combined data is just the AEPsych data
+                [xref_AEPsych, x1_AEPsych, y_AEPsych]
+            )
         
     def bootstrap_AEPsych_data(xref, x1, y, trials_split=[900], seed=None):
         """
@@ -358,13 +384,26 @@ class load_4D_expt_data:
                
     def load_AEPsych_data_before_last_MOCS(data_allSessions):
         """
-        Extract and preprocess AEPsych trial data from all sessions, 
-        **excluding trials that occur after the last MOCS trial**.
-    
-        This method differs from `load_AEPsych_data` by limiting the included AEPsych trials to only those 
-        occurring **before** the last MOCS trial in each session. This allows testing the hypothesis that 
-        the mismatch in thresholds between AEPsych and MOCS trials is due to the failure of interleaving 
-        the two trial types near the end of each session during the pilot study.
+        Extract and preprocess AEPsych trial data from all sessions,
+        **excluding any AEPsych trials that occurred after the last MOCS trial** 
+        within each session.
+
+        This function is a specialized version of `load_AEPsych_data`, designed 
+        specifically for subject #1 during the pilot study. In this early version 
+        of the experiment, MOCS trials were presented first and not interleaved 
+        with AEPsych trials near the end of the session. This may have caused 
+        biases or inconsistencies in threshold estimates.
+
+        By trimming the AEPsych trials that came after the last MOCS trial, this 
+        method allows testing the hypothesis that these late AEPsych trials 
+        contributed to the mismatch in thresholds between the two methods.
+
+        Important:
+        - This method is intended **only for subject #1**.
+        - For all other subjects, AEPsych and MOCS trials were properly interleaved,
+          so this function is not needed.
+        - If subject #1 re-runs the experiment using the final interleaved version, 
+          this function will no longer be necessary.
     
         Parameters:
         data_allSessions (list of dict): List containing data from multiple experimental sessions.
@@ -441,8 +480,7 @@ class load_4D_expt_data:
             xref_jnp, x1_jnp, y_jnp = data_AEPsych
 
         return xref_jnp, x1_jnp, y_jnp
-    
-    
+        
     def split_AEPsych_data(xref_AEPsych, x1_AEPsych, y_AEPsych, flag_first_half = True):
         if flag_first_half:
             return xref_AEPsych[::2], x1_AEPsych[::2], y_AEPsych[::2]
