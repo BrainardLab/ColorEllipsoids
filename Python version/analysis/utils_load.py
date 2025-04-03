@@ -13,8 +13,6 @@ import re
 import dill as pickled
 import jax.numpy as jnp
 import numpy as np
-sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
-from analysis.color_thres import color_thresholds
 
 #%%
 def select_file_and_get_path():
@@ -25,7 +23,7 @@ def select_file_and_get_path():
     # Open the file dialog
     file_path = filedialog.askopenfilename(
         title="Select a File",
-        filetypes=[("CSV Files", "*.csv"), ("Pickle Files", "*.pkl")]
+        filetypes=[("CSV Files", "*.csv"), ("Pickle Files", "*.pkl"), ("Mat Files", "*.mat")]
     )
     
     # If a file is selected, split its path into directory and file name
@@ -215,6 +213,94 @@ class load_4D_expt_data:
         return xref_AEPsych_list, x1_AEPsych_list, y_AEPsych_list, time_elapsed_list, \
                xref_AEPsych, x1_AEPsych, y_AEPsych, time_elapsed
                
+    def load_pregSobol_data(data_allSessions):
+        """
+        Extract and preprocess pregenerated Sobol trial data from multiple sessions.
+
+        Unlike AEPsych generated Sobol trials—which are always 900 in number and 
+        appear at the beginning of each session—the pregenerated Sobol trials in this 
+        dataset are dynamically interleaved throughout a session. Their number varies 
+        both across sessions and across subjects.
+
+        These pregenerated trials are inserted whenever the MOCS trials get more than 
+        4 trials ahead of the AEPsych trials. Instead of advancing MOCS further, we 
+        insert one of the pregenerated Sobol trials. Although we generated 1,200 
+        Sobol trials per session, only ~50 are typically used in each session.
+
+        Parameters:
+        data_allSessions (list of dict): List containing data from multiple experimental sessions.
+
+        Returns:
+        tuple: 
+            - xref_pregSobol_list (list of jnp.ndarray): List of reference stimuli arrays from each session.
+            - x1_pregSobol_list (list of jnp.ndarray): List of comparison stimuli arrays from each session.
+            - y_pregSobol_list (list of jnp.ndarray): List of binary response arrays from each session.
+            - xref_pregSobol (np.ndarray): Concatenated reference stimuli across all sessions.
+            - x1_pregSobol (np.ndarray): Concatenated comparison stimuli across all sessions.
+            - y_pregSobol (np.ndarray): Concatenated binary responses across all sessions.
+        """
+        # Initialize lists to store pregenerated Sobol data from each session
+        xref_pregSobol_list, x1_pregSobol_list, y_pregSobol_list = [], [], []
+             
+        # Loop through each session's data
+        for i in range(len(data_allSessions)):
+            d = data_allSessions[i]
+            # Access the pregenerated Sobol data for that session
+            d_pregSobol = d['sim_interleaved_trial_sequence'].pregenerated_Sobol
+
+            # Extract binary responses and stimuli
+            y_pregSobol_i = jnp.array(d_pregSobol['binaryResp'])   # shape: (n_trials,)
+            xref_pregSobol_i = jnp.array(d_pregSobol['xref'])      # shape: (n_trials, dim)
+            x1_pregSobol_i = jnp.array(d_pregSobol['x1'])          # shape: (n_trials, dim)
+
+            # Identify indices where the binary response is not NaN
+            mask = ~jnp.isnan(y_pregSobol_i)
+            float_indices = jnp.where(mask)[0]  # Indices with valid float values       
+            
+            # Append only valid (non-NaN) trials to the corresponding lists
+            xref_pregSobol_list.append(xref_pregSobol_i[float_indices])
+            x1_pregSobol_list.append(x1_pregSobol_i[float_indices])
+            y_pregSobol_list.append(y_pregSobol_i[float_indices])
+
+        # Concatenate all valid trials from each session into full arrays
+        xref_pregSobol, x1_pregSobol, y_pregSobol = \
+            map(lambda lst: np.concatenate(lst, axis=0), 
+                [xref_pregSobol_list, x1_pregSobol_list, y_pregSobol_list])     
+        
+        return xref_pregSobol_list, x1_pregSobol_list, y_pregSobol_list,\
+            xref_pregSobol, x1_pregSobol, y_pregSobol
+            
+    def load_combine_AEPsych_pregSobol(data_allSessions):
+        # Load AEPsych data
+        (
+            xref_AEPsych_list, x1_AEPsych_list, y_AEPsych_list, time_elapsed_list,
+            xref_AEPsych, x1_AEPsych, y_AEPsych, time_elapsed
+        ) = load_4D_expt_data.load_AEPsych_data(data_allSessions)
+    
+        # Load pregenerated Sobol data
+        (
+            xref_pregSobol_list, x1_pregSobol_list, y_pregSobol_list,
+            xref_pregSobol, x1_pregSobol, y_pregSobol
+        ) = load_4D_expt_data.load_pregSobol_data(data_allSessions)
+    
+        # Concatenate AEPsych and pregenerated Sobol data
+        xref_combined = np.concatenate([xref_AEPsych, xref_pregSobol], axis=0)
+        x1_combined = np.concatenate([x1_AEPsych, x1_pregSobol], axis=0)
+        y_combined = np.concatenate([y_AEPsych, y_pregSobol], axis=0)
+    
+        return (
+            # AEPsych data
+            [xref_AEPsych_list, x1_AEPsych_list, y_AEPsych_list, time_elapsed_list,
+             xref_AEPsych, x1_AEPsych, y_AEPsych, time_elapsed],
+    
+            # pregenerated Sobol data
+            [xref_pregSobol_list, x1_pregSobol_list, y_pregSobol_list,
+             xref_pregSobol, x1_pregSobol, y_pregSobol],
+    
+            # Combined data
+            [xref_combined, x1_combined, y_combined]
+        )
+        
     def bootstrap_AEPsych_data(xref, x1, y, trials_split=[900], seed=None):
         """
         Bootstraps AEPsych trials by splitting the data into chunks defined by `trials_split`,

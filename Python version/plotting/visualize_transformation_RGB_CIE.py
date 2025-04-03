@@ -20,8 +20,8 @@ output_figDir = base_dir+ 'ELPS_analysis/Simulation_FigFiles/Python_version/CIE/
 input_fileDir = base_dir+ 'ELPS_analysis/Simulation_DataFiles/'
 
 #Here is what we do if we want to load the data
-file_name   = f'Isothreshold_contour_CIELABderived_fixedVal{fixed_RGBvec}_{color_diff_algorithm}.pkl'
-full_path   = f"{output_fileDir}{file_name}"
+file_name   = 'Isothreshold_contour_CIELABderived_fixedVal0.5_CIE2000.pkl'
+full_path   = f"{input_fileDir}{file_name}"
 with open(full_path, 'rb') as f:
     # Load the object from the file
     data_load = pickle.load(f)

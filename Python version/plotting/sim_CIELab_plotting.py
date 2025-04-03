@@ -100,6 +100,7 @@ class Plot3DSettings(PlotSettingsBase):
     
 @dataclass
 class PlotStimAtThresSettings(PlotSettingsBase):
+    fig_size_for1: Tuple[float, float] = (2, 2.5)
     fig_name: str = field(default_factory=lambda: f'color_patches_{datetime.now().strftime("%Y%m%d_%H%M%S")}')
     
 @dataclass
@@ -418,7 +419,9 @@ class CIELabVisualization(PlottingTools):
         n = s_rgb.shape[1]
         # Create a new figure and axes if not provided.
         if ax is None:
-            fig, ax =  plt.subplots(1, n,figsize=(n*4,6), dpi= settings.dpi)
+            fig, ax =  plt.subplots(1, n,figsize=(n*settings.fig_size_for1[0], 
+                                                  settings.fig_size_for1[1]), 
+                                    dpi= settings.dpi)
         else:
             fig = ax.figure        
             
@@ -436,13 +439,13 @@ class CIELabVisualization(PlottingTools):
                 # Convert the RGB values to integers and round them
                 rgb_int = np.round(color_square[0, 0, :] * 255).astype(int)
                 # Set the title with the RGB values
-                ax[i].set_title(f'r: {rgb_int[0]} \ng: {rgb_int[1]} \nb: {rgb_int[2]}', 
+                ax[i].set_title(f'[R, G, B]: [{rgb_int[0]}, {rgb_int[1]}, {rgb_int[2]}]', 
                                 fontsize = settings.fontsize)
             # Remove the axes for better visualization 
             ax[i].axis('off')
         # Show the figure after all subplots have been drawn
         if settings.fig_dir and save_fig:
-            plt.savefig(settings.fig_dir + settings.fig_name + '.pdf')
+            plt.savefig(os.path.join(settings.fig_dir, settings.fig_name + '.pdf'))
         # Display the plot
         plt.show()
             
