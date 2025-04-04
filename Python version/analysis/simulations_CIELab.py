@@ -19,9 +19,11 @@ def patch_asscalar(a):
     return a.item()
 setattr(np, "asscalar", patch_asscalar)
 
+required_file_dir = "/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox/"
+
 #%%
 class SimThresCIELab:
-    def __init__(self, fileDir, background_rgb, plane_2D_list = ['GB plane', 'RB plane', 'RG plane']):
+    def __init__(self, background_rgb, plane_2D_list = ['GB plane', 'RB plane', 'RG plane']):
         """
         Parameters:
         - background_RGB (array; 3 x 1): Background RGB values used for normalization.
@@ -32,7 +34,7 @@ class SimThresCIELab:
         self.background_rgb = background_rgb
 
         #load T_cones, B_monitor, M_LMSToXYZ
-        self._load_required_files(fileDir)
+        self._load_required_files()
         
         #number of selected planes
         # Validate plane_2D_list
@@ -48,13 +50,19 @@ class SimThresCIELab:
         elif self.nPlanes == 1:
             self.varying_dims = [[0,1]] #treat it as RG plane with the third dimension fixed at 1
     
-    def _load_required_files(self, fileDir):
+    def _load_required_files(self):
         """Internal helper to load all required .mat files."""
-        sys.path.append(fileDir)
-        os.chdir(fileDir)
+        sys.path.append(required_file_dir)
+        os.chdir(required_file_dir)
         
-        self.T_CONES = loadmat('T_cones.mat')['T_cones']           # (3, 61)
-        self.B_MONITOR = loadmat('B_monitor.mat')['B_monitor']     # (61, 3)
+        #use the primaries of our monitor 
+        self.T_CONES = loadmat('T_cones_finer.mat')['T_cones']       # (3, 201)
+        self.B_MONITOR = loadmat('B_monitor_dell.mat')['B_monitor']  # (201, 3)
+        
+        #alternatively, we anothre monitor saved in psychtoolbox
+        #self.T_CONES = loadmat('T_cones.mat')['T_cones']        # (3, 61)
+        #self.B_MONITOR = loadmat('B_monitor.mat')['B_monitor']  # (61, 3)
+        
         self.M_LMS_TO_XYZ = loadmat('M_LMSToXYZ.mat')['M_LMSToXYZ']  # (3, 3)
 
             
@@ -62,7 +70,8 @@ class SimThresCIELab:
         """Internal method to validate plane_2D_list."""
         valid_plane_options = [['GB plane', 'RB plane', 'RG plane'], ['Isoluminant plane']]
         if plane_2D_list not in valid_plane_options:
-            raise ValueError(f"Invalid plane_2D_list: {plane_2D_list}. Must be one of {valid_plane_options}.")
+            raise ValueError(f"Invalid plane_2D_list: {plane_2D_list}. "+\
+                             "Must be one of {valid_plane_options}.")
             
     #%% methods
     def get_plane_1slice(self, grid_lb, grid_ub, num_grid_pts,fixed_val, plane_2D):
@@ -296,8 +305,45 @@ class SimThresCIELab:
         return opt_vecLen
     
     def find_threshold_point_on_isoluminant_plane(self, W_ref, chrom_dir, M_RGBTo2DW, 
-                                                  M_2DWToRGB, deltaE, 
-                                                  color_diff_algorithm = 'CIE2000'):
+                                                  M_2DWToRGB, deltaE, coloralg = 'CIE2000'):
+        """
+        Compute the threshold point along a given chromatic direction on the isoluminant plane.
+    
+        This function simulates a just-noticeable color difference (deltaE) starting from 
+        a reference color in Wishart space, along a specified chromatic direction, and finds 
+        the corresponding comparison stimulus in both RGB and W spaces.
+    
+        Parameters
+        ----------
+        W_ref : np.array of shape (3,)
+            Reference color in 2D Wishart space (with appended constant 1).
+        chrom_dir : np.array of shape (2,)
+            Normalized chromatic direction in Wishart space.
+        M_RGBTo2DW : np.array of shape (3, 3)
+            Transformation matrix from RGB to Wishart space.
+        M_2DWToRGB : np.array of shape (3, 3)
+            Transformation matrix from Wishart space to RGB.
+        deltaE : float
+            Desired perceptual color difference in CIELab space.
+        coloralg : str, default='CIE2000'
+            Algorithm used to compute perceptual color difference. Must be one of:
+            'CIE1976', 'CIE1994', or 'CIE2000'.
+    
+        Returns
+        -------
+        rgb_vecDir : np.array of shape (3,)
+            Chromatic direction vector in RGB space.
+        opt_vecLen : float
+            Length of the RGB vector that yields the desired deltaE.
+        rgb_comp_threshold : np.array of shape (3,)
+            Comparison color in RGB space at threshold.
+        W_comp_threshold : np.array of shape (2,)
+            Corresponding point in 2D Wishart space.
+    
+        """
+        if coloralg not in ['CIE1976', 'CIE1994', 'CIE2000']:
+            raise ValueError("The method can only be 'CIE1976' or 'CIE1994' or 'CIE2000'.")
+            
         # Step 1: Define a chromatic direction in W-space and convert to RGB
         chrom_dir_W = chrom_dir + W_ref[:2]  # Shifted chromatic direction
         chrom_dir_rgb = M_2DWToRGB @ np.append(chrom_dir_W, 1)  # Convert back to RGB
@@ -307,9 +353,9 @@ class SimThresCIELab:
         rgb_vecDir_temp = chrom_dir_rgb - rgb_ref  # Vector difference
         rgb_vecDir = rgb_vecDir_temp / np.linalg.norm(rgb_vecDir_temp)  # Normalize
 
-        # Step 3: Find vector length that produces ΔE = 1 in CIELab space
+        # Step 3: Find vector length that produces ΔE = deltaE in CIELab space
         opt_vecLen = self.find_vecLen(
-            rgb_ref, rgb_vecDir, deltaE = deltaE, coloralg=color_diff_algorithm
+            rgb_ref, rgb_vecDir, deltaE = deltaE, coloralg = coloralg
         )
 
         # Step 4: Compute threshold point in RGB space

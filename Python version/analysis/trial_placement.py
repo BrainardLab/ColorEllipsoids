@@ -241,7 +241,7 @@ class TrialPlacement_Isoluminant_sobolRef_gtCIE(NonAdaptiveTrialPlacement):
     def _initialize(self):
         """
         Initializes simulation arrays to store computed data, including:
-        - RGB comparison values
+        - Comparison stimuli in W shapce
         - Probability of correct response
         - Binary response (correct/incorrect)
         - (Optional) Lab values and deltaE differences
@@ -252,14 +252,14 @@ class TrialPlacement_Isoluminant_sobolRef_gtCIE(NonAdaptiveTrialPlacement):
                 
         # Common arrays for all cases
         self.sim.update({
-            'rgb_comp': np.full((3, self.sim['nSims']), np.nan),
+            'comp': np.full((3, self.sim['nSims']), np.nan),
             'probC': np.full((self.sim['nSims'],), np.nan),
             'resp_binary': np.full((self.sim['nSims'],), np.nan),
             'deltaE': np.full((self.sim['nSims'],), np.nan)
         })
          
-    def _validate_sampled_comp(self, rgb_comp):
-        return np.clip(rgb_comp, -1, 1)
+    def _validate_sampled_comp(self, comp):
+        return np.clip(comp, -1, 1)
     
     def _query(self, default_jitter = 0.1, default_trialNum = 6000):
         """
@@ -378,10 +378,11 @@ class TrialPlacement_Isoluminant_sobolRef_gtCIE(NonAdaptiveTrialPlacement):
                                         self.M_RGBTo2DW,
                                         self.M_2DWToRGB,
                                         self.sim['deltaE_1JND'],
-                                        color_diff_algorithm = self.colordiff_alg)
+                                        coloralg = self.colordiff_alg)
             
             jitter_i = self._add_jitter(ref_i[:2], threshold_point_W)
-            self.sim['rgb_comp'][:,i] = np.append(threshold_point_W + jitter_i, 1)
+            self.sim['comp'][:,i] = self._validate_sampled_comp(\
+                                    np.append(threshold_point_W + jitter_i, 1))
             
             # For each simulation, calculate color difference, probability of 
             #correct identification, and simulate binary responses based on the 
@@ -389,7 +390,7 @@ class TrialPlacement_Isoluminant_sobolRef_gtCIE(NonAdaptiveTrialPlacement):
             self.sim['deltaE'][i], self.sim['probC'][i], self.sim['resp_binary'][i] = \
                 self.run_sim_1ref(sim_CIELab, 
                                   self.sim['ref_points'][:,i], 
-                                  self.sim['rgb_comp'][:,i])
+                                  self.sim['comp'][:,i])
                 
 #%%
 class TrialPlacement_RGB_gridRef_gtCIE(NonAdaptiveTrialPlacement):
@@ -433,7 +434,7 @@ class TrialPlacement_RGB_gridRef_gtCIE(NonAdaptiveTrialPlacement):
     
         # Common arrays for all cases
         self.sim.update({
-            'rgb_comp': np.full(base_shape + (3, self.sim['nSims']), np.nan),
+            'comp': np.full(base_shape + (3, self.sim['nSims']), np.nan),
             'probC': np.full(base_shape + (self.sim['nSims'],), np.nan),
             'resp_binary': np.full(base_shape + (self.sim['nSims'],), np.nan),
             'deltaE': np.full(base_shape + (self.sim['nSims'],), np.nan)
@@ -781,7 +782,7 @@ class TrialPlacement_RGB_gridRef_gtCIE(NonAdaptiveTrialPlacement):
                 rgb_comp, _, _, _ = self.sample_rgb_comp_3DNearContour(rgb_ref, ellPara)
                 
             #store comparison stimuli
-            self.sim['rgb_comp'][idx] = rgb_comp
+            self.sim['comp'][idx] = rgb_comp
             
             #run the actual simulation
             self.sim['deltaE'][idx], self.sim['probC'][idx], self.sim['resp_binary'][idx] =\
