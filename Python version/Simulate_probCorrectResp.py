@@ -34,7 +34,8 @@ from plotting.wishart_plotting import PlotSettingsBase
 # Define base directories for saving figure and data files
 base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_analysis/'
 CIE_dir = '/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox/'
-output_figDir = os.path.join(base_dir, 'Simulation_FigFiles','Python_version','Isoluminant plane')
+output_figDir = os.path.join(base_dir, 'Simulation_FigFiles','Python_version',
+                             'Isoluminant plane')
 output_fileDir = os.path.join(base_dir, 'Simulation_DataFiles', 'Isoluminant plane')
 pltSettings_base = PlotSettingsBase(fig_dir=output_figDir, fontsize = 8)
 
@@ -57,7 +58,7 @@ stim_config = StimConfig(
     fixed_ref = False,
     M_RGBTo2DW=color_thres_data.M_RGBTo2DW,
     M_2DWToRGB=color_thres_data.M_2DWToRGB,
-    file_name=None
+    file_name=None 
 )
 
 EXAMPLE 2: GB/RG/RB plane, fixed ref
@@ -89,7 +90,7 @@ stim_config = StimConfig(
     fixed_ref = False,
     M_RGBTo2DW=color_thres_data.M_RGBTo2DW,
     M_2DWToRGB=color_thres_data.M_2DWToRGB,
-    file_name=None
+    file_name=None 
 )
 
 #%%
@@ -133,8 +134,9 @@ else:
 
 #%%
 #first visualize the Weibull psychometric functions
-sim_vis = TrialPlacementVisualization(sim_trial, settings = pltSettings_base,
-                                      save_fig= False)
+sim_vis = TrialPlacementVisualization(sim_trial, 
+                                      settings = pltSettings_base,
+                                      save_fig = True)
 pltSettings_PMF = replace(PlotWeibullPMFSettings(), **pltSettings_base.__dict__)
 x_PMF = np.linspace(0,6,100)
 sim_vis.plot_WeibullPMF(x_PMF, settings = pltSettings_PMF)
@@ -173,9 +175,16 @@ if not stim_config.fixed_ref:
         plt.show()
 else:
     pltSettings_2D = replace(Plot2DSampledCompSettings(), **pltSettings_base.__dict__)
+    #define figure name
+    str_ext = f'_{colordiff_alg}' if sim_trial.sim['plane_2D'] == 'Isoluminant plane' else ''
+    fig_name_firsthalf = f"_{sim_trial.sim['plane_2D']}{str_ext}"
+    fig_name_secondhalf = f"_sim{sim_trial.sim['nSims']}_perCond_sampling_{sim_trial.sim['method_sampling']}"
+    fig_name_end = f"_jitter{sim_trial.sim['random_jitter']}_seed{rnd_seed}"
+
     pltSettings_2D = replace(pltSettings_2D, 
-                             xbds = [-0.2, 0.2],
-                             ybds = [-0.2, 0.2])
+                             xbds = [-0.12, 0.12],
+                             ybds = [-0.12, 0.12],
+                             fig_name = f"Sim{fig_name_firsthalf}{fig_name_secondhalf}{fig_name_end}")
 
     # Visualize the sampled data from the simulation
     sim_vis.plot_2D_sampledComp(settings = pltSettings_2D)  
@@ -204,17 +213,13 @@ else:
     gt_comp_eg = PointsOnEllipseQ(ellPara_eg[2], ellPara_eg[3], ellPara_eg[4], ellPara_eg[0], ellPara_eg[1])
     
     #define figure name
-    str_ext = f'_{colordiff_alg}' if sim_trial.sim['plane_2D'] == 'Isoluminant plane' else ''
-    fig_name_firsthalf = f"Sims_transformation_{sim_trial.sim['plane_2D']}{str_ext}"+\
-        f"_dim1_{rgb_ref_eg[0]:.2f}_dim2_{rgb_ref_eg[1]:.2f}" +\
-        f"_sim{sim_trial.sim['nSims']}_perCond_sampling_{sim_trial.sim['method_sampling']}"
-    fig_name_secondhalf = f"_jitter{sim_trial.sim['random_jitter']}_seed{rnd_seed}"
+    fig_name_insert = f"_dim1_{rgb_ref_eg[0]:.2f}_dim2_{rgb_ref_eg[1]:.2f}" 
         
     #plot the transformation
     pltSettings_ts = replace(PlotTransformationSettings(), **pltSettings_base.__dict__)
     pltSettings_ts = replace(pltSettings_ts, 
                              colorcode_resp = True,
-                             fig_name = f"{fig_name_firsthalf}{fig_name_secondhalf}")
+                             fig_name = f"Transformation{fig_name_firsthalf}{fig_name_secondhalf}{fig_name_end}{fig_name_insert}")
     sim_vis.plot_transformation(rgb_comp_eg_3stepback, rgb_comp_eg_2stepback, 
                                 rgb_comp_eg_1stepback, rgb_comp_eg[sim_trial.sim['varying_RGBplane']],
                                 resp = sim_trial.sim['resp_binary'][row_eg, col_eg],

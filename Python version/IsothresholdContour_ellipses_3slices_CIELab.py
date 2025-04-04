@@ -7,17 +7,21 @@ This is a temporary script file.
 
 import sys
 import numpy as np
+from dataclasses import replace
 import pickle
+import os
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/"+\
                 "Python version")
 from analysis.simulations_CIELab import SimThresCIELab
-from plotting.sim_CIELab_plotting import CIELabVisualization
+from plotting.sim_CIELab_plotting import CIELabVisualization, Plot2DSinglePlaneSettings
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
 from analysis.ellipses_tools import fit_2d_isothreshold_contour
-
+from plotting.wishart_plotting import PlotSettingsBase 
 base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
-output_figDir = base_dir+ 'ELPS_analysis/Simulation_FigFiles/Python_version/CIE/'
-output_fileDir = base_dir+ 'ELPS_analysis/Simulation_DataFiles/'
+output_figDir = os.path.join(base_dir, 'ELPS_analysis','Simulation_FigFiles',
+                             'Python_version','CIE')
+output_fileDir = os.path.join(base_dir, 'ELPS_analysis','Simulation_DataFiles')
+pltSettings_base = PlotSettingsBase(fig_dir=output_figDir, fontsize = 16)
 
 #%% LOAD DATA WE NEED
 # Define the path to the directory containing the necessary files for the simulation
@@ -29,7 +33,7 @@ background_RGB = np.array([0.5,0.5,0.5])
 # Initialize the SimThresCIELab class with the path and background RGB values
 sim_thres_CIELab = SimThresCIELab(path_str, background_RGB)
 # For RG, RB, and GB planes, fix the B, G, and R values respectively to be 0.5
-fixed_RGBvec = 0.5
+fixed_RGBvec = 0.8
 # Define the lower and upper bounds for the varying color dimension in the fine grid
 lb_RGBvec_fine = 0
 ub_RGBvec_fine = 1
@@ -57,12 +61,12 @@ ref_points, grid_ref, X, Y = sim_thres_CIELab.get_planes(lb_RGBvec,
 numDirPts = 16
 grid_theta_xy = sim_thres_CIELab.set_chromatic_directions(num_dir_pts= numDirPts) 
 
-# Define the threshold value for deltaE (color difference in CIELab space) to be 1
-deltaE_1JND   = 2.5
-
 #define the algorithm for computing color difference
-color_diff_algorithm = 'CIE2000' #or 'CIE2000', 'CIE1994', 'CIE1976' (default)
+color_diff_algorithm = 'CIE1976' #or 'CIE2000', 'CIE1994', 'CIE1976' (default)
 str_append = '' if color_diff_algorithm == 'CIE1976' else '_'+color_diff_algorithm
+
+# Define the threshold value for deltaE (color difference in CIELab space) to be 1
+deltaE_1JND = 5 if color_diff_algorithm == 'CIE1976' else 2.5
 
 #%%make a finer grid for the direction (just for the purpose of visualization)
 #the raw isothreshold contou is very tiny, we can amplify it by 5 times for the purpose of visualization
@@ -113,38 +117,41 @@ for p in range(sim_thres_CIELab.nPlanes):
 
 #%% PLOTTING AND SAVING DATA
 sim_CIE_vis = CIELabVisualization(sim_thres_CIELab,
-                                  fig_dir=output_figDir, 
-                                  save_fig= False)
+                                  settings = pltSettings_base,
+                                  save_fig= True)
+plt2D_settings = replace(Plot2DSinglePlaneSettings(), **pltSettings_base.__dict__)
+plt2D_settings = replace(plt2D_settings, 
+                         visualize_raw_data = True,
+                         ell_lc = [1,1,1],
+                         ref_mc = [1,1,1],
+                         rgb_background = np.transpose(plane_points,(0,2,3,1)),
+                         fig_name = f'Isothreshold_contour_2D{str_append}.pdf')
 
 grid_est = np.stack((X,Y), axis = 2)
 sim_CIE_vis.plot_2D_all_planes(grid_est, 
-                    fitEllipse_scaled, 
-                    visualize_raw_data = True,
-                    rawData= rgb_comp_contour_scaled, 
-                    ell_lc = [1,1,1],
-                    ref_mc = [1,1,1],
-                    rgb_background = np.transpose(plane_points,(0,2,3,1)),
-                    fig_name = f'Isothreshold_contour_2D{str_append}.pdf')
+                               fitEllipse_scaled, 
+                               settings = plt2D_settings,
+                               rawData= rgb_comp_contour_scaled)
 
 #%%save to CSV
-# file_name   = f'Isothreshold_contour_CIELABderived_fixedVal{fixed_RGBvec}{str_append}.pkl'
-# full_path   = f"{output_fileDir}{file_name}"
+file_name = f'Isothreshold_contour_CIELABderived_fixedVal{fixed_RGBvec}{str_append}.pkl'
+full_path = os.path.join(output_fileDir, file_name)
 
-# #save all the stim info
-# stim_keys = ['fixed_RGBvec', 'plane_points', 'grid_ref', 'nGridPts_ref', 
-#              'ref_points', 'background_RGB','numDirPts', 'grid_theta_xy', 'deltaE_1JND']
-# stim = {}
-# for i in stim_keys: stim[i] = eval(i)
+#save all the stim info
+stim_keys = ['fixed_RGBvec', 'plane_points', 'grid_ref', 'nGridPts_ref', 
+             'ref_points', 'background_RGB','numDirPts', 'grid_theta_xy', 'deltaE_1JND']
+stim = {}
+for i in stim_keys: stim[i] = eval(i)
 
-# #save the results
-# results_keys = ['opt_vecLen', 'fitEllipse_scaled', 'fitEllipse_unscaled',\
-#                 'rgb_comp_contour_scaled', 'rgb_comp_contour_cov', 'ellParams']
-# results = {}
-# for i in results_keys: results[i] = eval(i)
+#save the results
+results_keys = ['opt_vecLen', 'fitEllipse_scaled', 'fitEllipse_unscaled',\
+                'rgb_comp_contour_scaled', 'rgb_comp_contour_cov', 'ellParams']
+results = {}
+for i in results_keys: results[i] = eval(i)
     
-# # Write the list of dictionaries to a file using pickle
-# with open(full_path, 'wb') as f:
-#     pickle.dump([sim_thres_CIELab, stim, results], f)
+# Write the list of dictionaries to a file using pickle
+with open(full_path, 'wb') as f:
+    pickle.dump([sim_thres_CIELab, stim, results], f)
 
 
 

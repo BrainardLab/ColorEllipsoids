@@ -258,7 +258,7 @@ class CIELabVisualization(PlottingTools):
     
         # Create a figure with multiple subplots if `ax` is not provided.
         if ax is None:
-            fig, axes = plt.subplots(1, settings.sim_CIE.nPlanes, figsize=(20, 6), 
+            fig, axes = plt.subplots(1, self.sim_CIE.nPlanes, figsize=(20, 6), 
                                      dpi=settings.dpi)
         else:
             fig = ax.figure
@@ -271,8 +271,9 @@ class CIELabVisualization(PlottingTools):
             else:
                 bg = None
             settings.plane_2D = settings.plane_names[p]
-            self.plot_2D_single_plane(grid_est, fitEllipse[p], rawData[p], 
-                                      axes[p], rgb_background = bg)
+            self.plot_2D_single_plane(grid_est, fitEllipse[p], settings = settings, 
+                                      rawData = rawData[p], 
+                                      ax = axes[p], rgb_background = bg)
     
         # Save and display the figure
         plt.show()
