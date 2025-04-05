@@ -147,7 +147,7 @@ class CIELabVisualization(PlottingTools):
         # Save the plot with bbox_inches='tight' to ensure labels are not cropped
         plt.show()
         if settings.fig_dir and self.save_fig:
-            self._save_figure(fig, settings.fig_name)
+            self._save_figure(fig, os.path.join(settings.fig_dir, settings.fig_name))
         return fig, ax
     
     def plot_Tcones(self, settings: PlotTconesSettings, ax = None):
@@ -165,7 +165,7 @@ class CIELabVisualization(PlottingTools):
             ax.set_yticks([])
         plt.show()
         if settings.fig_dir and self.save_fig:
-            self._save_figure(fig, settings.fig_name)
+            self._save_figure(fig, os.path.join(settings.fig_dir, settings.fig_name))
         return fig, ax
     
     def plot_RGB_to_LAB(self, ref_rgb, ref_lab, settings: PlotRGBToLABSettings, ax = None):
@@ -241,11 +241,10 @@ class CIELabVisualization(PlottingTools):
         ax[1].set_title('CIELab space')
         ax[1].view_init(*settings.lab_viewing_angle)
         # Save the plot with bbox_inches='tight' to ensure labels are not cropped
-        if settings.fig_dir and self.save_fig:
-            plt.savefig(settings.fig_dir + settings.fig_name, bbox_inches='tight',
-                    pad_inches=0.3)
-
         plt.show()
+        if settings.fig_dir and self.save_fig:
+            self._save_figure(fig, os.path.join(settings.fig_dir, settings.fig_name))
+
         return fig, ax
 
     def plot_2D_all_planes(self, grid_est, fitEllipse, settings: Plot2DSinglePlaneSettings,
@@ -278,7 +277,7 @@ class CIELabVisualization(PlottingTools):
         # Save and display the figure
         plt.show()
         if settings.fig_dir and self.save_fig:
-            self._save_figure(fig, settings.fig_name)
+            self._save_figure(fig, os.path.join(settings.fig_dir, settings.fig_name))
     
         return fig, axes
     
@@ -387,15 +386,14 @@ class CIELabVisualization(PlottingTools):
                            s=settings.scatter_ms, 
                            c= scatter_color, edgecolor = 'none',
                            alpha= settings.scatter_alpha)
-        self._update_axes_limits(ax, lim = settings.lim)
-        self._configure_labels_and_title(ax)
-        self._update_axes_labels(ax, settings.ticks, settings.ticks, nsteps = 1)
+        self._update_axes_limits(ax, lim = settings.lim, ndims = self.ndims)
+        self._configure_labels_and_title(ax, ndims= self.ndims, title = 'RGB cube')
+        self._update_axes_labels(ax, settings.ticks, settings.ticks,
+                                 ndims = self.ndims, nsteps = 1)
         ax.view_init(elev=settings.view_angle[0], azim=settings.view_angle[1])   # Adjust viewing angle for better visualization
-        # Show the figure after all subplots have been drawn
-        # Show the figure after all subplots have been drawn
-        if settings.fig_dir and self.save_fig:
-            plt.savefig(os.path.join(settings.fig_dir, settings.fig_name))
         plt.show()
+        if settings.fig_dir and self.save_fig:
+            self._save_figure(fig, os.path.join(settings.fig_dir, settings.fig_name))
         return fig, ax
             
     #%%

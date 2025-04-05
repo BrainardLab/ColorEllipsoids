@@ -605,147 +605,170 @@ class TrialPlacement_RGB_gridRef_gtCIE(NonAdaptiveTrialPlacement):
 
         return randx, randy, randz, randx_noNoise, randy_noNoise, randz_noNoise
  
-    def run_sim_1ref(self, sim_CIELab, rgb_ref, rgb_comp):
+    def run_sim_1ref(self, sim_CIELab, ref, comp):
         """
-        Simulates comparison stimuli near a fixed reference color.
-    
-        Since the reference points are fixed on a grid, this function generates 
-        multiple comparison stimuli around each reference. The loop iterates 
-        through `nSims` trials, computing color differences, probabilities of 
-        correct identification, and binary responses.
+        Simulates responses for comparison stimuli around a single reference point.
 
+        This method computes perceptual differences (ΔE), probability of correct 
+        responses using a Weibull function, and simulates binary responses for a 
+        set of comparison stimuli around a fixed reference.
+
+        Parameters
+        ----------
+        sim_CIELab : SimThresCIELab object
+            Used to compute perceptual differences (delta E).
+        ref : array-like, shape (3,)
+            Reference stimulus (in RGB or Wishart space).
+        comp : array-like, shape (3, nSims)
+            Comparison stimuli (in RGB or Wishart space).
+
+        Returns
+        -------
+        deltaE : ndarray, shape (nSims,)
+            Perceptual differences between reference and comparison stimuli.
+        probC : ndarray, shape (nSims,)
+            Probability of correct identification based on ΔE.
+        resp_binary : ndarray, shape (nSims,)
+            Simulated binary responses (1 = correct, 0 = incorrect).
         """
         nSims = self.sim['nSims']
         
-        #initialize
+        # Initialize outputs
         deltaE = np.full((nSims,), np.nan)
         probC = np.full((nSims,), np.nan)
         resp_binary = np.full((nSims,), np.nan)
         
+        # Convert to RGB space if operating in Wishart space
         if self.flag_W_space:
-            actual_rgb_ref = self.M_2DWToRGB @ rgb_ref
-            actual_rgb_comp = self.M_2DWToRGB @ rgb_comp
+            rgb_ref = self.M_2DWToRGB @ ref
+            rgb_comp = self.M_2DWToRGB @ comp
         else:
-            actual_rgb_ref = rgb_ref
-            actual_rgb_comp = rgb_comp
+            rgb_ref = ref
+            rgb_comp = comp
             
-        # For each simulation, calculate color difference, probability of 
-        #correct identification, and simulate binary responses based on the 
-        #probability.
+        # Compute deltaE and probability of correct response for each comparison
         for n in range(nSims):
-            deltaE[n] = sim_CIELab.compute_deltaE(actual_rgb_ref, None,None,
-                                        comp_RGB=actual_rgb_comp[:,n], 
-                                        method=self.colordiff_alg)
-            
-            # Calculate the probability of correct identification using the 
-            #Weibull function.
-            probC[n] = self.WeibullFunc(deltaE[n],
-                                        self.sim['alpha'], 
-                                        self.sim['beta'], 
-                                        self.sim['guessing_rate'])
-        # Simulate binary responses (0 or 1) based on the calculated probabilities.
-        randNum = np.random.rand(nSims) 
+            deltaE[n] = sim_CIELab.compute_deltaE(rgb_ref, None, None,
+                comp_RGB=rgb_comp[:, n], method=self.colordiff_alg
+            )
+            probC[n] = self.WeibullFunc(deltaE[n],self.sim['alpha'], 
+                self.sim['beta'], self.sim['guessing_rate']
+            )
+
+        # Simulate binary responses using Bernoulli sampling
+        randNum = np.random.rand(nSims)
         resp_binary = (randNum < probC).astype(int)
-            
+        
         return deltaE, probC, resp_binary
 
-    def sample_rgb_comp_2DNearContour(self, rgb_ref, paramEllipse):
+    def sample_comp_2DNearContour(self, ref, paramEllipse):
         """
-        Samples RGB compositions near an isothreshold ellipsoidal contour.
-        This function generates simulated RGB compositions based on a reference
-        RGB value and parameters defining an ellipsoidal contour. The function
-        is designed to vary two of the RGB dimensions while keeping the third fixed,
-        simulating points near the contour of an ellipsoid in RGB color space.
-    
+        Samples comparison stimuli near a 2D elliptical isothreshold contour.
+
+        This function generates simulated comparison stimuli based on a reference
+        point and the parameters of an ellipse. If the simulation is performed in 
+        RGB space (e.g., RG/RB/GB planes), `ref` and outputs are RGB values bounded 
+        between -1 and 1. If the simulation is on the isoluminant plane, the values 
+        are in Wishart space, also bounded between -1 and 1, with the third dimension 
+        filled with 1s.
+
         Parameters
         ----------
-        - rgb_ref (array): The reference RGB value around which to simulate new 
-            points. This RGB value defines the center of the ellipsoidal contour 
-            in RGB space. This array only includes RGB of varying dimensions
-        - paramEllipse (array): Parameters defining the ellipsoid contour. 
-            Includes the center coordinates in the varying dimensions, the lengths 
-            of the semi-axes of the ellipsoid in the plane of variation, and the 
-            rotation angle of the ellipsoid in degrees.
-            Expected format: [xc, yc, semi_axis1_length, semi_axis2_length, rotation_angle].
-    
+        ref : array-like, shape (3,)
+            The reference stimulus. Only the varying dimensions are updated.
+        paramEllipse : array-like, shape (5,)
+            Ellipse parameters: [xc, yc, semi_axis1, semi_axis2, rotation_angle (deg)]
+
         Returns
         -------
-        - rgb_comp_sim (array): A 3xN array of simulated RGB compositions, 
-            where N is the number of simulations (`nSims`). Each column represents 
-            an RGB composition near the specified ellipsoidal contour in RGB color 
-            space. The row order corresponds to R, G, and B dimensions, respectively.
-    
+        comp_sim : array, shape (3, nSims)
+            Simulated comparison stimuli.
+        rand_stretched : array, shape (2, nSims)
+            Ellipse-transformed coordinates.
+        rand_noisy : array, shape (2, nSims)
+            Unit circle points with added noise.
+        rand_noNoise : array, shape (2, nSims)
+            Original unit circle points without noise.
         """
-            
-        #Initialize the output matrix with nans
-        rgb_comp_sim = np.full((3, self.sim['nSims']), np.nan)
         
-        #Generate random angles to simulate points around the ellipse.
+        # Initialize output matrix
+        comp_sim = np.full((3, self.sim['nSims']), np.nan)
+
+        # Generate noisy and noise-free points on a unit circle
         randx, randy, randx_noNoise, randy_noNoise = self._random_points_on_unit_circle()
         
-        #adjust coordinates based on the ellipsoid's semi-axis lengths
-        randx_stretched, randy_stretched =stretch_unit_circle(\
+        # Stretch unit circle to match ellipse shape
+        randx_stretched, randy_stretched = stretch_unit_circle(
             randx, randy, paramEllipse[2], paramEllipse[3])
-        
-        #calculate the varying RGB dimensions, applying rotation and translation 
-        #based on the reference RGB values and ellipsoid parameters            
-        rgb_comp_sim[self.sim['varying_RGBplane']] = \
-            rotate_relocate_stretched_ellipse(randx_stretched,
-                                              randy_stretched, 
-                                              paramEllipse[-1], 
-                                              *rgb_ref[self.sim['varying_RGBplane']])
-            
-        #make sure the sampled comparison stimuli are within the desired boundaries
-        rgb_comp_sim = self._validate_sampled_comp(rgb_comp_sim)
-        
-        #stuff other than rgb_comp_sim are returned because we may want to plot
-        #the transformation from unit circle to simulated data
-        return rgb_comp_sim, np.vstack((randx_stretched, randy_stretched)),\
-            np.vstack((randx, randy)), np.vstack((randx_noNoise, randy_noNoise))   
 
-    def sample_rgb_comp_3DNearContour(self, rgb_ref, paramEllipsoid):
-        """
-        Simulates RGB components near the surface of an ellipsoid contour. This can 
-        be used for generating test points in color space around a reference color.
+        # Rotate and translate points based on reference and ellipse parameters
+        comp_sim[self.sim['varying_RGBplane']] = rotate_relocate_stretched_ellipse(
+            randx_stretched, randy_stretched, paramEllipse[-1],
+            *ref[self.sim['varying_RGBplane']])
         
-        Parameters:
-        - rgb_ref: The reference RGB stimulus.
-        - radii: The radii of the ellipsoid along its principal axes.
-        - eigenVec: The eigenvectors defining the orientation of the ellipsoid.
-        - jitter: The standard deviation of the Gaussian noise added to simulate 
-            points near the surface.
-        
-        Returns:
-        - rgb_comp_sim: A 3xN matrix containing the simulated RGB components.
+        # Clip values to remain within the valid space
+        comp_sim = self._validate_sampled_comp(comp_sim)
+
+        # Return simulated data and intermediate transformations
+        return comp_sim, \
+            np.vstack((randx_stretched, randy_stretched)), \
+            np.vstack((randx, randy)), \
+            np.vstack((randx_noNoise, randy_noNoise))
+
+    def sample_comp_3DNearContour(self, ref, paramEllipsoid):
         """
+        Samples comparison stimuli near a 3D isothreshold ellipsoidal contour.
+
+        This function generates simulated comparison stimuli around a reference
+        point using ellipsoid parameters. If simulated in RGB space, both `ref` 
+        and outputs are RGB values bounded between -1 and 1. If simulated in 
+        Wishart space (e.g., isoluminant plane extended to 3D), values follow 
+        the same convention with bounded units.
+
+        Parameters
+        ----------
+        ref : array-like, shape (3,)
+            The reference stimulus (RGB or Wishart).
+        paramEllipsoid : dict with keys ['radii', 'evecs']
+            - radii: array-like, shape (3,)
+                Semi-axis lengths of the ellipsoid.
+            - evecs: array-like, shape (3, 3)
+                Eigenvectors defining the ellipsoid orientation.
+
+        Returns
+        -------
+        comp_sim : array, shape (3, nSims)
+            Simulated comparison stimuli.
+        rand_stretched : array, shape (3, nSims)
+            Ellipsoid-transformed coordinates.
+        rand_noisy : array, shape (3, nSims)
+            Unit sphere points with noise.
+        rand_noNoise : array, shape (3, nSims)
+            Original unit sphere points without noise.
+        """
+        
         radii, eigenVec = paramEllipsoid['radii'], paramEllipsoid['evecs']
         
+        # Generate noisy and noise-free points on a unit sphere
         randx, randy, randz, randx_noNoise, randy_noNoise, randz_noNoise = \
             self._random_points_on_unit_sphere()
         
-        #Stretch the random points by the ellipsoid's semi-axes lengths to fit
-        # the ellipsoid's shape. This effectively scales the unit sphere points
-        # to the size of the ellipsoid along each principal axis.
-        randx_stretched, randy_stretched, randz_stretched =\
-            stretch_unit_circle(randx, randy, radii[0], radii[1], z = randz, ax_length_z = radii[2])
+        # Stretch to match ellipsoid dimensions
+        randx_stretched, randy_stretched, randz_stretched = stretch_unit_circle(
+            randx, randy, radii[0], radii[1], z=randz, ax_length_z=radii[2])
         
-        #Combine the stretched coordinates into a single matrix. Each column
-        # represents the (x, y, z) coordinates of a point.
+        # Stack coordinates
         xyz = np.vstack((randx_stretched, randy_stretched, randz_stretched))
         
-        #Rotate and translate the simulated points to their correct positions
-        #in RGB space. The rotation is defined by the ellipsoid's eigenvectors
-        #(orientation), and the translation moves the ellipsoid to be centered
-        #at the reference RGB value. This step aligns the ellipsoid with its
-        #proper orientation and position as defined by the input parameters.
-        rgb_comp_sim = eigenVec @ xyz + np.reshape(rgb_ref,(-1,1))
+        # Rotate and translate based on ellipsoid orientation and center
+        comp_sim = eigenVec @ xyz + np.reshape(ref, (-1, 1))
         
-        #make sure the sampled comparison stimuli are within the desired boundaries
-        rgb_comp_sim = self._validate_sampled_comp(rgb_comp_sim)
+        # Clip values to remain in valid space
+        comp_sim = self._validate_sampled_comp(comp_sim)
         
-        #stuff other than rgb_comp_sim are returned because we may want to plot
-        #the transformation from unit circle to simulated data
-        return rgb_comp_sim, np.vstack((randx_stretched, randy_stretched, randz_stretched)),\
+        # Return simulated data and intermediate transformations
+        return comp_sim, \
+            np.vstack((randx_stretched, randy_stretched, randz_stretched)), \
             np.vstack((randx, randy, randz)), \
             np.vstack((randx_noNoise, randy_noNoise, randz_noNoise))
 
@@ -769,24 +792,29 @@ class TrialPlacement_RGB_gridRef_gtCIE(NonAdaptiveTrialPlacement):
         shape = (N,) * self.ndims
         
         for idx in np.ndindex(shape):
-            #extract the reference RGB value
-            rgb_ref = self.sim['ref_points'][idx]
+            #extract the reference value
+            #Note that if we are doing the calculation on the isoluminant plane,
+            #then the reference and comparison stimuli are in Wishart space, bounded
+            #between -1 and 1. If we are doing the calculatins on the RG/GB/RB
+            #planes, then the reference and comparison stimuli are in the RGB space
+            #bounded between -1 and 1.
+            ref = self.sim['ref_points'][idx]
             
             #extract ground truth parameters (ellipse or ellipsoid)
             ellPara = self._extract_ground_truth(idx)
             
             #Generate comparison stimuli based on 2D or 3D sampling
             if self.ndims == 2:
-                rgb_comp, _, _, _ = self.sample_rgb_comp_2DNearContour(rgb_ref, ellPara)
+                comp, _, _, _ = self.sample_comp_2DNearContour(ref, ellPara)
             else:
-                rgb_comp, _, _, _ = self.sample_rgb_comp_3DNearContour(rgb_ref, ellPara)
+                comp, _, _, _ = self.sample_comp_3DNearContour(ref, ellPara)
                 
             #store comparison stimuli
-            self.sim['comp'][idx] = rgb_comp
+            self.sim['comp'][idx] = comp
             
             #run the actual simulation
             self.sim['deltaE'][idx], self.sim['probC'][idx], self.sim['resp_binary'][idx] =\
-                self.run_sim_1ref(sim_CIELab, rgb_ref, rgb_comp)
+                self.run_sim_1ref(sim_CIELab, ref, comp)
 
     
 #%% NOTE THAT THIS CLASS NEEDS DEBUGGING !!! DO NOT USE IT NOW
@@ -936,7 +964,7 @@ class TrialPlacementWithoutAdaptiveSampling:
                 ellPara = self._extract_ground_truth([i,j])
                 
                 #Generate the comparison stimulus based on the sampling method
-                self.sim['rgb_comp'][i,j], _, _, _ = self.sample_rgb_comp_2DNearContour(rgb_ref_ij, ellPara)      
+                self.sim['rgb_comp'][i,j], _, _, _ = self.sample_comp_2DNearContour(rgb_ref_ij, ellPara)      
                     
                 #if the ground truth is the Wishart fit, then we
                 #repeat the ref to match the size of the sampled comparison stimuli

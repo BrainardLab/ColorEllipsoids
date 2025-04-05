@@ -210,15 +210,15 @@ class TrialPlacementVisualization(PlottingTools):
                 #find indices that correspond to a response of 1 / 0
                 idx_1 = np.where(sim['resp_binary'][i,j] == 1)
                 idx_0 = np.where(sim['resp_binary'][i,j] == 0)
-                ax_idx.scatter(sim['rgb_comp'][i, j, vIdx[0], idx_1],
-                               sim['rgb_comp'][i, j, vIdx[1], idx_1],
+                ax_idx.scatter(sim['comp'][i, j, vIdx[0], idx_1],
+                               sim['comp'][i, j, vIdx[1], idx_1],
                                s = settings.ms, 
                                marker= settings.m1,
                                c= settings.mc1,
                                alpha= settings.alpha)
                     
-                ax_idx.scatter(sim['rgb_comp'][i, j, vIdx[0], idx_0], 
-                               sim['rgb_comp'][i, j, vIdx[1], idx_0], 
+                ax_idx.scatter(sim['comp'][i, j, vIdx[0], idx_0], 
+                               sim['comp'][i, j, vIdx[1], idx_0], 
                                s = settings.ms, 
                                marker= settings.m0, 
                                c= settings.mc0,
