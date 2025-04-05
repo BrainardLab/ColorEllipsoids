@@ -34,8 +34,8 @@ background_RGB = np.array([0.5,0.5,0.5])
 sim_thres_CIELab = SimThresCIELab(background_RGB)
 
 #define the algorithm for computing color difference
-color_diff_algorithm = 'CIE2000' #or 'CIE2000', 'CIE1994', 'CIE1976' (default)
-str_append = '' if color_diff_algorithm == 'CIE1976' else '_'+color_diff_algorithm
+color_diff_algorithm = 'CIE1994' #or 'CIE2000', 'CIE1994', 'CIE1976' (default)
+str_append = '' if color_diff_algorithm == 'CIE1976' else f'_{color_diff_algorithm}'
 
 #%%
 file_name = f'Isothreshold_ellipsoid_CIELABderived{str_append}.pkl'

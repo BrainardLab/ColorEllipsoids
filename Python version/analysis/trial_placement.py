@@ -444,7 +444,8 @@ class TrialPlacement_RGB_gridRef_gtCIE(NonAdaptiveTrialPlacement):
         #fill in the fixed value
         #if we are dealing with GB/RB/RG planes, then we need to fill in 0.5 for R/G/B
         #if we are dealing with the isoluminant plane, then we need to fill in 1 at the last row
-        rgb_comp[self.sim['slc_RGBplane'],:] = self.sim['slc_fixedVal']
+        if self.ndims == 2:
+            rgb_comp[self.sim['slc_RGBplane'],:] = self.sim['slc_fixedVal']
         
         #check whether the sampled comparison stimuli exceed the boundary
         if self.flag_W_space:

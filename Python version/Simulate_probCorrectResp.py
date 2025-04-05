@@ -10,6 +10,7 @@ import sys
 import os
 import numpy as np
 import pickle
+import dill as pickled
 import matplotlib.pyplot as plt
 from dataclasses import replace
 import jax
@@ -33,14 +34,12 @@ from plotting.wishart_plotting import PlotSettingsBase
 
 # Define base directories for saving figure and data files
 base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_analysis/'
-CIE_dir = '/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/FilesFromPsychtoolbox/'
 output_figDir = os.path.join(base_dir, 'Simulation_FigFiles','Python_version',
                              'Isoluminant plane')
 output_fileDir = os.path.join(base_dir, 'Simulation_DataFiles', 'Isoluminant plane')
 pltSettings_base = PlotSettingsBase(fig_dir=output_figDir, fontsize = 8)
 
 #%% 
-flag_grid = True
 #specify the seed
 rnd_seed = 0
 colordiff_alg = 'CIE1994'
@@ -85,21 +84,20 @@ stim_config = StimConfig(
 
 """
 stim_config = StimConfig(
-    fixed_plane ='lum',
+    fixed_plane ='B', #could be R, G, or B
     gt = colordiff_alg,
-    fixed_ref = False,
-    M_RGBTo2DW=color_thres_data.M_RGBTo2DW,
-    M_2DWToRGB=color_thres_data.M_2DWToRGB,
-    file_name=None 
+    fixed_ref = True,
+    M_RGBTo2DW= None,
+    M_2DWToRGB= None,
+    file_name=f'Isothreshold_contour_CIELABderived_fixedVal0.5_{colordiff_alg}.pkl'
 )
+
 
 #%%
 if stim_config.fixed_ref:
-    #load this file if we want to sample trials on the isoluminant plane
-    full_path = f"{base_dir}/Simulation_DataFiles/{stim_config.file_name}"
-
     #Here is what we do if we want to load the data
-    with open(full_path, 'rb') as f: gt_CIE = pickle.load(f)
+    with open(color_thres_data.file_path_CIE_data, 'rb') as f: 
+        gt_CIE = pickle.load(f)
     sim_trial = TrialPlacement_RGB_gridRef_gtCIE(gt_CIE,
                                                  config = stim_config,
                                                  random_seed = rnd_seed)
@@ -120,15 +118,14 @@ print(f"target probability: {sim_trial.sim['pC_given_alpha_beta']}")
 
 # Initialize the SimThresCIELab object with a path to necessary files and background RGB value
 background_RGB = np.array([0.5, 0.5, 0.5])
-sim_CIELab = SimThresCIELab(CIE_dir, background_RGB)
-
+sim_CIELab = SimThresCIELab(background_RGB)
 
 if stim_config.fixed_ref:
     # Run the simulation with the specified random seed
     sim_trial.run_sim(sim_CIELab)
 else:
-    sobol_lb = [-0.75, -0.75, 0]
-    sobol_ub = [0.75, 0.75, 360]
+    sobol_lb = [-0.8, -0.8, 0]
+    sobol_ub = [0.8, 0.8, 360]
     sim_trial.run_sim(sim_CIELab, sobol_bounds_lb = sobol_lb, sobol_bounds_ub = sobol_ub)    
     
 
@@ -160,7 +157,7 @@ if not stim_config.fixed_ref:
     slc_datapoints_to_show_lb = [0, 300]
     slc_datapoints_to_show_ub = [300, 600]
     xref_jnp = jnp.array(sim_trial.sim['ref_points'])[:2,:].T #the last row is a filler row (all 1's)
-    x1_jnp = jnp.array(sim_trial.sim['rgb_comp'])[:2,:].T #so we can just get rid of that row
+    x1_jnp = jnp.array(sim_trial.sim['comp'])[:2,:].T #so we can just get rid of that row
     
     # Loop over the selected data points to generate and visualize each corresponding figure.
     for i, (lb_i, ub_i) in enumerate(zip(slc_datapoints_to_show_lb, slc_datapoints_to_show_ub)):
@@ -178,12 +175,13 @@ else:
     #define figure name
     str_ext = f'_{colordiff_alg}' if sim_trial.sim['plane_2D'] == 'Isoluminant plane' else ''
     fig_name_firsthalf = f"_{sim_trial.sim['plane_2D']}{str_ext}"
-    fig_name_secondhalf = f"_sim{sim_trial.sim['nSims']}_perCond_sampling_{sim_trial.sim['method_sampling']}"
+    fig_name_secondhalf = f"_sim{sim_trial.sim['nSims']}_perCond_sampling_"+\
+        f"{sim_trial.sim['method_sampling']}"
     fig_name_end = f"_jitter{sim_trial.sim['random_jitter']}_seed{rnd_seed}"
 
     pltSettings_2D = replace(pltSettings_2D, 
-                             xbds = [-0.12, 0.12],
-                             ybds = [-0.12, 0.12],
+                             xbds = [-0.15, 0.15],
+                             ybds = [-0.15, 0.15],
                              fig_name = f"Sim{fig_name_firsthalf}{fig_name_secondhalf}{fig_name_end}")
 
     # Visualize the sampled data from the simulation
@@ -199,7 +197,7 @@ else:
     rgb_ref_eg = sim_trial.sim['ref_points'][row_eg, col_eg] #sim_trial.sim['varying_RGBplane']
     # Retrieve the ground truth ellipses during the transformation process
     rgb_comp_eg, rgb_comp_eg_1stepback, rgb_comp_eg_2stepback, rgb_comp_eg_3stepback =\
-        sim_trial.sample_rgb_comp_2DNearContour(rgb_ref_eg, ellPara_eg) 
+        sim_trial.sample_comp_2DNearContour(rgb_ref_eg, ellPara_eg) 
         
     # Compute the ground truth for each step of the transformation process
     nTheta = 200
@@ -219,7 +217,8 @@ else:
     pltSettings_ts = replace(PlotTransformationSettings(), **pltSettings_base.__dict__)
     pltSettings_ts = replace(pltSettings_ts, 
                              colorcode_resp = True,
-                             fig_name = f"Transformation{fig_name_firsthalf}{fig_name_secondhalf}{fig_name_end}{fig_name_insert}")
+                             fig_name = f"Transformation{fig_name_firsthalf}"+\
+                                 f"{fig_name_secondhalf}{fig_name_end}{fig_name_insert}")
     sim_vis.plot_transformation(rgb_comp_eg_3stepback, rgb_comp_eg_2stepback, 
                                 rgb_comp_eg_1stepback, rgb_comp_eg[sim_trial.sim['varying_RGBplane']],
                                 resp = sim_trial.sim['resp_binary'][row_eg, col_eg],
@@ -248,6 +247,6 @@ for var_name in variable_names:
 
 # Write the list of dictionaries to a file using pickle
 with open(full_path, 'wb') as f:
-    pickle.dump(vars_dict, f)
+    pickled.dump(vars_dict, f)
 
 

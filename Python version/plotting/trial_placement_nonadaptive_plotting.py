@@ -241,103 +241,99 @@ class TrialPlacementVisualization(PlottingTools):
         if settings.fig_dir and self.save_fig:
             self._save_figure(fig, settings.fig_name)
         return fig, ax
-        
+            
     @staticmethod
     def plot_3D_sampledComp(ref_points, fitEllipsoid_unscaled, sampledComp,
                             fixedPlane, fixedPlaneVal, settings: Plot3DSampledCompSettings,
-                            save_fig = False):
+                            save_fig=False):
         
-        #Determine the indices of the reference points based on the fixed 
-        # plane specified ('R', 'G', or 'B' for different color channels)
-        if fixedPlane =='R':
-            idx_x = np.where(np.abs(ref_points - fixedPlaneVal)< 1e-6)[0][0]
-        elif fixedPlane == 'G':
-            idx_y = np.where(np.abs(ref_points - fixedPlaneVal)< 1e-6)[0][0]
-        elif fixedPlane == 'B':
-            idx_z = np.where(np.abs(ref_points - fixedPlaneVal)< 1e-6)[0][0]
-        else:
+        # Map fixed plane to axis index
+        plane_to_index = {'R': 0, 'G': 1, 'B': 2}
+        if fixedPlane not in plane_to_index:
             return
+        
+        fixed_idx = np.where(np.abs(ref_points - fixedPlaneVal) < 1e-6)[0][0]
+        fixed_dim = plane_to_index[fixedPlane]
         
         nGridPts_dim1 = len(settings.slc_grid_ref_dim1)
         nGridPts_dim2 = len(settings.slc_grid_ref_dim2)
-        ref_points_idx = np.array(list(range(len(ref_points))))
-        
-        fig, axs = plt.subplots(nGridPts_dim2, nGridPts_dim1, subplot_kw={'projection': '3d'}, \
+        ref_points_idx = np.arange(len(ref_points))
+    
+        fig, axs = plt.subplots(nGridPts_dim2, nGridPts_dim1, subplot_kw={'projection': '3d'},
                                 figsize=settings.fig_size)
-        for j in range(nGridPts_dim2-1,-1,-1):
-            jj = ref_points_idx[settings.slc_grid_ref_dim2[nGridPts_dim2-j-1]]
+    
+        for j in range(nGridPts_dim2 - 1, -1, -1):
+            jj = ref_points_idx[settings.slc_grid_ref_dim2[nGridPts_dim2 - j - 1]]
             for i in range(nGridPts_dim1):
                 ii = ref_points_idx[settings.slc_grid_ref_dim1[i]]
-                
                 ax = axs[j, i]
+    
+                # Determine indices depending on fixed dimension
+                indices = [0, 0, 0]
+                varying_dims = [d for d in range(3) if d != fixed_dim]
+                indices[fixed_dim] = fixed_idx
+                indices[varying_dims[0]] = ii
+                indices[varying_dims[1]] = jj
+    
+                slc_ref = np.array([
+                    ref_points[indices[0]],
+                    ref_points[indices[1]],
+                    ref_points[indices[2]]
+                ])
+    
+                slc_gt = fitEllipsoid_unscaled[tuple(indices)]
+                slc_rgb_comp = sampledComp[tuple(indices)]
+    
                 base_shape = (settings.nPhi, settings.nTheta)
-                if fixedPlane == 'R':
-                    slc_ref = np.array([fixedPlaneVal, ref_points[ii], ref_points[jj]])
-                    slc_gt = fitEllipsoid_unscaled[idx_x, ii,jj,:,:]
-                    slc_rgb_comp = sampledComp[idx_x, ii,jj,:,:]
-                elif fixedPlane == 'G':
-                    slc_ref = np.array([ref_points[ii], fixedPlaneVal, ref_points[jj]])
-                    slc_gt = fitEllipsoid_unscaled[ii,idx_y,jj,:,:]
-                    slc_rgb_comp = sampledComp[ii,idx_y,jj,:,:]
-                elif fixedPlane == 'B':
-                    slc_ref = np.array([ref_points[ii], ref_points[jj], fixedPlaneVal])
-                    slc_gt = fitEllipsoid_unscaled[ii,jj,idx_z,:,:]
-                    slc_rgb_comp = sampledComp[ii,jj,idx_z,:,:]
-                slc_gt_x = np.reshape(slc_gt[0,:], base_shape)
-                slc_gt_y = np.reshape(slc_gt[1,:], base_shape)
-                slc_gt_z = np.reshape(slc_gt[2,:], base_shape)
-                       
-                #subplot
+                slc_gt_x = np.reshape(slc_gt[0], base_shape)
+                slc_gt_y = np.reshape(slc_gt[1], base_shape)
+                slc_gt_z = np.reshape(slc_gt[2], base_shape)
+    
+                # Plot ellipsoid surface
                 if settings.visualize_ellipsoid:
-                    if settings.scaled_neg12pos1: color_v = (slc_ref+1)/2
-                    else: color_v = slc_ref
-                    ax.plot_surface(slc_gt_x, slc_gt_y, slc_gt_z, \
-                        color=color_v, edgecolor='none', alpha=0.5)
-                    
+                    color_v = (slc_ref + 1) / 2 if settings.scaled_neg12pos1 else slc_ref
+                    ax.plot_surface(slc_gt_x, slc_gt_y, slc_gt_z, color=color_v,
+                                    edgecolor='none', alpha=0.5)
+    
+                # Plot sampled points
                 if settings.visualize_samples:
-                    ax.scatter(slc_rgb_comp[0,:], slc_rgb_comp[1,:], slc_rgb_comp[2,:],\
-                               s=settings.markerSize_samples, c= [0,0,0],
-                               alpha=settings.samples_alpha)
-                        
-                ax.set_xlim(slc_ref[0]+np.array(settings.bds * np.array([-1,1]))); 
-                ax.set_ylim(slc_ref[1]+np.array(settings.bds * np.array([-1,1])));  
-                ax.set_zlim(slc_ref[2]+np.array(settings.bds * np.array([-1,1])));  
-                ax.set_xlabel('');ax.set_ylabel('');ax.set_zlabel('');
-                #set tick marks
-                if fixedPlane == 'R':
-                    ax.set_xticks([]); 
-                else:
-                    ax.set_xticks(np.round(slc_ref[0]+\
-                        np.array(np.ceil(settings.bds*100)/100*\
-                        np.array([-1,0,1])),2))
-                    
-                if fixedPlane == 'G':
-                    ax.set_yticks([]); 
-                else:
-                    ax.set_yticks(np.round(slc_ref[1]+\
-                        np.array(np.ceil(settings.bds*100)/100*\
-                        np.array([-1,0,1])),2))
-                    
-                if fixedPlane == 'B':
-                    ax.set_zticks([]);
-                else:
-                    ax.set_zticks(np.round(slc_ref[2]+\
-                        np.array(np.ceil(settings.bds*100)/100*\
-                        np.array([-1,0,1])),2))
-                # Adjust viewing angle for better visualization
+                    ax.scatter(*slc_rgb_comp, s=settings.markerSize_samples,
+                               c=[[0, 0, 0]], alpha=settings.samples_alpha)
+    
+                # Axis limits
+                for dim, val in enumerate(slc_ref):
+                    lims = val + np.array(settings.bds) * np.array([-1, 1])
+                    if dim == 0: ax.set_xlim(lims)
+                    elif dim == 1: ax.set_ylim(lims)
+                    else: ax.set_zlim(lims)
+    
+                # Axis ticks
+                for dim in range(3):
+                    if dim == fixed_dim:
+                        ticks = []
+                    else:
+                        center = slc_ref[dim]
+                        ticks = np.round(center + np.ceil(settings.bds * 100) / 100 * np.array([-1, 0, 1]), 2)
+    
+                    if dim == 0: ax.set_xticks(ticks)
+                    elif dim == 1: ax.set_yticks(ticks)
+                    else: ax.set_zticks(ticks)
+    
+                ax.set_xlabel(''); ax.set_ylabel(''); ax.set_zlabel('')
+                ax.grid(True); ax.set_aspect('equal')
+    
+                # Viewing angles
                 if not settings.default_viewing_angle:
-                    if fixedPlane == 'R': ax.view_init(0,0)
-                    elif fixedPlane == 'G': ax.view_init(0,-90)
-                    elif fixedPlane == 'B': ax.view_init(90,-90)
+                    view_map = {'R': (0, 0), 'G': (0, -90), 'B': (90, -90)}
+                    ax.view_init(*view_map[fixedPlane])
                 else:
-                    ax.view_init(30,-37.5)
-                ax.grid(True)
-                ax.set_aspect('equal')
+                    ax.view_init(30, -37.5)
+    
         fig.suptitle(settings.title)
         plt.tight_layout()
-        plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05,\
+        plt.subplots_adjust(left=0.05, right=0.95, top=0.95, bottom=0.05,
                             wspace=-0.05, hspace=-0.05)
         plt.show()
+    
         if save_fig and settings.fig_dir:
-            full_path2 = f"{settings.fig_dir}/{settings.fig_name}"
-            fig.savefig(full_path2)            
+            fig.savefig(os.path.join(settings.fig_dir, settings.fig_name))
