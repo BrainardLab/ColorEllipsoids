@@ -17,6 +17,47 @@ sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids
 from analysis.color_thres import color_thresholds
 
 #%%
+def organize_data_sim_isoluminant_plane(sim, flag_remove_filler_col = True):
+    """
+    Extract and organize simulated data on the isoluminant plane for model fitting.
+
+    This function prepares simulated data to be used with the Wishart model, 
+    assuming the data was generated using the script `Simulate_probCorrectResp.py`. 
+    The simulated data includes binary responses (`resp_binary`), reference stimuli 
+    (`ref_points`), and comparison stimuli (`comp`).
+
+    Parameters
+    ----------
+    sim : dict
+        Dictionary containing simulation outputs. Expected keys are:
+        - 'resp_binary': array of binary responses (0 or 1)
+        - 'ref_points': array of reference stimuli (3 x N)
+        - 'comp': array of comparison stimuli (3 x N)
+
+    flag_remove_filler_col : bool, optional (default=True)
+        If True, removes the last filler dimension (typically a column of 1s) 
+        from reference and comparison stimuli before organizing.
+
+    Returns
+    -------
+    y_jnp : jax.numpy.ndarray
+        Array of binary responses, shape (N,).
+    xref_jnp : jax.numpy.ndarray
+        Array of reference stimuli in JAX format, shape (N, 2) or (N, 3).
+    x1_jnp : jax.numpy.ndarray
+        Array of comparison stimuli in JAX format, shape (N, 2) or (N, 3).
+    """
+    if flag_remove_filler_col:
+        idx = list(range(2))  # Keep only first two dimensions
+    else:
+        idx = list(range(3))  # Keep all three dimensions
+
+    y_jnp = jnp.array(sim['resp_binary'])
+    xref_jnp = jnp.array(sim['ref_points'][idx, :].T)
+    x1_jnp = jnp.array(sim['comp'][idx, :].T)
+
+    return y_jnp, xref_jnp, x1_jnp
+
 def organize_data(ndims, sim, x1_scaler, **kwargs):
     # Define default parameters with options for ellipse resolution and scaling
     params = {
