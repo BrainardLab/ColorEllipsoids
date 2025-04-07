@@ -10,20 +10,24 @@ import jax
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-import dill as pickle
+import dill as pickled
 import sys
 import os
 import numpy as np
-sys.path.append("/Users/fh862-adm/Documents/GitHub/ellipsoids/ellipsoids")
-#sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
+from dataclasses import replace
+#sys.path.append("/Users/fh862-adm/Documents/GitHub/ellipsoids/ellipsoids")
+sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
 from core import oddity_task, model_predictions, optim
 from core.wishart_process import WishartProcessModel
 from core.model_predictions import wishart_model_pred
 from analysis.color_thres import color_thresholds
-from plotting.wishart_predictions_plotting import WishartPredictionsVisualization
-sys.path.append("/Users/fh862-adm/Documents/GitHub/ColorEllipsoids/Python version")
-#sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version')
-from data_reorg import organize_data_3d_fixed_grid, visualize_data_3d_fixed_grid
+from plotting.wishart_plotting import PlotSettingsBase 
+from plotting.wishart_predictions_plotting import WishartPredictionsVisualization, Plot3DPredSettings
+#sys.path.append("/Users/fh862-adm/Documents/GitHub/ColorEllipsoids/Python version")
+sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version')
+from data_reorg import organize_data_3d_fixed_grid, visualize_data_3d_fixed_grid,\
+    derive_gt_slice_2d_ellipse_CIE
+from analysis.cross_validation import expt_data
 
 #%% three variables we need to define for loading the data
 for rr in range(1):
@@ -32,12 +36,14 @@ for rr in range(1):
     jitter    = 0.3
     colordiff_alg = 'CIE1994'
     
-    base_dir = '/Users/fh862-adm/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
-    #base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
+    #base_dir = '/Users/fh862-adm/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
+    base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
     output_figDir_fits = os.path.join(base_dir,'ELPS_analysis','ModelFitting_FigFiles',
-                                      'Python_version','3D_oddity_task')
+                                      'Python_version','3D_oddity_task', colordiff_alg)
     output_fileDir = os.path.join(base_dir,'ELPS_analysis','ModelFitting_DataFiles',
-                                  '3D_oddity_task')
+                                  '3D_oddity_task', colordiff_alg)
+    os.makedirs(output_fileDir, exist_ok= True)
+    os.makedirs(output_figDir_fits, exist_ok = True)
     
     #% ------------------------------------------
     # Load data simulated using CIELab
@@ -57,7 +63,7 @@ for rr in range(1):
                 f'jitter{jitter}_seed{rnd_seed}{colordiff_alg_str}.pkl'
     full_path = os.path.join(path_str, file_sim)
     with open(full_path, 'rb') as f: 
-        data_load = pickle.load(f)
+        data_load = pickled.load(f)
     sim = data_load['sim_trial'].sim
     
     """
@@ -70,15 +76,14 @@ for rr in range(1):
     #interpolate between samples
     idx_trim = list(range(5))
     #x1_raw is unscaled
-    data, x1_raw, xref_raw = organize_data_3d_fixed_grid(sim, slc_idx = idx_trim)
+    data_temp, x1_raw, xref_raw = organize_data_3d_fixed_grid(sim, slc_idx = idx_trim)
     # if we run oddity task with the reference stimulus fixed at the top
-    y_jnp, xref_jnp, x0_jnp, x1_jnp = data 
+    y_jnp, xref_jnp, x0_jnp, x1_jnp = data_temp
     # if we run oddity task with all three stimuli shuffled
-    data_new = (y_jnp, xref_jnp, x1_jnp)
+    data = (y_jnp, xref_jnp, x1_jnp)
     
     #% Visualize the simulated data again
-    visualize_data_3d_fixed_grid(data_load['sim_trial'],
-                                 fixed_val = 0.5)
+    visualize_data_3d_fixed_grid(data_load['sim_trial'], fixed_val = 0.5)
     
     #%
     # -------------------------------
@@ -109,13 +114,13 @@ for rr in range(1):
     W_init = 1e-1*model.sample_W_prior(W_INIT_KEY)  
     
     opt_params = {
-        "learning_rate": 1e-3, #5e-2
+        "learning_rate": 1e-4, 
         "momentum": 0.2,
         "mc_samples": MC_SAMPLES,
         "bandwidth": BANDWIDTH,
     }
     W_est, iters, objhist = optim.optimize_posterior(
-        W_init, data_new, model, OPT_KEY,
+        W_init, data, model, OPT_KEY,
         opt_params,
         oddity_task.simulate_oddity,
         total_steps=1000,
@@ -150,22 +155,11 @@ for rr in range(1):
     
     model_pred_Wishart.convert_Sig_Threshold_oddity_batch(grid_trans)
     
-    #% derive 2D slices
-    # Initialize 3D covariance matrices for ground truth and predictions
-    gt_covMat_CIE   = np.full((NUM_GRID_PTS, NUM_GRID_PTS, NUM_GRID_PTS, 3, 3), np.nan)
+    #% derive 2D slices: compute the 2D ellipse slices from the 3D covariance matrices 
+    #for both ground truth and predictions
+    gt_slice_2d_ellipse_CIE, gt_covMat_CIE = derive_gt_slice_2d_ellipse_CIE(NUM_GRID_PTS, 
+                                             results3D, flag_convert_to_W= True)
     
-    # Loop through each reference color in the 3D space
-    for g1 in range(NUM_GRID_PTS):
-        for g2 in range(NUM_GRID_PTS):
-            for g3 in range(NUM_GRID_PTS):
-                #Convert the ellipsoid parameters to covariance matrices for the 
-                #ground truth
-                gt_covMat_CIE[g1,g2,g3] = model_predictions.ellParams_to_covMat(\
-                                results3D['ellipsoidParams'][g1,g2,g3]['radii'],\
-                                results3D['ellipsoidParams'][g1,g2,g3]['evecs'])
-    # Compute the 2D ellipse slices from the 3D covariance matrices for both ground 
-    #truth and predictions
-    gt_slice_2d_ellipse_CIE = model_predictions.covMat3D_to_2DsurfaceSlice(gt_covMat_CIE)
     # compute the slice of model-estimated cov matrix
     model_pred_slice_2d_ellipse = model_predictions.covMat3D_to_2DsurfaceSlice(\
                                             model_pred_Wishart.Sigmas_recover_grid)
@@ -174,53 +168,46 @@ for rr in range(1):
     # ---------------------------------------------
     # plot figures and save them as png and gif
     # ---------------------------------------------
-    fig_outputDir = os.path.join(base_dir, 'ELPS_analysis','ModelFitting_FigFiles',
-                                 'Python_version','3D_oddity_task', colordiff_alg)
-    name_ext = '_withInterpolations' if np.prod(xref_raw.shape[0:3]) < np.prod(grid.shape[0:3]) else ''
-    fig_name = 'Fitted' + file_sim[4:-4] + name_ext #+'_maxDeg' + str(model.degree)
-    
-    class sim_data:
-        def __init__(self, xref_all, x1_all):
-            self.xref_all = xref_all
-            self.x1_all = x1_all
-    sim_trial_by_CIE = sim_data(xref_jnp, x1_jnp)
-    
+    pltSettings_base = PlotSettingsBase(fig_dir=output_figDir_fits, fontsize = 10)
+    pred3D_settings = replace(Plot3DPredSettings(), **pltSettings_base.__dict__)
+    fig_name = f'Fitted{file_sim[4:-4]}' #+'_maxDeg' + str(model.degree)
+
+    sim_trial_by_CIE  = expt_data(xref_jnp, x1_jnp, y_jnp, None)
     wishart_pred_vis = WishartPredictionsVisualization(sim_trial_by_CIE,
-                                                         model, 
-                                                         model_pred_Wishart, 
-                                                         color_thres_data,
-                                                         fig_dir = output_figDir_fits, 
-                                                         save_fig = True,
-                                                         save_gif = False)
+                                                       model, 
+                                                       model_pred_Wishart, 
+                                                       color_thres_data,
+                                                       settings = pltSettings_base,
+                                                       save_fig = True)
+    pred3D_settings = replace(pred3D_settings,
+                              visualize_samples = True,
+                              samples_s = 1,
+                              samples_alpha = 0.2,
+                              gt_ls = '--',
+                              gt_lw = 1,
+                              gt_lc = 'k',
+                              gt_alpha = 0.85,#0.85
+                              modelpred_alpha = 0.55,
+                              modelpred_lc = None,
+                              fig_name = fig_name)
             
-    wishart_pred_vis.plot_3D(
-        grid_trans, 
-        grid_trans[np.array(idx_trim)][:,np.array(idx_trim)][:,:,np.array(idx_trim)],
-        gt_covMat_CIE, 
-        gt_slice_2d_ellipse_CIE,
-        fontsize = 12,
-        samples_alpha = 0.2,
-        gt_ls = '--',
-        gt_lw = 1,
-        gt_alpha = 0.85,#0.85
-        modelpred_alpha = 0.55,
-        fig_name = fig_name) 
-    
-    if wishart_pred_vis.save_gif:
-        wishart_pred_vis._save_gif(fig_name, fig_name, fig_name_end = '.png')
-    
+    wishart_pred_vis.plot_3D(grid_trans, 
+                             gt_covMat=gt_covMat_CIE, 
+                             gt_slice_2d_ellipse=gt_slice_2d_ellipse_CIE, 
+                             settings = pred3D_settings) 
+        
     #% save data
-    output_file = f"Fitted{file_sim[4:-4]}_bandwidth{BANDWIDTH}{name_ext}_oddity.pkl"
-    #    '_maxDeg' + str(model.degree)+'.pkl'
-    full_path4 = f"{output_fileDir}/{colordiff_alg}/{output_file}"
+    output_file = f"Fitted{file_sim[4:-4]}_bandwidth{BANDWIDTH}_oddity.pkl"
+    full_path4 = os.path.join(output_fileDir, output_file)
     
-    variable_names = ['data', 'x1_raw', 'xref_raw','sim_trial_by_CIE', 'grid_1d',
-                      'grid','grid_trans','iters', 'objhist', 'model','opt_params',
-                      'model_pred_Wishart','gt_covMat_CIE','gt_slice_2d_ellipse_CIE']
+    variable_names = ['color_thres_data','file_sim','data_temp','data', 
+                      'sim_trial_by_CIE', 'grid_1d', 'grid','grid_trans','iters', 
+                      'objhist','model_pred_Wishart','gt_covMat_CIE',
+                      'gt_slice_2d_ellipse_CIE']
     vars_dict = {}
     for i in variable_names: vars_dict[i] = eval(i)
     
     # Write the list of dictionaries to a file using pickle
     with open(full_path4, 'wb') as f:
-        pickle.dump(vars_dict, f)
+        pickled.dump(vars_dict, f)
     

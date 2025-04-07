@@ -16,6 +16,7 @@ from dataclasses import replace
 
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
 from analysis.color_thres import color_thresholds
+from core import oddity_task, model_predictions
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version/')
 from plotting.wishart_plotting import PlotSettingsBase
 from plotting.trial_placement_nonadaptive_plotting import TrialPlacementVisualization,\
@@ -222,3 +223,27 @@ def organize_data_3d_fixed_grid(sim, slc_idx=None):
     print("Proportion of correct trials:", jnp.mean(y_jnp))
 
     return (y_jnp, xref_jnp, x0_jnp, x1_jnp), x1, xref
+
+def derive_gt_slice_2d_ellipse_CIE(num_grid_pts, CIE_results_3D, flag_convert_to_W = True):
+    # Initialize 3D covariance matrices for ground truth and predictions
+    gt_covMat_CIE   = np.full((num_grid_pts, num_grid_pts, num_grid_pts, 3, 3), np.nan)
+    
+    if flag_convert_to_W: scaler = 2
+    else: scaler = 1
+    # Loop through each reference color in the 3D space
+    for g1 in range(num_grid_pts):
+        for g2 in range(num_grid_pts):
+            for g3 in range(num_grid_pts):
+                #Convert the ellipsoid parameters to covariance matrices for the 
+                #ground truth
+                gt_covMat_CIE[g1,g2,g3] = model_predictions.ellParams_to_covMat(\
+                                scaler * CIE_results_3D['ellipsoidParams'][g1,g2,g3]['radii'],\
+                                CIE_results_3D['ellipsoidParams'][g1,g2,g3]['evecs'])
+    # Compute the 2D ellipse slices from the 3D covariance matrices for both ground 
+    #truth and predictions
+    gt_slice_2d_ellipse_CIE = model_predictions.covMat3D_to_2DsurfaceSlice(gt_covMat_CIE)
+    
+    return gt_slice_2d_ellipse_CIE, gt_covMat_CIE
+
+
+
