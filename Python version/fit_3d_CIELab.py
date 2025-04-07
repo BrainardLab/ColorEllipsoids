@@ -14,16 +14,16 @@ import dill as pickle
 import sys
 import os
 import numpy as np
-
-sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
+sys.path.append("/Users/fh862-adm/Documents/GitHub/ellipsoids/ellipsoids")
+#sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
 from core import oddity_task, model_predictions, optim
 from core.wishart_process import WishartProcessModel
 from core.model_predictions import wishart_model_pred
 from analysis.color_thres import color_thresholds
 from plotting.wishart_predictions_plotting import WishartPredictionsVisualization
-sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version')
-from plotting.trial_placement_nonadaptive_plotting import TrialPlacementVisualization
-from data_reorg import organize_data
+sys.path.append("/Users/fh862-adm/Documents/GitHub/ColorEllipsoids/Python version")
+#sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version')
+from data_reorg import organize_data_3d_fixed_grid, visualize_data_3d_fixed_grid
 
 #%% three variables we need to define for loading the data
 for rr in range(1):
@@ -32,7 +32,8 @@ for rr in range(1):
     jitter    = 0.3
     colordiff_alg = 'CIE1994'
     
-    base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
+    base_dir = '/Users/fh862-adm/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
+    #base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
     output_figDir_fits = os.path.join(base_dir,'ELPS_analysis','ModelFitting_FigFiles',
                                       'Python_version','3D_oddity_task')
     output_fileDir = os.path.join(base_dir,'ELPS_analysis','ModelFitting_DataFiles',
@@ -41,62 +42,43 @@ for rr in range(1):
     #% ------------------------------------------
     # Load data simulated using CIELab
     # ------------------------------------------
-    #file 1
-    path_str = os.path.join(base_dir, 'ELPS_analysis','Simulation_DataFiles','ellipsoids')
     # Create an instance of the class
-    color_thres_data = color_thresholds(3, base_dir + 'ELPS_analysis/')
+    color_thres_data = color_thresholds(3, base_dir)
     # Load Wishart model fits
     color_thres_data.load_CIE_data(CIE_version= colordiff_alg)  
     stim3D = color_thres_data.get_data('stim3D', dataset='CIE_data')
     results3D = color_thres_data.get_data('results3D', dataset='CIE_data')
     
     #simulation files
-    colordiff_alg_str = '_' + colordiff_alg if colordiff_alg != 'CIE1976' else ''
+    path_str = os.path.join(base_dir, 'ELPS_analysis','Simulation_DataFiles',
+                            'ellipsoids', colordiff_alg)
+    colordiff_alg_str = '' if colordiff_alg == 'CIE1976' else f'_{colordiff_alg}'
     file_sim = f'Sims_isothreshold_ellipsoids_sim{nSims}perCond_samplingNearContour_'+\
-                f'jitter{jitter}_seed{rnd_seed}_CIE2000.pkl'
-    full_path = f"{path_str}/{file_sim}"
-    with open(full_path, 'rb') as f: data_load = pickle.load(f)
-    sim = data_load[0]
-    
-    #we take 5 samples from each color dimension
-    #but sometimes we don't want to sample that finely. Instead, we might just pick
-    #2 or 3 samples from each color dimension, and see how well the model can 
-    #interpolate between samples
-    
-    ##################################
-    #idx_trim  = [0,2,4]
-    idx_trim = list(range(5))
-    ##################################
+                f'jitter{jitter}_seed{rnd_seed}{colordiff_alg_str}.pkl'
+    full_path = os.path.join(path_str, file_sim)
+    with open(full_path, 'rb') as f: 
+        data_load = pickle.load(f)
+    sim = data_load['sim_trial'].sim
     
     """
     Fitting would be easier if we first scale things up, and then scale the model 
     predictions back down
     """
-    scaler_x1  = 2.5
+    #we take 5 samples from each color dimension
+    #but sometimes we don't want to sample that finely. Instead, we might just pick
+    #2 or 3 samples from each color dimension, and see how well the model can 
+    #interpolate between samples
+    idx_trim = list(range(5))
     #x1_raw is unscaled
-    data, x1_raw, xref_raw = organize_data(3, sim,\
-            scaler_x1, slc_idx = idx_trim)
-    # unpackage data
-    ref_size_dim1, ref_size_dim2, ref_size_dim3 = x1_raw.shape[0:3]
+    data, x1_raw, xref_raw = organize_data_3d_fixed_grid(sim, slc_idx = idx_trim)
     # if we run oddity task with the reference stimulus fixed at the top
     y_jnp, xref_jnp, x0_jnp, x1_jnp = data 
     # if we run oddity task with all three stimuli shuffled
     data_new = (y_jnp, xref_jnp, x1_jnp)
     
     #% Visualize the simulated data again
-    fixedRGB_val_full = np.linspace(0.2,0.8,5)
-    fixedRGB_val = fixedRGB_val_full[idx_trim]
-    
-    for fixedPlane, varyingPlanes in zip(['R','G','B'], ['GB','RB','RG']):
-        for val in fixedRGB_val:
-            TrialPlacementVisualization.plot_3D_sampledComp(stim3D['grid_ref'][idx_trim]*2-1, 
-                results3D['fitEllipsoid_unscaled'][idx_trim][:,idx_trim][:,:,idx_trim]*2-1,
-                x1_raw, fixedPlane, val*2-1, slc_grid_ref_dim1 = [0,1,2], 
-                slc_grid_ref_dim2 = [0,1,2], surf_alpha =  0.1, 
-                samples_alpha = 0.1,scaled_neg12pos1 = True,
-                bds = 0.05,title = varyingPlanes+' plane',
-                saveFig = False, figDir = path_str[0:-10] + 'FigFiles/',\
-                figName =f"{file_sim}_{varyingPlanes}plane_fixedVal{val}")
+    visualize_data_3d_fixed_grid(data_load['sim_trial'],
+                                 fixed_val = 0.5)
     
     #%
     # -------------------------------
@@ -136,7 +118,7 @@ for rr in range(1):
         W_init, data_new, model, OPT_KEY,
         opt_params,
         oddity_task.simulate_oddity,
-        total_steps=1200,
+        total_steps=1000,
         save_every=1,
         show_progress=True
     )
@@ -163,7 +145,6 @@ for rr in range(1):
                                             W_est, Sigmas_est_grid, 
                                             color_thres_data,
                                             target_pC= 2/3,
-                                            scaler_x1 = scaler_x1,
                                             ngrid_bruteforce = 1000,
                                             bds_bruteforce = [0.0005, 0.3])
     
@@ -179,7 +160,7 @@ for rr in range(1):
             for g3 in range(NUM_GRID_PTS):
                 #Convert the ellipsoid parameters to covariance matrices for the 
                 #ground truth
-                gt_covMat_CIE[g1,g2,g3] = (scaler_x1*2)**2*model_predictions.ellParams_to_covMat(\
+                gt_covMat_CIE[g1,g2,g3] = model_predictions.ellParams_to_covMat(\
                                 results3D['ellipsoidParams'][g1,g2,g3]['radii'],\
                                 results3D['ellipsoidParams'][g1,g2,g3]['evecs'])
     # Compute the 2D ellipse slices from the 3D covariance matrices for both ground 
