@@ -46,9 +46,9 @@ M_RGBTo2DW = iso_mat['M_RGBTo2DW'][0]  # RGB → 2D Wishart space
 M_2DWToRGB = iso_mat['M_2DWToRGB'][0]  # 2D Wishart space → RGB
 
 #%% DEFINE GRID POINTS IN WISHART SPACE
-
 # Create a 2D grid of reference locations in Wishart space
-nGridPts_ref = 9
+nGridPts_ref = 7
+str_ext = f'_grid{nGridPts_ref}by{nGridPts_ref}' if nGridPts_ref != 5 else ''
 grid_ref = np.linspace(-0.7, 0.7, nGridPts_ref)
 ref_points_W = np.stack(np.meshgrid(grid_ref, grid_ref), axis=-1)  # Shape: (9, 9, 2)
 ref_points_W_col = ref_points_W.reshape(-1, 2)  # Flattened to (81, 2)
@@ -172,7 +172,7 @@ ax.set_xlim([0,1]); ax.set_ylim([0,1]); ax.set_zlim([0,1]); ax.set_aspect('equal
 ax.set_xlabel('R'); ax.set_ylabel('G'); ax.set_zlabel('B')
         
 #%%
-output_file = f'Isothreshold_ellipses_isoluminant_{color_diff_algorithm}.pkl'
+output_file = f'Isothreshold_ellipses_isoluminant_{color_diff_algorithm}{str_ext}.pkl'
 full_path = os.path.join(output_fileDir, output_file)
 
 #save all the stim info
