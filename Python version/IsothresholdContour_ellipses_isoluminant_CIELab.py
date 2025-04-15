@@ -68,8 +68,8 @@ numDirPts = 16
 grid_theta_xy = sim_thres_CIELab.set_chromatic_directions(num_dir_pts=numDirPts)
 
 # Set JND threshold and color difference algorithm
-deltaE_1JND = 2.5  # Target ΔE for threshold contour
-color_diff_algorithm = 'CIE1994'  # Options: 'CIE2000', 'CIE1994', 'CIE1976'
+color_diff_algorithm = 'CIE1976'  # Options: 'CIE2000', 'CIE1994', 'CIE1976'
+deltaE_1JND = 5 if color_diff_algorithm == 'CIE1976' else 2.5
 
 # Ellipse fitting resolution
 nThetaEllipse = 200  # Number of angles used to trace the threshold ellipse
