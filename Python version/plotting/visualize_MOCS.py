@@ -187,17 +187,29 @@ class MOCSTrialsVisualization():
             else:
                 cmap_n = self.pltP['cmap'][n]
             
-            ax.errorbar(
-                self.fit_PMF_MOCS[n].stim_at_targetPC, 
-                thres_Wishart[n],
-                xerr= self.fit_PMF_MOCS[n].stim_at_targetPC_95btstErr[:, np.newaxis], 
-                yerr= thres_Wishart_CI[n][:, np.newaxis],
-                marker='o',
-                c = cmap_n,
-                alpha = self.pltP['alpha'],
-                ms = self.pltP['ms'],#10
-                lw = self.pltP['lw'] #3
-            )
+            if thres_Wishart_CI is not None:
+                ax.errorbar(
+                    self.fit_PMF_MOCS[n].stim_at_targetPC, 
+                    thres_Wishart[n],
+                    xerr= self.fit_PMF_MOCS[n].stim_at_targetPC_95btstErr[:, np.newaxis], 
+                    yerr= thres_Wishart_CI[n][:, np.newaxis],
+                    marker='o',
+                    c = cmap_n,
+                    alpha = self.pltP['alpha'],
+                    ms = self.pltP['ms'],#10
+                    lw = self.pltP['lw'] #3
+                )
+            else:
+                ax.errorbar(
+                    self.fit_PMF_MOCS[n].stim_at_targetPC, 
+                    thres_Wishart[n],
+                    xerr= self.fit_PMF_MOCS[n].stim_at_targetPC_95btstErr[:, np.newaxis], 
+                    marker='o',
+                    c = cmap_n,
+                    alpha = self.pltP['alpha'],
+                    ms = self.pltP['ms'],#10
+                    lw = self.pltP['lw'] #3
+                )                
         #add stats to the figure
         if (self.pltP['corr_coef_mean'] is not None) and (self.pltP['corr_coef_CI'] is not None):
             ax.text(*self.pltP['corr_text_loc'],
