@@ -47,8 +47,10 @@ M_2DWToRGB = iso_mat['M_2DWToRGB'][0]  # 2D Wishart space → RGB
 
 #%% DEFINE GRID POINTS IN WISHART SPACE
 # Create a 2D grid of reference locations in Wishart space
-nGridPts_ref = 7
-str_ext = f'_grid{nGridPts_ref}by{nGridPts_ref}' if nGridPts_ref != 5 else ''
+#######################################
+nGridPts_ref = 9  #we can change it
+#######################################
+#str_ext = f'_grid{nGridPts_ref}by{nGridPts_ref}' if nGridPts_ref != 5 else ''
 grid_ref = np.linspace(-0.7, 0.7, nGridPts_ref)
 ref_points_W = np.stack(np.meshgrid(grid_ref, grid_ref), axis=-1)  # Shape: (9, 9, 2)
 ref_points_W_col = ref_points_W.reshape(-1, 2)  # Flattened to (81, 2)
@@ -68,7 +70,10 @@ numDirPts = 16
 grid_theta_xy = sim_thres_CIELab.set_chromatic_directions(num_dir_pts=numDirPts)
 
 # Set JND threshold and color difference algorithm
-color_diff_algorithm = 'CIE1976'  # Options: 'CIE2000', 'CIE1994', 'CIE1976'
+#######################################
+color_diff_algorithm = 'CIE2000'  # Options: 'CIE2000', 'CIE1994', 'CIE1976'
+#######################################
+
 deltaE_1JND = 5 if color_diff_algorithm == 'CIE1976' else 2.5
 
 # Ellipse fitting resolution
@@ -145,7 +150,6 @@ pred2D_settings = replace(pred2D_settings,
 sim_CIE_vis.plot_2D_single_plane(ref_points_W, fitEllipse_scaled, rawData=W_comp_contour_scaled,
                                  settings = pred2D_settings)
 
-#%% 
 #convert fitted ellipses to RGB space for future uses 
 #(maybe we want to visualize that in the RGB space)
 base_shape = (3, nGridPts_ref, nGridPts_ref, nThetaEllipse)
@@ -172,7 +176,7 @@ ax.set_xlim([0,1]); ax.set_ylim([0,1]); ax.set_zlim([0,1]); ax.set_aspect('equal
 ax.set_xlabel('R'); ax.set_ylabel('G'); ax.set_zlabel('B')
         
 #%%
-output_file = f'Isothreshold_ellipses_isoluminant_{color_diff_algorithm}{str_ext}.pkl'
+output_file = f'Isothreshold_ellipses_isoluminant_{color_diff_algorithm}.pkl'
 full_path = os.path.join(output_fileDir, output_file)
 
 #save all the stim info
@@ -198,6 +202,54 @@ for var_name in results_keys:
 results = {}
 for i in results_keys: results[i] = eval(i)
     
-# Write the list of dictionaries to a file using pickle
-with open(full_path, 'wb') as f:
-    pickled.dump([sim_thres_CIELab, stim, results], f)
+#%% save the data
+ext_str = f'_grid{nGridPts_ref}'
+if os.path.exists(full_path):
+    # Load existing pickle file and check whether `nGridPts_ref` matches
+    with open(full_path, 'rb') as f:
+        vars_dict_temp = pickled.load(f)    
+    flag_match_grid_pts = (f'stim{ext_str}' in vars_dict_temp)
+    
+    if flag_match_grid_pts:
+        # If grid points match, ask whether to overwrite the existing file
+        flag_overwrite = input(f"The file '{output_file}' already exists. Enter 'y' to overwrite: ")
+        #if yes, overwrite
+        if flag_overwrite.lower() == 'y':
+            # Overwrite the file with new data
+            with open(full_path, 'wb') as f:
+                pickled.dump({
+                    f'sim_thres_CIELab{ext_str}': sim_thres_CIELab,
+                    f'stim{ext_str}': stim,
+                    f'results{ext_str}': results
+                }, f)
+        else:
+            print("File not overwritten.")
+                
+    else: #append the data
+        # If the grid size doesn't match, append new data under grid-specific keys
+        with open(full_path, 'rb') as f:
+            existing_dict = pickled.load(f)
+
+        # Construct a new dictionary with grid-specific keys
+        data_dict_append = {
+            f'sim_thres_CIELab{ext_str}': sim_thres_CIELab,
+            f'stim{ext_str}': stim,
+            f'results{ext_str}': results
+        }
+
+        # Add new entries to the existing dictionary
+        existing_dict.update(data_dict_append)
+
+        # Save updated dictionary back to file
+        with open(full_path, 'wb') as f:
+            pickled.dump(existing_dict, f)
+else:
+    data_dict = {
+        f'sim_thres_CIELab{ext_str}': sim_thres_CIELab,
+        f'stim{ext_str}': stim,
+        f'results{ext_str}': results
+        }
+    
+    # If file doesn't exist, create it and save the current data
+    with open(full_path, 'wb') as f:
+        pickled.dump(data_dict, f)
