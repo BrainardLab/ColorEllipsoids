@@ -207,8 +207,8 @@ ext_str = f'_grid{nGridPts_ref}'
 if os.path.exists(full_path):
     # Load existing pickle file and check whether `nGridPts_ref` matches
     with open(full_path, 'rb') as f:
-        vars_dict_temp = pickled.load(f)    
-    flag_match_grid_pts = (f'stim{ext_str}' in vars_dict_temp)
+        existing_dict = pickled.load(f)    
+    flag_match_grid_pts = (f'stim{ext_str}' in existing_dict)
     
     if flag_match_grid_pts:
         # If grid points match, ask whether to overwrite the existing file
@@ -226,10 +226,6 @@ if os.path.exists(full_path):
             print("File not overwritten.")
                 
     else: #append the data
-        # If the grid size doesn't match, append new data under grid-specific keys
-        with open(full_path, 'rb') as f:
-            existing_dict = pickled.load(f)
-
         # Construct a new dictionary with grid-specific keys
         data_dict_append = {
             f'sim_thres_CIELab{ext_str}': sim_thres_CIELab,
