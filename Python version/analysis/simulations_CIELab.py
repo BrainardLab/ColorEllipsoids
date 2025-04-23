@@ -150,6 +150,39 @@ class SimThresCIELab:
                                                      plane_2D = plane_str)
         return plane_3slices, grid_1d, X, Y
     
+    def convert_lab_rgb(self, color_Lab):
+        """
+        Convert a CIELab color value back to RGB, using the inverse of the
+        display pipeline: Lab → XYZ → LMS → SPD → RGB.
+        
+        Parameters:
+        - color_Lab (array; 3,): Lab color to convert (1D array)
+        
+        Returns:
+        - color_RGB (array; 3,): RGB values (may need gamma correction or clipping)
+        - color_XYZ (array; 3,): CIEXYZ intermediate
+        - color_LMS (array; 3,): LMS cone response intermediate
+        """
+
+        # Step 1: Convert background RGB to SPD, LMS, and XYZ (for whitepoint)
+        background_Spd = self.B_MONITOR @ self.background_rgb
+        background_LMS = self.T_CONES @ background_Spd
+        background_XYZ = self.M_LMS_TO_XYZ @ background_LMS
+
+        # Step 2: Lab → XYZ (requires background whitepoint)
+        background_xyY = colour.XYZ_to_xyY(background_XYZ)
+        color_XYZ = colour.Lab_to_XYZ(color_Lab, background_xyY)
+
+        # Step 3: XYZ → LMS
+        M_XYZ_TO_LMS = np.linalg.inv(self.M_LMS_TO_XYZ)
+        color_LMS = M_XYZ_TO_LMS @ color_XYZ
+
+        # Step 4: LMS → RGB
+        T_inv = np.linalg.pinv(self.T_CONES @ self.B_MONITOR)  # Use pseudo-inverse in case it's ill-conditioned
+        color_RGB = T_inv @ color_LMS
+
+        return color_RGB, color_XYZ, color_LMS
+
     def convert_rgb_lab(self, color_RGB):
         """
         Convert an RGB color value into the CIELab color space using the monitor's 
@@ -190,7 +223,7 @@ class SimThresCIELab:
         
         return color_Lab, color_XYZ, color_LMS
     
-    def compute_deltaE(self, ref_RGB, vecDir, vecLen, comp_RGB=None, method='CIE2000'):
+    def compute_deltaE(self, ref_RGB, vecDir, vecLen, comp_RGB=None, method='CIE1994'):
         """
         Computes the perceptual difference (deltaE) between a reference stimulus
         and a comparison stimulus in the CIELab color space. The comparison stimulus

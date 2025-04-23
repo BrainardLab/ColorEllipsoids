@@ -10,8 +10,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from dataclasses import dataclass, field
 from typing import Optional, List, Tuple, Union
+import sys
+sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
 from plotting.wishart_plotting import PlottingTools, PlotSettingsBase
 
+#%%
 @dataclass
 class PlotPMFSettings(PlotSettingsBase):
     fig_size: Tuple[float, float] = (4, 5.5)
@@ -19,6 +22,7 @@ class PlotPMFSettings(PlotSettingsBase):
     filler_pts: Optional[np.ndarray] = None
     yticks: List[float] = field(default_factory=lambda: [0.33, 0.67, 1])
     PMF_label: str = 'Best-fit psychometric function to MOCS trials'
+    CI_area_alpha: float = 0.5
     CI_area_label: str = '95% bootstrap CI of PMF'
     CI_thres_label: str = '95% bootstrap CI of threshold'
     Wishart_pred_lw: float = 0.2
@@ -26,20 +30,20 @@ class PlotPMFSettings(PlotSettingsBase):
     Wishart_pred_label: str = 'Predictions by Wishart Process model'
     Wishart_indv_pred_label: str = 'Predictions by Wishart Process (individual fit) model'
     xlabel: str = 'Euclidean distance between ref and comp in W space'
-    ylabel: str = 'Percent correct'
+    ylabel: str = 'Proportion correct'
     show_ref_in_title: bool = True
     fig_name: str = 'Mahalanobis_distance'
     
 @dataclass
-class PlotThresCompSettings:
+class PlotThresCompSettings(PlotSettingsBase):
     fig_size: Tuple[float, float] = (4.5, 6)
     bds: np.ndarray = field(default_factory=lambda: np.array([0, 0.14]))
     cmap: Optional[Union[np.ndarray, List[float]]] = None
     corr_text_loc: List[float] = field(default_factory=lambda: [0.025, 0.13])
     slope_text_loc: List[float] = field(default_factory=lambda: [0.025, 0.123])
     ms: int = 7
-    lw: int = 2
-    alpha: float = 1.0
+    lw: int = 3
+    alpha: float = 0.8
     marker: str = 'o'
     xlabel: str = ("Predicted Euclidean distance between ref and comp \n"
                    "for 66.7% correct (MOCS trials, Weibull function)")
@@ -55,7 +59,7 @@ class PlotThresCompSettings:
     fig_name: str = ''
 
 @dataclass
-class PlotCondSettings:
+class PlotCondSettings(PlotSettingsBase):
     fig_size: Tuple[float, float] = (4, 4)  # Default figure size
     ticks: np.ndarray = field(default_factory=lambda: np.linspace(-0.6, 0.6, 5))  # Tick marks on axes
     title: str = 'Isoluminant plane'  # Default title for 2D plots
@@ -136,7 +140,7 @@ class MOCSTrialsVisualization(PlottingTools):
         ax.fill_between(slc_PMF_MOCS.fineVal,
                         slc_PMF_MOCS.fine_pC_95btstCI[0],
                         slc_PMF_MOCS.fine_pC_95btstCI[1],
-                        color=settings.cmap, alpha=settings.alpha_CI_area,
+                        color=settings.cmap, alpha=settings.CI_area_alpha,
                         label=settings.CI_area_label)
         
         # Add error bars for estimated threshold
@@ -174,7 +178,6 @@ class MOCSTrialsVisualization(PlottingTools):
         if settings.fig_dir and self.save_fig:
             self._save_figure(fig, settings.fig_name)
                  
-        plt.show()
         return fig, ax
 
     def plot_comparison_thres(self, thres_Wishart, slope_mean, slope_CI, xref_unique,
@@ -251,15 +254,13 @@ class MOCSTrialsVisualization(PlottingTools):
             loc='lower center', 
             bbox_to_anchor=(0.5, -0.45),  # Center below the plot, with some space
             ncol=1,  # Arrange legend entries in 2 columns
-            fontsize='medium'
+            fontsize= settings.fontsize
         )
 
         plt.tight_layout()
         
         if settings.fig_dir and self.save_fig:
             self._save_figure(fig, settings.fig_name)        
-        
-        plt.show()
         return fig, ax
 
     
@@ -367,6 +368,5 @@ class MOCSConditionsVisualization(PlottingTools):
         
         if settings.fig_dir and self.save_fig:
             self._save_figure(fig, settings.fig_name)
-        plt.show()
         return fig, ax
     
