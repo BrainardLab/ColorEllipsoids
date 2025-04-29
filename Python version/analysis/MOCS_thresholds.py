@@ -9,6 +9,10 @@ Created on Sun Nov 24 10:48:25 2024
 import numpy as np
 from scipy.optimize import minimize
 from scipy.stats.qmc import Sobol
+import sys
+from tqdm import trange
+sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
+from core.model_predictions import wishart_model_pred
 
 #%%
 class fit_PMF_MOCS_trials():
@@ -490,6 +494,80 @@ class fit_PMF_MOCS_trials():
         
         # Step 6: Extract the 95% confidence interval for the probability correct at each grid point
         self.fine_pC_95btstCI = arr_sorted[[idx_lb, idx_ub]]
+
+def compute_Wishart_based_pCorrect_atMOCS(numBtst, nLevels, fit_PMF_MOCS, 
+                                          xref_unique, model_pred_existing,
+                                          color_thres_data, ndims = 2, return_dict=False):
+    """
+    Computes Wishart model-based predictions of proportion correct along MOCS directions,
+    and extracts threshold estimates and corresponding stimulus locations.
+
+    Returns:
+        If return_dict is False:
+            pChoosingX1_Wishart: Probability of choosing X1 as odd, predicted by the Wishart model.
+            vecLen_at_targetPC_Wishart: Vector length at target performance (e.g., 66.7%) predicted by the Wishart model.
+            stim_at_targetPC_Wishart: Stimulus locations corresponding to Wishart model thresholds.
+    
+        If return_dict is True:
+            Dictionary with variable names as keys and corresponding arrays/lists as values.
+
+    """
+    
+    model_pred = wishart_model_pred(model_pred_existing.model, model_pred_existing.opt_params, 
+                                    model_pred_existing.w_init_key,
+                                    model_pred_existing.opt_key, 
+                                    model_pred_existing.W_init,
+                                    model_pred_existing.W_est, 
+                                    model_pred_existing.Sigmas_recover_grid,
+                                    color_thres_data, 
+                                    target_pC= model_pred_existing.target_pC,
+                                    ngrid_bruteforce = 1000,
+                                    bds_bruteforce = [0.0005, 0.25])
+    
+    # Initialize arrays to store results
+    nRefs = len(fit_PMF_MOCS)
+    pChoosingX1_Wishart          = np.full((nRefs, fit_PMF_MOCS[0].nGridPts), np.nan)
+    vecLen_at_targetPC_Wishart   = np.full((nRefs,), np.nan)
+    stim_at_targetPC_Wishart     = np.full((nRefs, ndims), np.nan)
+
+    for n in trange(nRefs):
+        # Sort stimulus vectors by descending distance from the origin
+        sorted_indices = np.argsort(-np.linalg.norm(fit_PMF_MOCS[n].unique_stim, axis=1))
+        sorted_array = fit_PMF_MOCS[n].unique_stim[sorted_indices]
+
+        # Generate a finer grid of stimuli along the most distant chromatic direction
+        finer_stim = sim_MOCS_trials.create_discrete_stim(
+            sorted_array[0], 
+            fit_PMF_MOCS[n].nGridPts,
+            ndims= ndims
+        )
+
+        # Predict proportion correct (pChoosingX1) using the Wishart model
+        pChoosingX1_Wishart[n] = model_pred._compute_pChoosingX1(
+            np.full(finer_stim.shape, 0) + xref_unique[n], 
+            finer_stim + xref_unique[n]
+        )
+
+        # Find the vector length corresponding to target performance (e.g., 66.7%) from Wishart predictions
+        vecLen_at_targetPC_Wishart[n] = fit_PMF_MOCS[n]._find_stim_at_targetPC(pChoosingX1_Wishart[n])
+
+        # Compute stimulus coordinates at Wishart threshold
+        stim_at_targetPC_Wishart[n] = vecLen_at_targetPC_Wishart[n] * (
+            fit_PMF_MOCS[n].unique_stim[nLevels // 2] /
+            np.linalg.norm(fit_PMF_MOCS[n].unique_stim[nLevels // 2])
+        ) + xref_unique[n]
+
+    if return_dict:
+        Wishart_based_thres_atMOCS = {
+            "pChoosingX1_Wishart": pChoosingX1_Wishart,
+            "vecLen_at_targetPC_Wishart": vecLen_at_targetPC_Wishart,
+            "stim_at_targetPC_Wishart": stim_at_targetPC_Wishart,
+        }
+        return Wishart_based_thres_atMOCS
+    else:
+        return pChoosingX1_Wishart, vecLen_at_targetPC_Wishart, stim_at_targetPC_Wishart
+
+    
     
 #%%            
 class sim_MOCS_trials:
