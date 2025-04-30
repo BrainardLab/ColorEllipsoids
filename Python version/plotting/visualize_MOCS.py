@@ -18,16 +18,19 @@ from plotting.wishart_plotting import PlottingTools, PlotSettingsBase
 @dataclass
 class PlotPMFSettings(PlotSettingsBase):
     fig_size: Tuple[float, float] = (4, 5.5)
-    cmap: np.ndarray = field(default_factory=lambda: np.array([0.0, 0.0, 0.0]))
+    cmap_PMF: Union[str, np.ndarray, List[float]] = field(default_factory=lambda: [0,0,0])
+    cmap_dots: Union[str, np.ndarray, List[float]] = field(default_factory=lambda: [0,0,0])
     filler_pts: Optional[np.ndarray] = None
     yticks: List[float] = field(default_factory=lambda: [0.33, 0.67, 1])
+    CI_thres_errorbar_lw: float = 4
+    CI_thres_errorbar_capsize: float = 4
     PMF_label: str = 'Best-fit psychometric function to MOCS trials'
     CI_area_alpha: float = 0.5
     CI_area_label: str = '95% bootstrap CI of PMF'
     CI_thres_label: str = '95% bootstrap CI of threshold'
     Wishart_pred_lw: float = 0.2
     Wishart_pred_lc: Union[str, np.ndarray, List[float]] = field(default_factory=lambda: [0,0,0])
-    Wishart_pred_label: str = 'Predictions by Wishart Process model'
+    Wishart_pred_label: str = 'Wishart model predictions'
     Wishart_indv_pred_label: str = 'Predictions by Wishart Process (individual fit) model'
     xlabel: str = 'Euclidean distance between ref and comp in W space'
     ylabel: str = 'Proportion correct'
@@ -126,12 +129,12 @@ class MOCSTrialsVisualization(PlottingTools):
         
         # Plot the PMF curve
         ax.grid(True, color='grey', linewidth=0.1)
-        ax.plot(slc_PMF_MOCS.fineVal, slc_PMF_MOCS.fine_pC, c=settings.cmap,
+        ax.plot(slc_PMF_MOCS.fineVal, slc_PMF_MOCS.fine_pC, c=settings.cmap_PMF,
                 label=settings.PMF_label)
         
         # Scatter plot for observed data points 
         ax.scatter(slc_PMF_MOCS.unique_stim_L2norm, slc_PMF_MOCS.pC_perLevel,
-                   c=settings.cmap)
+                   c= settings.cmap_dots)
         #(excluding the first filler point)
         if settings.filler_pts is not None:
             ax.scatter(*settings.filler_pts, c = 'white')
@@ -140,14 +143,15 @@ class MOCSTrialsVisualization(PlottingTools):
         ax.fill_between(slc_PMF_MOCS.fineVal,
                         slc_PMF_MOCS.fine_pC_95btstCI[0],
                         slc_PMF_MOCS.fine_pC_95btstCI[1],
-                        color=settings.cmap, alpha=settings.CI_area_alpha,
+                        color=settings.cmap_PMF, alpha=settings.CI_area_alpha,
                         label=settings.CI_area_label)
         
         # Add error bars for estimated threshold
         ax.errorbar(slc_PMF_MOCS.stim_at_targetPC,
                     slc_PMF_MOCS.target_pC,
                     xerr=slc_PMF_MOCS.stim_at_targetPC_95btstErr[:, np.newaxis],
-                    c=settings.cmap, lw=2, capsize=4,
+                    c=settings.cmap_PMF, lw= settings.CI_thres_errorbar_lw,
+                    capsize=settings.CI_thres_errorbar_capsize,
                     label=settings.CI_thres_label)
         
         # Plot Wishart model predictions if available

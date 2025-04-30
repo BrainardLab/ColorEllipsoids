@@ -27,7 +27,7 @@ from core.model_predictions import wishart_model_pred
 from plotting.wishart_predictions_plotting import WishartPredictionsVisualization, Plot2DPredSettings
 from plotting.wishart_plotting import PlotSettingsBase 
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version')
-from data_reorg import organize_data
+from data_reorg import organize_data, organize_data_sim_isoluminant_plane
 from analysis.cross_validation import expt_data
 
 #%% three variables we need to define for loading the data
@@ -37,7 +37,7 @@ from analysis.cross_validation import expt_data
 plane_2D      ='Isoluminant plane'
 plane_2D_idx  = 2
 sim_jitter    = 0.3
-nSims         = 6000 #number of simulations: 
+nSims         = 18000 #number of simulations: 
 rnd_seed      = 0
 
 baseDir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
@@ -61,13 +61,13 @@ else:
     flag_convert_to_W = True 
 file_sim = f"Sims_isothreshold_{plane_2D}_{colordiff_alg}_sim{nSims}total_"+\
             f"samplingNearContour_jitter{sim_jitter}_seed{rnd_seed}.pkl"
-full_path = f"{path_str}/{plane_2D}/{file_sim}"   
+full_path = os.path.join(path_str, plane_2D, file_sim)  
 with open(full_path, 'rb') as f:  
     data_load = pickle.load(f)
 sim = data_load['sim_trial'].sim
 
 # Create an instance of the class
-color_thres_data = color_thresholds(2, baseDir + 'ELPS_analysis/',
+color_thres_data = color_thresholds(2, baseDir,
                                     plane_2D = plane_2D)
 # Load Wishart model fits
 color_thres_data.load_CIE_data(CIE_version = colordiff_alg)
@@ -81,7 +81,7 @@ color_thres_data.load_transformation_matrix()
 #                                        M_2DWToRGB = color_thres_data.M_2DWToRGB)
 # y_jnp, xref_jnp, x0_jnp, x1_jnp = data_temp
 
-y_jnp, xref_jnp, x1_jnp = jnp.array(sim['resp_binary']), jnp.array(sim['ref_points'][:2,:].T), jnp.array(sim['rgb_comp'][:2,:].T)
+y_jnp, xref_jnp, x1_jnp = organize_data_sim_isoluminant_plane(sim)
 data = (y_jnp, xref_jnp, x1_jnp)
 
 #%% 
@@ -89,7 +89,7 @@ data = (y_jnp, xref_jnp, x1_jnp)
 # Constants describing simulation
 # -------------------------------
 model = WishartProcessModel(
-    6,     # Degree of the polynomial basis functions default = 5
+    7,     # Degree of the polynomial basis functions default = 5
     2,     # Number of stimulus dimensions
     1,     # Number of extra inner dimensions in `U`.
     3e-4,  # Scale parameter for prior on `W`.
@@ -97,7 +97,7 @@ model = WishartProcessModel(
     0,     # Diagonal term setting minimum variance for the ellipsoids.
 )
 
-NUM_GRID_PTS = 8      # Number of grid points over stimulus space.
+NUM_GRID_PTS = 9      # Number of grid points over stimulus space.
 MC_SAMPLES   = 2000        # Number of simulated trials to compute likelihood.
 BANDWIDTH    = 5e-3        # Bandwidth for logistic density function.
 opt_params = {
@@ -112,7 +112,7 @@ opt_params = {
 # -----------------------------
 # Search for the best-fit parameters from three random initializations to avoid
 # getting stuck at local minimum
-nRepeats = 3
+nRepeats = 1
 #Generate a matrix of random seeds for each initialization
 random_seeds = np.random.randint(0, 2**32, size = (nRepeats, 2))
 # Initialize a high upper bound for negative log-likelihood (nLL) to track the best fit
@@ -151,7 +151,7 @@ fig.tight_layout(); plt.show()
 # Compute model predictions
 # -----------------------------
 # Specify grid over stimulus space
-grid = jnp.stack(jnp.meshgrid(*[jnp.linspace(-0.6, 0.6,
+grid = jnp.stack(jnp.meshgrid(*[jnp.linspace(-0.7, 0.7,
                     NUM_GRID_PTS) for _ in range(model.num_dims)]), axis=-1)
 # Compute the covariance matrices ('Sigmas') at each point in the grid using 
 # the model's compute_U function. 
@@ -209,7 +209,7 @@ pred2D_settings2 = replace(pred2D_settings,
                            modelpred_lc = 'g',
                            modelpred_lw = 1.5, 
                            modelpred_alpha = 0.5,
-                           fontsize = 9,
+                           ticks = np.linspace(-0.8, 0.8, 5),
                            fig_name = f"{fig_name_part1}")
 sim_trial_by_CIE = expt_data(xref_jnp, x1_jnp, y_jnp, None)
 wishart_pred_vis = WishartPredictionsVisualization(sim_trial_by_CIE,
@@ -219,14 +219,19 @@ wishart_pred_vis = WishartPredictionsVisualization(sim_trial_by_CIE,
                                                    settings = pltSettings_base, 
                                                    save_fig = False)
 #version 1 with samples
-wishart_pred_vis.plot_2D(grid, grid, settings = pred2D_settings1, gt_ellipses=gt_covMat_CIE) 
+#fig1, ax1 = plt.subplots(1, 1, figsize = pred2D_settings1.fig_size, dpi= pred2D_settings1.dpi)
+#wishart_pred_vis.plot_2D(grid, grid, settings = pred2D_settings1, gt_ellipses=gt_covMat_CIE) 
+
 #version 2 without samples
-wishart_pred_vis.plot_2D(grid, grid, settings = pred2D_settings2, gt_ellipses=gt_covMat_CIE) 
+fig2, ax2 = plt.subplots(1, 1, figsize = pred2D_settings2.fig_size, dpi= pred2D_settings2.dpi)
+wishart_pred_vis.plot_2D(grid, settings = pred2D_settings2, 
+                         gt_ellipses=gt_covMat_CIE, ax = ax2)
+ax2.set_title(f'Isoluminant plane ({colordiff_alg})') 
 
         
 #%% save data
 output_file = f"{fig_name_part1}_oddity.pkl"
-full_path = f"{output_fileDir}/{output_file}"
+full_path = os.path.join(output_fileDir, output_file)
 
 variable_names = ['plane_2D','sim_jitter','nSims','rnd_seed','colordiff_alg',
                   'scaler_x1', 'file_sim', 'sim', 'color_thres_data', 'data',
