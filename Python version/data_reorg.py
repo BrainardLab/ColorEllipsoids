@@ -14,10 +14,12 @@ import matplotlib.pyplot as plt
 import sys
 from dataclasses import replace
 
-sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
+#sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
+sys.path.append("/Users/fh862-adm/Documents/GitHub/ellipsoids/ellipsoids")
 from analysis.color_thres import color_thresholds
-from core import oddity_task, model_predictions
-sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version/')
+from core import model_predictions
+#sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version/')
+sys.path.append("/Users/fh862-adm/Documents/GitHub/ColorEllipsoids/Python version")
 from plotting.wishart_plotting import PlotSettingsBase
 from plotting.trial_placement_nonadaptive_plotting import TrialPlacementVisualization,\
         Plot3DSampledCompSettings
@@ -245,5 +247,49 @@ def derive_gt_slice_2d_ellipse_CIE(num_grid_pts, CIE_results_3D, flag_convert_to
     
     return gt_slice_2d_ellipse_CIE, gt_covMat_CIE
 
+def group_trials_by_grid(grid, y_jnp, xref_jnp, x1_jnp):
+    """
+    Groups trials by grid point and reshapes outputs.
 
+    Args:
+        grid: (num_x, num_y, 2) array of grid coordinates (x, y per grid point)
+        y_jnp: (N,) array of binary responses
+        xref_jnp: (N, 2) array of reference stimuli per trial
+        x1_jnp: (N, 2) array of comparison stimuli per trial
 
+    Returns:
+        y_org:      (num_x, num_y, N_per) grouped responses
+        xref_org:   (num_x, num_y, N_per, 2) grouped reference stimuli
+        x1_org:     (num_x, num_y, N_per, 2) grouped comparison stimuli
+        y_flat:     (num_x*num_y, N_per) flattened responses
+        xref_flat:  (num_x*num_y, N_per, 2) flattened references
+        x1_flat:    (num_x*num_y, N_per, 2) flattened comparisons
+    """
+    num_x, num_y, _ = grid.shape
+    N = y_jnp.shape[0]
+    N_per = N // (num_x * num_y)
+
+    # Preallocate output arrays (NumPy, will convert to jnp later)
+    xref_org = np.full((num_x, num_y, N_per, 2), np.nan)
+    x1_org   = np.full_like(xref_org, np.nan)
+    y_org    = np.full((num_x, num_y, N_per), np.nan)
+
+    for i in range(num_x):
+        for j in range(num_y):
+            grid_pt = grid[i, j]
+            # Find indices where reference matches grid point (use isclose for float precision)
+            match = jnp.all(jnp.isclose(xref_jnp, grid_pt), axis=1)
+            idxs = np.where(match)[0]
+            # Fill preallocated arrays (up to available matches)
+            xref_org[i, j, :len(idxs)] = np.asarray(xref_jnp[idxs])
+            x1_org[i, j, :len(idxs)] = np.asarray(x1_jnp[idxs])
+            y_org[i, j, :len(idxs)] = np.asarray(y_jnp[idxs])
+
+    # Flatten arrays along grid dimensions
+    xref_flat = np.reshape(xref_org, (num_x * num_y, N_per, 2))
+    x1_flat   = np.reshape(x1_org, (num_x * num_y, N_per, 2))
+    y_flat    = np.reshape(y_org, (num_x * num_y, N_per))
+
+    # Convert outputs to jax.numpy arrays
+    return (jnp.array(y_org), jnp.array(xref_org), jnp.array(x1_org)),\
+           (jnp.array(y_flat), jnp.array(xref_flat), jnp.array(x1_flat))
