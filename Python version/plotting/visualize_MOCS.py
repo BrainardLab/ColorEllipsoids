@@ -10,29 +10,39 @@ import numpy as np
 import matplotlib.pyplot as plt
 from dataclasses import dataclass, field
 from typing import Optional, List, Tuple, Union
+import os
 import sys
-sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
+def find_folder(start_dir='~', folder_name='ellipsoids'):
+    start_dir = os.path.expanduser(start_dir)
+    for root, dirs, files in os.walk(start_dir):
+        if folder_name in dirs:
+            return os.path.join(root, folder_name)
+    raise FileNotFoundError(f"Folder '{folder_name}' not found under {start_dir}")
+# Example: search from Documents
+ellipsoids_path = find_folder('~/Documents')
+sys.path.append(os.path.join(ellipsoids_path,'ellipsoids'))
 from plotting.wishart_plotting import PlottingTools, PlotSettingsBase
 
 #%%
 @dataclass
 class PlotPMFSettings(PlotSettingsBase):
-    fig_size: Tuple[float, float] = (4, 5.5)
+    fig_size: Tuple[float, float] = (4.3, 6.3)
     cmap_PMF: Union[str, np.ndarray, List[float]] = field(default_factory=lambda: [0,0,0])
     cmap_dots: Union[str, np.ndarray, List[float]] = field(default_factory=lambda: [0,0,0])
     filler_pts: Optional[np.ndarray] = None
+    num_xticks: int = 4
     yticks: List[float] = field(default_factory=lambda: [0.33, 0.67, 1])
     CI_thres_errorbar_lw: float = 4
     CI_thres_errorbar_capsize: float = 4
-    PMF_label: str = 'Best-fit psychometric function to MOCS trials'
+    PMF_label: str = 'Best-fit Weibull function to MOCS trials'
     CI_area_alpha: float = 0.5
-    CI_area_label: str = '95% bootstrap CI of PMF'
+    CI_area_label: str = '95% bootstrap CI of Weibull function'
     CI_thres_label: str = '95% bootstrap CI of threshold'
     Wishart_pred_lw: float = 0.2
     Wishart_pred_lc: Union[str, np.ndarray, List[float]] = field(default_factory=lambda: [0,0,0])
     Wishart_pred_label: str = 'Wishart model predictions'
     Wishart_indv_pred_label: str = 'Predictions by Wishart Process (individual fit) model'
-    xlabel: str = 'Euclidean distance between ref and comp in W space'
+    xlabel: str = 'Euclidean distance between reference\nand comparison stimuli in the Wishart space'
     ylabel: str = 'Proportion correct'
     show_ref_in_title: bool = True
     fig_name: str = 'Mahalanobis_distance'
@@ -80,6 +90,50 @@ class PlotCondSettings(PlotSettingsBase):
     catch_ec: Union[str, np.ndarray, List[float]] = 'r'
     easyTrials_highlight: bool = True  # Whether to highlight easy trials
     fig_name: str = ''  # Filename to save the figure
+    
+# dictionary mapping subject IDs to their specific settings
+PlotThresCompSettings_bds = {
+    'sub1': {
+        'bds': np.array([0, 0.1]),
+        'corr_text_loc': [0.015, 0.095],
+        'slope_text_loc': [0.015, 0.09]
+    },
+    'sub2': {
+        'bds': np.array([0, 0.14]),
+        'corr_text_loc': [0.02, 0.13],
+        'slope_text_loc': [0.02, 0.123]
+    },
+    'sub4': {
+        'bds': np.array([0, 0.13]),
+        'corr_text_loc': [0.02, 0.12],
+        'slope_text_loc': [0.02, 0.113]
+    },
+    'sub6': {
+        'bds': np.array([0, 0.20]),
+        'corr_text_loc': [0.03, 0.19],
+        'slope_text_loc': [0.03, 0.18]
+    },
+    'sub7': {
+        'bds': np.array([0, 0.15]),
+        'corr_text_loc': [0.02, 0.14],
+        'slope_text_loc': [0.02, 0.133]
+    },
+    'sub8': {
+        'bds': np.array([0, 0.32]),
+        'corr_text_loc': [0.03, 0.30],
+        'slope_text_loc': [0.03, 0.28]
+    },
+    'sub10': {
+        'bds': np.array([0, 0.14]),
+        'corr_text_loc': [0.03, 0.13],
+        'slope_text_loc': [0.03, 0.12]
+    },
+    'sub11': {
+        'bds': np.array([0, 0.17]),
+        'corr_text_loc': [0.02, 0.16],
+        'slope_text_loc': [0.02, 0.15]
+    }
+}
     
 #%%
 class MOCSTrialsVisualization(PlottingTools):
@@ -169,6 +223,11 @@ class MOCSTrialsVisualization(PlottingTools):
         ax.set_xlabel(settings.xlabel)
         ax.set_ylabel(settings.ylabel)
         ax.set_yticks(settings.yticks)
+        
+        #xticks
+        xticks = np.linspace(0, slc_PMF_MOCS.fineVal[-1], settings.num_xticks)
+        ax.set_xticks(xticks)
+        ax.set_xticklabels([f"{x:.2f}" for x in xticks])
         
         # Set title if reference stimulus is provided
         if settings.show_ref_in_title and xref is not None:
