@@ -125,13 +125,18 @@ PlotThresCompSettings_bds = {
     },
     'sub10': {
         'bds': np.array([0, 0.14]),
-        'corr_text_loc': [0.03, 0.13],
-        'slope_text_loc': [0.03, 0.12]
+        'corr_text_loc': [0.02, 0.13],
+        'slope_text_loc': [0.02, 0.123]
     },
     'sub11': {
         'bds': np.array([0, 0.17]),
         'corr_text_loc': [0.02, 0.16],
         'slope_text_loc': [0.02, 0.15]
+    },
+    'subNone':{ #simulated subject
+        'bds': np.array([0, 0.16]),
+        'corr_text_loc': [0.02, 0.15],
+        'slope_text_loc': [0.02, 0.14]
     }
 }
     
