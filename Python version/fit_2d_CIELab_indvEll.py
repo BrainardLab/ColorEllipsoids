@@ -59,8 +59,8 @@ model_existing       = model_pred_existing.model                  # Wishart mode
 opt_params_existing  = model_pred_existing.opt_params             # Optimization parameters
 
 # Define the subset size for fitting independent threshold models
-size_subset = 6027  # Example options: [6027, 10045, 14014, 17640]
-str_ext_s = f'_subset{size_subset}' if size_subset < size_fullset else ''
+size_subset = 14014  # Example options: [6027, 10045, 14014, 17640]
+str_ext_s = f'subset{size_subset}'
 
 # Ensure the subset is evenly distributed across reference locations
 assert size_subset % nRefs == 0, 'Selected trial number must be evenly divisible by number of reference locations.'
@@ -134,6 +134,7 @@ predM_settings = replace(
     modelpred_ls='--',
     modelpred_lw=0.5,
     modelpred_alpha=1,
+    modelpred_label='Ground truth (CIE 1994)',
     ticks=np.linspace(-0.7, 0.7, 5))
     
 nBtst = 10
@@ -159,9 +160,9 @@ if not flag_load_previous:
         'fitEll', 'model_pred_Wishart_indv_ell','fitEll_params', 'fitEll_indv_org'
     ]
     
-    #%% Define bootstrap settings
-    btst_seed = list(range(nBtst))#[None]  # add additional seeds if needed
-    flag_btst = [True]*nBtst #[False]  # set to True to activate bootstrap
+    #% Define bootstrap settings
+    btst_seed = [None] + list(range(nBtst))#[None]  # add additional seeds if needed
+    flag_btst = [False] + [True]*nBtst #[False]  # set to True to activate bootstrap
     
     for flag_btst_AEPsych, ll in zip(flag_btst, btst_seed):
         str_ext = str_ext_s
@@ -269,7 +270,7 @@ if not flag_load_previous:
         #---------------------------------------------------------------------------
         # Save results for this iteration
         vars_dict_subset_ll = {var_name: eval(var_name) for var_name in variable_names_append}
-        key_name_ll = f'model_pred_indv{str_ext}'
+        key_name_ll = f'model_pred_indv_{str_ext}'
         vars_dict_subset[key_name_ll] = vars_dict_subset_ll
     
         # Write updated dictionary to file
@@ -286,12 +287,11 @@ if not flag_load_previous:
                 cm_nm = color_thres_data.M_2DWToRGB @ np.insert(grid[n, m], 2, 1)
                 ax.plot(fitEll_indv_org[n, m, 0], fitEll_indv_org[n, m, 1], alpha=0.7, c=cm_nm)
         ax.set_title('Isoluminant plane');
-        fig.savefig(os.path.join(output_figDir_fits, f"{output_file_name[:-4]}{str_ext}.pdf"))    
+        fig.savefig(os.path.join(output_figDir_fits, f"{output_file_name[:-4]}_{str_ext}.pdf"))    
 
 #%% visualize the model predictions with bootstrapped confidence intervals
 if flag_load_previous:
     fig2, ax2 = plt.subplots(1, 1, figsize=predM_settings.fig_size, dpi=predM_settings.dpi)
-    wishart_pred_vis.plot_2D(grid, ax=ax2, settings=predM_settings)
     #loop through each reference color
     for n in range(NUM_GRID_PTS):
         for m in range(NUM_GRID_PTS):
@@ -299,7 +299,7 @@ if flag_load_previous:
             fitEll_params_nm = np.full((nBtst, 5), np.nan) #5 means 5 free parameters characterizing an ellipse
             #extract
             for ll in range(nBtst):
-                fitEll_params_org = vars_dict_subset[f'model_pred_indv_subset{size_subset}_btst_AEPsych{[ll]}']['fitEll_params']
+                fitEll_params_org = vars_dict_subset[f'model_pred_indv_{str_ext_s}_btst_AEPsych{[ll]}']['fitEll_params']
                 fitEll_params_reshape = np.reshape(fitEll_params_org, (NUM_GRID_PTS, NUM_GRID_PTS, 5))
                 fitEll_params_nm[ll] = fitEll_params_reshape[n,m]
             #Computes the confidence intervals for the model-predicted ellipses at each grid point.
@@ -315,6 +315,7 @@ if flag_load_previous:
             wishart_pred_vis.add_CI_ellipses(fitEll_min, fitEll_max,
                                              ax=ax2, cm=cm_nm, label=lbl, lw_outer = 0,
                                              alpha = 0.7)
+    wishart_pred_vis.plot_2D(grid, ax=ax2, settings=predM_settings)
     ax2.set_title('Isoluminant plane');
     fig2.savefig(os.path.join(output_figDir_fits, f"{output_file_name[:-4]}_wCI.pdf"))    
 
