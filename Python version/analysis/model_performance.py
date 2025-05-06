@@ -348,20 +348,24 @@ class ModelPerformance():
         # Default parameters for ellipsoid fitting. Can be overridden by kwargs.
         pltP = {
             'cmap':[],
-            'linestyle':[],
+            'ls':[],
+            'ls_median': [],
             'jitter':np.zeros((nSets)),
             'lw': 1,
             } 
         pltP.update(kwargs)
         
         #fig, ax = plt.subplots(1, 1, figsize=(5,4.5))
-        plt.rcParams['figure.dpi'] = 256
         bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
         for m in range(nSets):
             if len(pltP['cmap']) == 0: cmap_m = np.random.rand(1,3)
             else: cmap_m = pltP['cmap'][m];
-            if len(pltP['linestyle']) == 0: ls_m = '-';
-            else: ls_m = pltP['linestyle'][m]
+            if len(pltP['ls']) == 0: ls = '--';
+            else: ls = pltP['ls'][m]
+            if len(pltP['ls_median']) == 0: ls_m = '-';
+            else: ls_m = pltP['ls_median'][m]            
+            median_m = np.median(similarity_score[m].flatten())
             counts_m,_ = np.histogram(similarity_score[m].flatten(), bins=bin_edges)
-            ax.plot(bin_centers+pltP['jitter'][m], counts_m,  color = cmap_m, ls = ls_m, lw = pltP['lw'])
+            ax.plot(bin_centers+pltP['jitter'][m], counts_m,  color = cmap_m, ls = ls, lw = pltP['lw'])
+            ax.plot([median_m, median_m], [0, 30], ls = ls_m, color = cmap_m, lw = pltP['lw'])
         ax.grid(True, alpha=0.3)
