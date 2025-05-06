@@ -13,6 +13,7 @@ import sys
 import os
 import dill as pickled
 import numpy as np
+import re
 #sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
 sys.path.append("/Users/fh862-adm/Documents/GitHub/ellipsoids/ellipsoids")
 from analysis.ellipses_tools import ellParams_to_covMat, rotAngle_to_eigenvectors
@@ -53,6 +54,8 @@ for _ in range(nFiles_load_indvEll): #it can be any number depending on how many
     model_ellParams1 = np.reshape(vars_dict1[f'model_pred_indv_{subset_str}']['fitEll_params'],
                                  (NUM_GRID_PTS, NUM_GRID_PTS, -1))
     data_load_indvEll.append(model_ellParams1.tolist())
+indvEll_trialN = [int(re.search(r'subset(\d+)\.pkl', fn).group(1)) for fn in file_name_all1]
+print(indvEll_trialN)
 
 #load one from the Wishart fits
 nFiles_load_Wishart = 2
@@ -160,10 +163,13 @@ BW_distance_circle_median = np.median(model_perf.BW_distance_minEigval)
 BW_distance_corner_median = np.median(model_perf.BW_distance_corner, axis = axis1_merge[:-1])
 
 #%%plotting
+output_figDir_fits = input_fileDir_all1[-1].replace('DataFiles', 'FigFiles')
+os.makedirs(output_figDir_fits, exist_ok=True)
+
 plt.rcParams['font.sans-serif'] = ['Arial']
 plt.rcParams.update({'font.size': 13})
 
-fig1, ax1 = plt.subplots(1,1, figsize = (4.5, 3.25), dpi = 1024) #; format 1: (3.5, 2.2); format 2:  (3.2, 2.2)
+fig1, ax1 = plt.subplots(1,1, figsize = (4.2, 2.7), dpi = 1024) #; format 1: (3.5, 2.2); format 2:  (3.2, 2.2)
 y_ub = 0.1
 ax1.plot([-3, nFiles_load_indvEll+2], [BW_distance_circle_median, BW_distance_circle_median],
          c = 'k',ls = '-',lw = 2, alpha = 0.8)
@@ -191,6 +197,6 @@ ax1.set_yticks(np.linspace(0,y_ub,3))
 ax1.set_ylim([0,y_ub])
 ax1.set_ylabel('Bures-Wasserstein distance')
 plt.tight_layout()
-figName1 = f"ModelPerformance_BuresWassersteinDistance_Wishart_vs_IndvEll.pdf"
-full_path1 = os.path.join(fig_outputDir, figName1)
-if saveFig: fig1.savefig(full_path1)   
+figName1 = f"ModelPerformance_BuresWassersteinDistance_Wishart_vs_IndvEll_trialNum[{indvEll_trialN}].pdf"
+fig1.savefig(os.path.join(output_figDir_fits, figName1))   
+
