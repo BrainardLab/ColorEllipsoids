@@ -247,49 +247,72 @@ def derive_gt_slice_2d_ellipse_CIE(num_grid_pts, CIE_results_3D, flag_convert_to
     
     return gt_slice_2d_ellipse_CIE, gt_covMat_CIE
 
-def group_trials_by_grid(grid, y_jnp, xref_jnp, x1_jnp):
+def group_trials_by_grid(grid, y_jnp, xref_jnp, x1_jnp, ndims=2):
     """
-    Groups trials by grid point and reshapes outputs.
+    Groups trials by grid point (reference stimulus) and reshapes outputs into arrays
+    organized by grid coordinates.
+
+    This function works for both 2D (e.g., 7x7 grid) and 3D (e.g., 7x7x7 grid) grids.
 
     Args:
-        grid: (num_x, num_y, 2) array of grid coordinates (x, y per grid point)
-        y_jnp: (N,) array of binary responses
-        xref_jnp: (N, 2) array of reference stimuli per trial
-        x1_jnp: (N, 2) array of comparison stimuli per trial
+        grid: (..., 2) array of grid coordinates. Shape: (num_x, num_y, ..., ndims),
+              where the last dimension holds (x, y) coordinates (or (x, y) for a fixed z-plane).
+              For 2D: shape (num_x, num_y, 2)
+              For 3D: shape (num_x, num_y, num_z, 3)
+        y_jnp: (N,) array of binary responses across all trials
+        xref_jnp: (N, ndims) array of reference stimulus locations per trial
+        x1_jnp: (N, ndims) array of comparison stimulus locations per trial
+        ndims: number of stimulus dimensions (default=2)
 
     Returns:
-        y_org:      (num_x, num_y, N_per) grouped responses
-        xref_org:   (num_x, num_y, N_per, 2) grouped reference stimuli
-        x1_org:     (num_x, num_y, N_per, 2) grouped comparison stimuli
-        y_flat:     (num_x*num_y, N_per) flattened responses
-        xref_flat:  (num_x*num_y, N_per, 2) flattened references
-        x1_flat:    (num_x*num_y, N_per, 2) flattened comparisons
+        y_org:      (*grid_shape, N_per) array of grouped responses, organized by grid point
+        xref_org:   (*grid_shape, N_per, ndims) array of grouped reference stimuli
+        x1_org:     (*grid_shape, N_per, ndims) array of grouped comparison stimuli
+        y_flat:     (num_ref, N_per) flattened grouped responses
+        xref_flat:  (num_ref, N_per, ndims) flattened grouped reference stimuli
+        x1_flat:    (num_ref, N_per, ndims) flattened grouped comparison stimuli
     """
-    num_x, num_y, _ = grid.shape
+    # Get grid shape excluding the coordinate dimension (e.g., (7,7) for 2D, (7,7,7) for 3D)
+    grid_shape = grid.shape[:-1]  
+
+    # Total number of reference locations (i.e., number of unique grid points)
+    num_ref = np.prod(grid_shape)
+
+    # Total number of trials
     N = y_jnp.shape[0]
-    N_per = N // (num_x * num_y)
+    # Number of trials per reference color (assumed uniform sampling across references)
+    N_per = int(N // num_ref)
 
-    # Preallocate output arrays (NumPy, will convert to jnp later)
-    xref_org = np.full((num_x, num_y, N_per, 2), np.nan)
+    # Preallocate output arrays for grouped data:
+    #   shape: (*grid_shape, N_per, ndims) for xref and x1
+    #   shape: (*grid_shape, N_per) for y
+    xref_org = np.full(grid_shape + (N_per, ndims), np.nan)
     x1_org   = np.full_like(xref_org, np.nan)
-    y_org    = np.full((num_x, num_y, N_per), np.nan)
+    y_org    = np.full(grid_shape + (N_per,), np.nan)
 
-    for i in range(num_x):
-        for j in range(num_y):
-            grid_pt = grid[i, j]
-            # Find indices where reference matches grid point (use isclose for float precision)
-            match = jnp.all(jnp.isclose(xref_jnp, grid_pt), axis=1)
-            idxs = np.where(match)[0]
-            # Fill preallocated arrays (up to available matches)
-            xref_org[i, j, :len(idxs)] = np.asarray(xref_jnp[idxs])
-            x1_org[i, j, :len(idxs)] = np.asarray(x1_jnp[idxs])
-            y_org[i, j, :len(idxs)] = np.asarray(y_jnp[idxs])
+    # Iterate over every grid index (generalized to ndims) to group trials
+    for idx in np.ndindex(*grid_shape):
+        # Access the grid point at the current index (idx is a tuple of indices)
+        grid_pt = grid[*idx][np.newaxis, :]  # shape (1, 3) to match broadcasting
 
-    # Flatten arrays along grid dimensions
-    xref_flat = np.reshape(xref_org, (num_x * num_y, N_per, 2))
-    x1_flat   = np.reshape(x1_org, (num_x * num_y, N_per, 2))
-    y_flat    = np.reshape(y_org, (num_x * num_y, N_per))
+        # Find trials where xref_jnp matches this grid point (allowing float tolerance)
+        match = jnp.all(jnp.isclose(xref_jnp, grid_pt), axis=1)
+        idxs = np.where(match)[0]
 
-    # Convert outputs to jax.numpy arrays
-    return (jnp.array(y_org), jnp.array(xref_org), jnp.array(x1_org)),\
+        # Check that the number of matched trials is exactly N_per
+        assert len(idxs) == N_per, \
+            f"Expected {N_per} trials at grid index {idx}, but found {len(idxs)}."
+
+        # Assign matched trials to preallocated arrays
+        xref_org[*idx][:N_per] = np.asarray(xref_jnp[idxs])
+        x1_org[*idx][:N_per]   = np.asarray(x1_jnp[idxs])
+        y_org[*idx][:N_per]    = np.asarray(y_jnp[idxs])
+
+    # Flatten arrays across grid dimensions for easier downstream analysis
+    # Final shape: (num_ref, N_per, ndims) or (num_ref, N_per)
+    xref_flat = np.reshape(xref_org, (num_ref, N_per, ndims))
+    x1_flat   = np.reshape(x1_org,   (num_ref, N_per, ndims))
+    y_flat    = np.reshape(y_org,    (num_ref, N_per))
+
+    return (jnp.array(y_org), jnp.array(xref_org), jnp.array(x1_org)), \
            (jnp.array(y_flat), jnp.array(xref_flat), jnp.array(x1_flat))

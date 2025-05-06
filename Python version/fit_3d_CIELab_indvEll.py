@@ -6,282 +6,319 @@ Created on Thu Oct 10 16:54:24 2024
 @author: fangfang
 """
 
-#%% import modules
 import jax
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
-import dill as pickle
+import dill as pickled
 import sys
+import copy
 import numpy as np
+from tqdm import trange
+import os
+from dataclasses import replace
+#sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
+sys.path.append("/Users/fh862-adm/Documents/GitHub/ellipsoids/ellipsoids")
+from core import optim, oddity_task
+from core.model_predictions import wishart_model_pred
+from plotting.wishart_plotting import PlotSettingsBase 
+from plotting.wishart_predictions_plotting import WishartPredictionsVisualization, Plot3DPredSettings
+from analysis.ellipses_tools import find_inner_outer_contours
+#sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version')
+sys.path.append("/Users/fh862-adm/Documents/GitHub/ColorEllipsoids/Python version")
+from analysis.utils_load import load_4D_expt_data
+from analysis.utils_load import select_file_and_get_path
+from data_reorg import group_trials_by_grid
 
-sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
-from analysis.color_thres import color_thresholds
-from plotting.wishart_predictions_plotting import WishartPredictionsVisualization
-# Import functions and classes from your project
-from core.probability_surface import IndividualProbSurfaceModel, optimize_nloglikelihood
-from analysis.ellipses_tools import covMat3D_to_2DsurfaceSlice, ellParams_to_covMat
-from analysis.ellipsoids_tools import UnitCircleGenerate_3D, PointsOnEllipsoid, \
-    rotation_angles_to_eigenvectors,fit_3d_isothreshold_ellipsoid
+#define output directory for output files and figures
+baseDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
+COLOR_DIMENSION = 3
 
-sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version')
-from data_reorg import organize_data
-from plotting.trial_placement_nonadaptive_plotting import TrialPlacementVisualization
+#%% load data
+#'META_analysis/ModelFitting_DataFiles/3dTask/CIE'
+#'Fitted_byWishart_ellipsoids_3DExpt_30_30_30_550_AEPsychSampling_EAVC_decayRate0.4_nBasisDeg5_sub1_subset30000.pkl'
+# It takes the file xxx_subset4000.pkl but we extract the full dataset from the pickle
+fits_path, file_name = select_file_and_get_path()
+Wishart_full_path = os.path.join(fits_path, file_name)
 
+with open(Wishart_full_path, 'rb') as f:  
+    vars_dict = pickled.load(f)
+    
+# Extract variables from loaded dictionary
+NUM_GRID_PTS         = len(vars_dict['grid_ref'])                 # Number of grid points per dimension
+nRefs                = NUM_GRID_PTS ** COLOR_DIMENSION            # Total number of reference colors
+data_AEPsych_fullset = vars_dict['data_AEPsych_fullset']          # Full dataset (e.g., ~18,000 trials)
+color_thres_data     = vars_dict['color_thres_data']              # Color threshold data object
+gt_Wishart           = vars_dict['gt_Wishart']                    # Ground truth Wishart model (joint fit)
+grid                 = vars_dict['grid']                          # 2D grid of reference points (shape: N x N x 2)
+grid_flatten         = np.reshape(grid, (nRefs, -1))              # Flattened grid (shape: N^2 x 2)
+NTRIALS_STRAT        = vars_dict['NTRIALS_STRAT']                 # Trials per sampling strategy per reference (e.g., [10, 10, 10, 330])
+NTRIALS              = sum(NTRIALS_STRAT)                         # Total trials per reference
+size_fullset         = NTRIALS * nRefs                            # Total number of trials across all references
+model_pred_existing  = vars_dict['model_pred_Wishart']            # Existing model predictions
+model_existing       = model_pred_existing.model                  # Wishart model object
+opt_params_existing  = model_pred_existing.opt_params             # Optimization parameters
+
+# Define the subset size for fitting independent threshold models
+size_subset = 30000  # Example options: [30000, 45000, 60000, 80000]
+str_ext_s = f'subset{size_subset}'
+
+# Ensure the subset is evenly distributed across reference locations
+assert size_subset % nRefs == 0, 'Selected trial number must be evenly divisible by number of reference locations.'
+
+# Extract the subset of trials
+data_AEPsych_subset = tuple(arr[:size_subset] for arr in data_AEPsych_fullset)
+# Group trials by grid → returns (nRefs, N_perRef, 2) arrays
+_, data_AEPsych_subset_flatten = group_trials_by_grid(grid,
+                                                      *data_AEPsych_subset,
+                                                      ndims = COLOR_DIMENSION)
+
+# Generate output file name
+output_file_name = f"Indv{file_name.split('subset')[0]}subset{size_subset}.pkl"
+
+# Variables to save initially (before appending later model predictions)
+variable_names = [
+    'nRefs', 'NUM_GRID_PTS', 'data_AEPsych_fullset','data_AEPsych_subset_flatten',
+    'color_thres_data','gt_Wishart', 'grid', 'grid_flatten', 'NTRIALS_STRAT', 'NTRIALS',
+    'model_pred_existing', 'model_existing', 'opt_params_existing', 'size_subset'
+]
+
+# Define output directory and file path
+output_fits_path = os.path.join(
+    fits_path.replace(f'{COLOR_DIMENSION}dTask', f'{COLOR_DIMENSION}dTask_indvEll').rpartition('/subset')[0],
+    f'subset{size_subset}'
+)
+os.makedirs(output_fits_path, exist_ok=True)
+output_full_path = os.path.join(output_fits_path, output_file_name)
+
+#check if the file exists    
+if os.path.exists(output_full_path):
+    # File exists → load it
+    with open(output_full_path, 'rb') as f:
+        vars_dict_subset = pickled.load(f)
+    flag_load_previous = True
+    print(f"Loaded existing file: {output_full_path}")
+else:
+    # Save initial variables to pickle file
+    vars_dict_subset = {var_name: eval(var_name) for var_name in variable_names}
+
+    # File does not exist → write it
+    with open(output_full_path, 'wb') as f:
+        pickled.dump(vars_dict_subset, f)
+    flag_load_previous = False
+    print(f"Saved new file: {output_full_path}")
+    
 #%% three variables we need to define for loading the data
-for rr in range(10):
-    rnd_seed  = rr
-    nSims     = 9600
-    jitter    = 0.3
+#whether we load the data from a previous file or not, we need to set the directory for 
+#output figures
+# Create output directory for figures
+output_figDir_fits = output_fits_path.replace('DataFiles', 'FigFiles')
+os.makedirs(output_figDir_fits, exist_ok=True)
+
+# Set plotting parameters for visualization
+pltSettings_base = PlotSettingsBase(fig_dir=output_figDir_fits, fontsize=8)
+predM_settings = replace(Plot3DPredSettings(), **pltSettings_base.__dict__)
+predM_settings = replace(predM_settings, fig_dir = fits_path)
+
+# Initialize the visualization object for model predictions
+wishart_pred_vis = WishartPredictionsVisualization(
+    data_AEPsych_subset, gt_Wishart.model, gt_Wishart, color_thres_data,
+    settings=predM_settings, save_fig=False
+)
+
+# Refine plotting settings for individual fits
+predM_settings = replace(predM_settings,
+                         visualize_samples = False,
+                         samples_s = 1,
+                         samples_alpha = 0.2, 
+                         gt_ls = '--',
+                         gt_lw = 1,
+                         gt_lc = 'k',
+                         gt_alpha = 0.85,
+                         modelpred_alpha = 0.55,
+                         modelpred_lc = None,
+                         fig_name = 'temp')
     
-    base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
-    output_figDir_fits = base_dir +'ELPS_analysis/ModelFitting_FigFiles/Python_version/3D_oddity_task_indvEll/'
-    output_fileDir = base_dir + 'ELPS_analysis/ModelFitting_DataFiles/3D_oddity_task_indvEll/'
+nBtst = 10
+# -----------------------------------------
+# SECTION 2: Fit individual ellipses
+# -----------------------------------------
+if not flag_load_previous:
+    # Create a mask for the weight matrix W: only the first element is free; the rest are fixed.
+    # This effectively reduces the Wishart model to an independent-threshold model: we assume
+    # the threshold is constant everywhere within each reference location.
+    base_shape = (model_existing.degree,) * COLOR_DIMENSION + (COLOR_DIMENSION,)
+    W_mask = np.zeros(base_shape + (COLOR_DIMENSION + model_existing.extra_dims,), dtype=bool)
+    W_mask[(0,) * COLOR_DIMENSION] = True  # only allow the first coefficient to vary
     
-    #% ------------------------------------------
-    # Load data simulated using CIELab
-    # ------------------------------------------
-    #file 1
-    COLOR_DIMENSION = 3
-    path_str = base_dir + 'ELPS_analysis/Simulation_DataFiles/'
-    # Create an instance of the class
-    color_thres_data = color_thresholds(COLOR_DIMENSION, base_dir + 'ELPS_analysis/')
-    # Load Wishart model fits
-    color_thres_data.load_CIE_data()  
-    stim3D = color_thres_data.get_data('stim3D', dataset='CIE_data')
-    results3D = color_thres_data.get_data('results3D', dataset='CIE_data')
+    # Set optimization hyperparameters
+    nSteps   = 20   # number of gradient descent steps (fitting only 1 ellipse → doesn’t need many steps)
+    nRepeats = 30   # number of initializations to avoid local minima
     
-    #simulation files
-    file_sim = f'Sims_isothreshold_ellipsoids_sim{nSims}perCond_samplingNearContour_'+\
-                f'jitter{jitter}_seed{rnd_seed}.pkl'
-    full_path = f"{path_str}{file_sim}"
-    with open(full_path, 'rb') as f: data_load = pickle.load(f)
-    sim = data_load[0]
+    # Variables to append to the pickle output for each bootstrap iteration
+    variable_names_append = [
+        'W_mask', 'nSteps', 'nRepeats', 'data_AEPsych', 'random_seeds', 'W_INIT_KEY',
+        'OPT_KEY', 'bestfit_seed', 'W_init', 'W_est', 'Sigmas_est_grid', 'objhist',
+        'fitEll', 'model_pred_Wishart_indv_ell','fitEll_params', 'fitEll_indv_org'
+    ]
     
-    """
-    Fitting would be easier if we first scale things up, and then scale the model 
-    predictions back down
-    """
-    idx_trim = list(range(5))
-    scaler_x1  = 5
-    #x1_raw is unscaled
-    data, x1_raw, xref_raw = organize_data(COLOR_DIMENSION, sim,\
-            scaler_x1, slc_idx = idx_trim, visualize_samples = False)
-    # unpackage data
-    ref_size_dim1, ref_size_dim2, ref_size_dim3 = x1_raw.shape[0:3]
-    # if we run oddity task with the reference stimulus fixed at the top
-    y_jnp_flat, xref_jnp_flat, x0_jnp_flat, x1_jnp_flat = data 
-    nRefs    = y_jnp_flat.shape[0]//nSims
-    y_jnp    = jnp.reshape(y_jnp_flat, (nRefs, nSims))
-    xref_jnp = jnp.reshape(xref_jnp_flat, (nRefs, nSims, COLOR_DIMENSION))
-    x1_jnp   = jnp.reshape(x1_jnp_flat, (nRefs, nSims,COLOR_DIMENSION))
-    data_new = (y_jnp, xref_jnp[:,0,:], x1_jnp)
+    #% Define bootstrap settings
+    btst_seed = [None] #+ list(range(nBtst))#[None]  # add additional seeds if needed
+    flag_btst = [False] #+ [True]*nBtst #[False]  # set to True to activate bootstrap
     
-    #% Visualize the simulated data again
-    fixedRGB_val_full = np.linspace(0.2,0.8,5)
-    fixedRGB_val = fixedRGB_val_full[idx_trim]
+    for flag_btst_AEPsych, ll in zip(flag_btst, btst_seed):
+        str_ext = str_ext_s
+        if flag_btst_AEPsych:
+            str_ext += f'_btst_AEPsych[{ll}]'
     
-    for fixedPlane, varyingPlanes in zip(['R','G','B'], ['GB','RB','RG']):
-        for val in fixedRGB_val:
-            TrialPlacementVisualization.plot_3D_sampledComp(stim3D['grid_ref'][idx_trim]*2-1, 
-                results3D['fitEllipsoid_unscaled'][idx_trim][:,idx_trim][:,:,idx_trim]*2-1,
-                x1_raw, fixedPlane, val*2-1, slc_grid_ref_dim1 = [0,1,2], 
-                slc_grid_ref_dim2 = [0,1,2], surf_alpha =  0.1, 
-                samples_alpha = 0.1,scaled_neg12pos1 = True,
-                bds = 0.05,title = varyingPlanes+' plane',
-                saveFig = False, figDir = path_str[0:-10] + 'FigFiles/',\
-                figName =f"{file_sim}_{varyingPlanes}plane_fixedVal{val}")
+        # Bootstrap the data subset if requested
+        # we cannot just bootstrap the 
+        if flag_btst_AEPsych:
+            y_btst, xref_btst, x1_btst = [],[],[]
+            for n in range(nRefs):
+                xref_n, x1_n, y_n, _ = load_4D_expt_data.bootstrap_AEPsych_data(
+                    data_AEPsych_subset_flatten[1][n], 
+                    data_AEPsych_subset_flatten[2][n], 
+                    data_AEPsych_subset_flatten[0][n],
+                    trials_split=[sum(NTRIALS_STRAT[:-1])], seed=ll*100 + n
+                )
+                y_btst.append(y_n)
+                xref_btst.append(xref_n)
+                x1_btst.append(x1_n)
+            y_jnp_org = jnp.stack(y_btst, axis = 0)
+            xref_jnp_org = jnp.stack(xref_btst, axis = 0)
+            x1_jnp_org = jnp.stack(x1_btst, axis = 0)
+        else:
+            y_jnp_org, xref_jnp_org, x1_jnp_org = data_AEPsych_subset_flatten
     
-    #%--------------------------------------------
-    # Fit the independent threshold contour model
-    # ---------------------------------------------
-    NUM_GRID_PTS = len(idx_trim)
-    # Initialize an instance of IndividualProbSurfaceModel
-    model_indvEll = IndividualProbSurfaceModel(NUM_GRID_PTS,  # grid points
-                                            [1e-2,0.4],       # Bounds for radii
-                                            [0, 2*jnp.pi],    # Bounds for angle in radians
-                                            [0.5, 5],         # Bounds for Weibull parameter 'a'
-                                            [0.1, 5],         # Bounds for Weibull parameter 'b'
-                                            ndims = COLOR_DIMENSION) #color dimension
+        # Group trials by grid → returns (nRefs, N_perRef, 2) arrays
+        data_AEPsych = (y_jnp_org, xref_jnp_org, x1_jnp_org)
     
-    # Fix parameters for the Weibull function for fitting stability
-    weibull_params = jnp.array([sim['alpha'], sim['beta']])  
-    #a = 1.17; b = 2.33    
+        # Generate random seeds for optimization initializations
+        random_seeds = np.random.randint(0, 2**12, size=(nRefs, nRepeats, 2))
     
-    nReps = 3
-    KEY_list = np.array(list(range(nReps)))+rnd_seed*100
-    total_steps = 50000
-    objhist = np.full((total_steps,), 1)
-    for k in KEY_list:    
-        print(f'Reptition {k}:')       
-        # Initialize random key                          
-        KEY_k = jax.random.PRNGKey(k)  
-        # Sample initial parameters for the model
-        init_params = model_indvEll.sample_params_prior(KEY_k)  
-        # fix weibull parameters
-        init_params = init_params.at[:,-2:].set(weibull_params[:,np.newaxis].T)
-        
-        # Run optimization to recover the best-fit parameters
-        params_recover_k, iters, objhist_k = optimize_nloglikelihood(
-            init_params, 
-            data_new, 
-            ndims = COLOR_DIMENSION,
-            total_steps=total_steps,              # Number of total optimization steps
-            save_every=10,                        # Save the objective value every 10 steps
-            fixed_weibull_params=weibull_params,  # Fix the Weibull parameters during optimization
-            bds_radii = model_indvEll.bds_radii,  # Boundaries for radii (ellipse/ellipsoid size parameters)
-            bds_angle = model_indvEll.bds_angle,  # Boundaries for angles (rotation in radians)
-            learning_rate = 5e-1,                 # Set the learning rate for the optimizer
-            show_progress =True                   # Show progress using tqdm
-        )
-        if objhist_k[-1] < objhist[-1]: 
-            objhist = objhist_k
-            params_recover = params_recover_k
+        # Initialize arrays to store fitting results
+        W_INIT_KEY      = np.zeros((nRefs, 2), dtype=np.uint32)
+        OPT_KEY    = np.zeros((nRefs, 2), dtype=np.uint32)
+        bestfit_seed    = np.full((nRefs, 2), np.nan)
+        W_init          = np.full((nRefs,) + base_shape + (COLOR_DIMENSION + model_existing.extra_dims,), np.nan)
+        W_est           = np.full(W_init.shape, np.nan)
+        Sigmas_est_grid = np.full((nRefs, ) + (NUM_GRID_PTS,)*COLOR_DIMENSION + (COLOR_DIMENSION, COLOR_DIMENSION,), np.nan)
+        objhist         = np.full((nRefs, nSteps), np.nan)
+        fitEll          = np.full((nRefs,) + gt_Wishart.fitEll_unscaled.shape[-2:], np.nan)
+        fitEll_params   = np.full((nRefs, 5), np.nan)
+        model_pred_Wishart_indv_ell = []
     
-    # Plot the optimization history (objective value vs iterations)
-    fig, ax = plt.subplots(1, 1)
-    ax.plot(iters, objhist)  # Plot iterations vs objective history
-    fig.tight_layout()
+        # Loop over each reference location → fit an independent ellipse
+        for n in trange(nRefs):
+            model      = copy.deepcopy(model_existing)
+            opt_params = copy.deepcopy(opt_params_existing)
     
-    #%
-    # -----------------------------
-    # Compute model predictions
-    # -----------------------------
-    # Recover ellipses from the optimized parameters
-    nTheta = 200
-    nPhi = 100
-    #create a unit sphere
-    unitEll_finer = UnitCircleGenerate_3D(nTheta, nPhi)
-    #initialize recovered eilipsoid
-    xyz_recover = np.full((nRefs, COLOR_DIMENSION, nTheta*nPhi), np.nan)
-    for i in range(nRefs):
-        # use rotation angles to compute eigenvectors
-        eigvec_i = rotation_angles_to_eigenvectors(*params_recover[i,3:6])
-        # Reconstruct the recovered ellipses using the optimized parameters
-        xyz_recover_i = PointsOnEllipsoid(params_recover[i,0:3],  # Semi-major and semi-minor axes
-                                         xref_jnp[i,0][:,np.newaxis],# Center of ellipsoid
-                                         eigvec_i, 
-                                         unitEll_finer)       
-        xyz_recover[i] = xyz_recover_i
-    #reshape
-    fitEll_unscaled = np.reshape(xyz_recover,(NUM_GRID_PTS, NUM_GRID_PTS, NUM_GRID_PTS,
-                                              COLOR_DIMENSION, nTheta*nPhi))    
+            objhist_end = 1e3  # initialize to large value → any valid fit will be smaller
+            ref_n = grid_flatten[n]
+            data_n = (y_jnp_org[n], xref_jnp_org[n], x1_jnp_org[n])
     
-    #fit an ellipse, get paramQ
-    grid_1d = jnp.linspace(jnp.min(xref_jnp), jnp.max(xref_jnp), NUM_GRID_PTS)
-    grid = jnp.stack(jnp.meshgrid(*[grid_1d for _ in range(COLOR_DIMENSION)]), axis=-1)
-    grid_trans = np.transpose(grid,(1,0,2,3))
+            # Multiple random initializations for this reference location
+            for nn in range(nRepeats):
+                W_INIT_KEY_nn = jax.random.PRNGKey(random_seeds[n, nn, 0]) 
+                OPT_KEY_nn = jax.random.PRNGKey(random_seeds[n, nn, 1])
     
-    #In this section, we want to 
-    ell_paramsQ = []
-    fitEll_scaled = np.full(fitEll_unscaled.shape, np.nan)
-    covMat_recover_grid = np.full((NUM_GRID_PTS, NUM_GRID_PTS, NUM_GRID_PTS,
-                                   COLOR_DIMENSION, COLOR_DIMENSION),np.nan)
-    for i in range(NUM_GRID_PTS):
-        ell_paramsQ_i = []
-        for j in range(NUM_GRID_PTS):
-            ell_paramsQ_j = []
-            for k in range(NUM_GRID_PTS):
-                rgb_comp_ijk = np.reshape(np.transpose(fitEll_unscaled[i,j,k],(1,0)),
-                                          (nPhi, nTheta, COLOR_DIMENSION))
-                fitEll_scaled_ijk, _, _, _, ellP_ijk = \
-                    fit_3d_isothreshold_ellipsoid(grid[i,j,k], [], rgb_comp_ijk, 
-                                                scaler_x1= 1/scaler_x1)
-                fitEll_scaled[i,j,k] = fitEll_scaled_ijk
-                covMat_recover_grid_ijk = ellParams_to_covMat(ellP_ijk['radii'],
-                                                              ellP_ijk['evecs'])
-                covMat_recover_grid[i,j,k] = covMat_recover_grid_ijk
-                ell_paramsQ_j.append(ellP_ijk)
-            ell_paramsQ_i.append(ell_paramsQ_j)
-        ell_paramsQ.append(ell_paramsQ_i)
-        
-    #class for model prediction
-    class model_pred:
-        def __init__(self, M, fitEll_unscaled, fitEll_scaled, params_ell, target_pC = 2/3):
-            self.fitM = M
-            self.fitEll_unscaled = fitEll_unscaled
-            self.fitEll_scaled = fitEll_scaled
-            self.params_ell = params_ell
-            self.target_pC = target_pC
-    model_pred_indvEll = model_pred(params_recover, fitEll_unscaled, fitEll_scaled, ell_paramsQ)
-    model_pred_indvEll.covMat_recover_grid = covMat_recover_grid
+                W_init_nn = model.sample_W_prior(W_INIT_KEY_nn)
     
-    #%
-    # -----------------------------
-    # Retrieve ground truth
-    # -----------------------------
-    #ground truth ellipses
-    gt_covMat_CIE = color_thresholds.N_unit_to_W_unit(results3D['fitEllipsoid_scaled'])
+                # Optimize model parameters
+                W_est_nn, _, objhist_nn = optim.optimize_posterior(
+                    W_init_nn, data_n, model, OPT_KEY_nn, opt_params,
+                    oddity_task.simulate_oddity, total_steps=nSteps,
+                    save_every=1, show_progress=False,
+                    mask=W_mask, use_prior=False
+                )
     
-    class sim_data:
-        def __init__(self, xref_all, x1_all):
-            self.xref_all = xref_all
-            self.x1_all = x1_all
-    sim_trial_by_CIE = sim_data(xref_jnp_flat, x1_jnp_flat)
+                # Reduce learning rate with each repeat (refinement)
+                opt_params['learning_rate'] = 10 ** (-nn * 0.5 - 1)
     
-    #% derive 2D slices
-    # Initialize 3D covariance matrices for ground truth and predictions
-    gt_covMat_CIE   = np.full((NUM_GRID_PTS, NUM_GRID_PTS, NUM_GRID_PTS, 3, 3), np.nan)
+                # Keep best fit (lowest final loss)
+                if objhist_nn[-1] < objhist_end:
+                    objhist_end = objhist_nn[-1]
+                    W_INIT_KEY[n], OPT_KEY[n] = W_INIT_KEY_nn, OPT_KEY_nn
+                    W_init[n], W_est[n] = W_init_nn, W_est_nn
+                    objhist[n], bestfit_seed[n] = objhist_nn, random_seeds[n, nn]
     
-    # Loop through each reference color in the 3D space
-    for g1 in range(NUM_GRID_PTS):
-        for g2 in range(NUM_GRID_PTS):
-            for g3 in range(NUM_GRID_PTS):
-                #Convert the ellipsoid parameters to covariance matrices for the 
-                #ground truth
-                gt_covMat_CIE[g1,g2,g3] = (scaler_x1*2)**2*ellParams_to_covMat(\
-                                results3D['ellipsoidParams'][g1,g2,g3]['radii'],\
-                                results3D['ellipsoidParams'][g1,g2,g3]['evecs'])
-    # Compute the 2D ellipse slices from the 3D covariance matrices for both ground 
-    #truth and predictions
-    gt_slice_2d_ellipse_CIE = covMat3D_to_2DsurfaceSlice(gt_covMat_CIE)
-    # compute the slice of model-estimated cov matrix
-    model_pred_slice_2d_ellipse = covMat3D_to_2DsurfaceSlice(model_pred_indvEll.covMat_recover_grid)
-    model_pred_indvEll.pred_slice_2d_ellipse =model_pred_slice_2d_ellipse
+            # Compute estimated covariance matrix for this reference
+            Sigmas_est_grid[n] = model.compute_Sigmas(model.compute_U(W_est[n], grid))
     
-    #%
-    # -----------------------------
-    # Visualize model predictions
-    # -----------------------------
-    wishart_pred_vis = WishartPredictionsVisualization(sim_trial_by_CIE,
-                                                         model_indvEll, 
-                                                         model_pred_indvEll, 
-                                                         color_thres_data,
-                                                         fig_dir = output_figDir_fits, 
-                                                         save_fig = False)
-    #specify figure name and path
-    fig_name_part1 = 'Fitted' + file_sim[4:-4]
+            # Generate model predictions for this reference
+            model_pred_Wishart_n = wishart_model_pred(model, opt_params,
+                                                      W_INIT_KEY[n], 
+                                                      OPT_KEY[n], 
+                                                      W_init[n], W_est[n],
+                                                      Sigmas_est_grid[n], 
+                                                      color_thres_data,
+                                                      target_pC=0.667, 
+                                                      ngrid_bruteforce=1000, 
+                                                      bds_bruteforce=[0.0005, 0.25]
+            )
+            model_pred_Wishart_indv_ell.append(model_pred_Wishart_n)
     
-    wishart_pred_vis.plot_3D(
-        grid_trans, 
-        grid_trans[np.array(idx_trim)][:,np.array(idx_trim)][:,:,np.array(idx_trim)],
-        gt_covMat_CIE, 
-        gt_slice_2d_ellipse_CIE,
-        visualize_samples= True,
-        visualize_gt = True,
-        visualize_model_estimatedCov = False,
-        samples_alpha = 0.1,
-        samples_s = 1,
-        modelpred_ls = '-',
-        modelpred_lc = 'g',
-        modelpred_lw = 2,
-        modelpred_alpha = 0.5,
-        gt_lw= 2,
-        gt_lc ='r',
-        gt_ls = '--',
-        fig_name = fig_name_part1+'_indvEll_withSamples.pdf') 
+            # Convert covariance to threshold contour
+            model_pred_Wishart_n.convert_Sig_Threshold_oddity_batch(ref_n.reshape(model.num_dims, 1, 1))
+    
+            # Store the fitted ellipse
+            fitEll[n] = model_pred_Wishart_n.fitEll_unscaled[0, 0]
+            fitEll_params[n] = model_pred_Wishart_n.params_ell[0][0]
+    
+        # Reshape ellipse fits to original grid shape
+        fitEll_indv_org = np.reshape(fitEll, (NUM_GRID_PTS, NUM_GRID_PTS, COLOR_DIMENSION) + gt_Wishart.fitEll_unscaled.shape[-1:])
+    
+        #---------------------------------------------------------------------------
+        # Save results for this iteration
+        vars_dict_subset_ll = {var_name: eval(var_name) for var_name in variable_names_append}
+        key_name_ll = f'model_pred_indv_{str_ext}'
+        vars_dict_subset[key_name_ll] = vars_dict_subset_ll
+    
+        # Write updated dictionary to file
+        with open(output_full_path, 'wb') as f:
+            pickled.dump(vars_dict_subset, f)
+        print(f"Saved updated vars_dict_subset to '{output_full_path}'.")
+    
+        #---------------------------------------------------------------------------
+        # Visualize predictions: compare joint fit and individual fits    
+        fig, ax = plt.subplots(1, 1, figsize=predM_settings.fig_size, dpi=predM_settings.dpi)
+        wishart_pred_vis.plot_3D(grid_trans,  gt_Wishart.pred_covMat, #gt_sig, 
+            gt_Wishart.pred_slice_2d_ellipse,  settings = predM_settings)
+        for n in range(NUM_GRID_PTS):
+            for m in range(NUM_GRID_PTS):
+                cm_nm = color_thres_data.M_2DWToRGB @ np.insert(grid[n, m], 2, 1)
+                ax.plot(fitEll_indv_org[n, m, 0], fitEll_indv_org[n, m, 1], alpha=0.7, c=cm_nm)
+        ax.set_title('Isoluminant plane');
+        fig.savefig(os.path.join(output_figDir_fits, f"{output_file_name[:-4]}_{str_ext}.pdf"))    
+
+#%% visualize the model predictions with bootstrapped confidence intervals
+flag_done = [True if f'model_pred_indv_subset{size_subset}_btst_AEPsych[{i}]' in vars_dict_subset else False for i in range(nBtst)]
+if flag_load_previous or all(flag_done):
+    fig2, ax2 = plt.subplots(1, 1, figsize=predM_settings.fig_size, dpi=predM_settings.dpi)
+    #loop through each reference color
+    for n in range(NUM_GRID_PTS):
+        for m in range(NUM_GRID_PTS):
+            #initialize
+            fitEll_params_nm = np.full((nBtst, 5), np.nan) #5 means 5 free parameters characterizing an ellipse
+            #extract
+            for ll in range(nBtst):
+                fitEll_params_org = vars_dict_subset[f'model_pred_indv_{str_ext_s}_btst_AEPsych{[ll]}']['fitEll_params']
+                fitEll_params_reshape = np.reshape(fitEll_params_org, (NUM_GRID_PTS, NUM_GRID_PTS, 5))
+                fitEll_params_nm[ll] = fitEll_params_reshape[n,m]
+            #Computes the confidence intervals for the model-predicted ellipses at each grid point.
+            xu, yu, xi, yi = find_inner_outer_contours(fitEll_params_nm)
+            fitEll_min = np.vstack((xi, yi))
+            fitEll_max = np.vstack((xu, yu))
+            cm_nm = color_thres_data.M_2DWToRGB @ np.insert(grid[n, m], 2, 1)
             
-    #% save data
-    output_file = fig_name_part1 + "_oddity_indvEll.pkl"
-    full_path = f"{output_fileDir}{output_file}"
-    
-    variable_names = ['nSims', 'jitter','data_new', 'x1_raw', 'xref_raw','weibull_params',
-                      'sim_trial_by_CIE', 'grid_1d', 'grid','grid_trans','iters', 'objhist',
-                      'nReps', 'KEY_list','total_steps','model_indvEll', 'model_pred_indvEll',
-                      'gt_covMat_CIE','gt_slice_2d_ellipse_CIE']
-    vars_dict = {}
-    for i in variable_names: vars_dict[i] = eval(i)
-    
-    # Write the list of dictionaries to a file using pickle
-    with open(full_path, 'wb') as f:
-        pickle.dump(vars_dict, f)
+            if n == 0 and m == 0:
+                lbl = '100% bootstrap CI (10 datasets)' 
+            else:
+                lbl = None
+            wishart_pred_vis.add_CI_ellipses(fitEll_min, fitEll_max,
+                                             ax=ax2, cm=cm_nm, label=lbl, lw_outer = 0,
+                                             alpha = 0.7)
+    wishart_pred_vis.plot_2D(grid, ax=ax2, settings=predM_settings)
+    ax2.set_title('Isoluminant plane');
+    fig2.savefig(os.path.join(output_figDir_fits, f"{output_file_name[:-4]}_wCI.pdf"))    

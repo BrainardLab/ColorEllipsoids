@@ -35,8 +35,9 @@ baseDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
 COLOR_DIMENSION = 2
 
 #%% load data
-#'/Users/fh862-adm/Aguirre-Brainard Lab Dropbox/Fangfang Hong/META_analysis/ModelFitting_DataFiles/2dTask/CIE/sub2/subset4000'
-#'Fitted_byWishart_Isoluminant plane_49interleaved2DExpt_10_10_10_330_AEPsychSampling_EAVC_sub2.pkl'
+#'META_analysis/ModelFitting_DataFiles/2dTask/CIE/sub2/subset4000'
+#'Fitted_byWishart_Isoluminant plane_49interleaved2DExpt_10_10_10_330_AEPsychSampling_EAVC_sub2_subset4000.pkl'
+# It takes the file xxx_subset4000.pkl but we extract the full dataset from the pickle
 fits_path, file_name = select_file_and_get_path()
 Wishart_full_path = os.path.join(fits_path, file_name)
 
@@ -59,7 +60,7 @@ model_existing       = model_pred_existing.model                  # Wishart mode
 opt_params_existing  = model_pred_existing.opt_params             # Optimization parameters
 
 # Define the subset size for fitting independent threshold models
-size_subset = 14014  # Example options: [6027, 10045, 14014, 17640]
+size_subset = 6027  # Example options: [6027, 10045, 14014, 17640]
 str_ext_s = f'subset{size_subset}'
 
 # Ensure the subset is evenly distributed across reference locations
@@ -68,7 +69,9 @@ assert size_subset % nRefs == 0, 'Selected trial number must be evenly divisible
 # Extract the subset of trials
 data_AEPsych_subset = tuple(arr[:size_subset] for arr in data_AEPsych_fullset)
 # Group trials by grid → returns (nRefs, N_perRef, 2) arrays
-_, data_AEPsych_subset_flatten = group_trials_by_grid(grid, *data_AEPsych_subset)
+_, data_AEPsych_subset_flatten = group_trials_by_grid(grid,
+                                                      *data_AEPsych_subset,
+                                                      ndims = COLOR_DIMENSION)
 
 # Generate output file name
 output_file_name = f"Indv{file_name.split('subset')[0]}subset{size_subset}.pkl"
@@ -145,9 +148,9 @@ if not flag_load_previous:
     # Create a mask for the weight matrix W: only the first element is free; the rest are fixed.
     # This effectively reduces the Wishart model to an independent-threshold model: we assume
     # the threshold is constant everywhere within each reference location.
-    base_shape = (model_existing.degree, model_existing.degree, 2)
+    base_shape = (model_existing.degree,) * COLOR_DIMENSION + (COLOR_DIMENSION,)
     W_mask = np.zeros(base_shape + (COLOR_DIMENSION + model_existing.extra_dims,), dtype=bool)
-    W_mask[0,0] = True  # only allow the first coefficient to vary
+    W_mask[(0,) * COLOR_DIMENSION] = True  # only allow the first coefficient to vary
     
     # Set optimization hyperparameters
     nSteps   = 20   # number of gradient descent steps (fitting only 1 ellipse → doesn’t need many steps)
@@ -199,11 +202,11 @@ if not flag_load_previous:
         W_INIT_KEY      = np.full((nRefs, 2), np.nan, dtype=np.uint32)
         OPT_KEY         = np.full((nRefs, 2), np.nan, dtype=np.uint32)
         bestfit_seed    = np.full((nRefs, 2), np.nan)
-        W_init          = np.full((nRefs,) + base_shape + (COLOR_DIMENSION + 1,), np.nan)
+        W_init          = np.full((nRefs,) + base_shape + (COLOR_DIMENSION + model_existing.extra_dims,), np.nan)
         W_est           = np.full(W_init.shape, np.nan)
-        Sigmas_est_grid = np.full((nRefs, NUM_GRID_PTS, NUM_GRID_PTS, COLOR_DIMENSION, COLOR_DIMENSION,), np.nan)
+        Sigmas_est_grid = np.full((nRefs, ) + (NUM_GRID_PTS,)*COLOR_DIMENSION + (COLOR_DIMENSION, COLOR_DIMENSION,), np.nan)
         objhist         = np.full((nRefs, nSteps), np.nan)
-        fitEll          = np.full((nRefs,) + gt_Wishart.fitEll_unscaled.shape[2:], np.nan)
+        fitEll          = np.full((nRefs,) + gt_Wishart.fitEll_unscaled.shape[-2:], np.nan)
         fitEll_params   = np.full((nRefs, 5), np.nan)
         model_pred_Wishart_indv_ell = []
     
@@ -290,7 +293,8 @@ if not flag_load_previous:
         fig.savefig(os.path.join(output_figDir_fits, f"{output_file_name[:-4]}_{str_ext}.pdf"))    
 
 #%% visualize the model predictions with bootstrapped confidence intervals
-if flag_load_previous:
+flag_done = [True if f'model_pred_indv_subset{size_subset}_btst_AEPsych[{i}]' in vars_dict_subset else False for i in range(nBtst)]
+if flag_load_previous or all(flag_done):
     fig2, ax2 = plt.subplots(1, 1, figsize=predM_settings.fig_size, dpi=predM_settings.dpi)
     #loop through each reference color
     for n in range(NUM_GRID_PTS):
