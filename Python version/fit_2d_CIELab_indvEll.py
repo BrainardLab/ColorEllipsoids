@@ -257,12 +257,11 @@ if not flag_load_previous:
                                                       target_pC=0.667, 
                                                       ngrid_bruteforce=1000, 
                                                       bds_bruteforce=[0.0005, 0.25]
-            )
-            model_pred_Wishart_indv_ell.append(model_pred_Wishart_n)
-    
+            )    
             # Convert covariance to threshold contour
             model_pred_Wishart_n.convert_Sig_Threshold_oddity_batch(ref_n.reshape(model.num_dims, 1, 1))
-    
+            model_pred_Wishart_indv_ell.append(model_pred_Wishart_n)
+            
             # Store the fitted ellipse
             fitEll[n] = model_pred_Wishart_n.fitEll_unscaled[0, 0]
             fitEll_params[n] = model_pred_Wishart_n.params_ell[0][0]
