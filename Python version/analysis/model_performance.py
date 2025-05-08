@@ -92,7 +92,7 @@ class ModelPerformance():
                 ellParams_l = ellParams_set[l]
                 for ii, jj, kk in np.ndindex(self.ref_size, self.ref_size, self.ref_size):
                     eigVec_jiijjkk = ellParams_l[ii][jj][kk]['evecs']
-                    radii_jiijjkk = ellParams_l[ii][jj][kk]['radii'] / 2
+                    radii_jiijjkk = ellParams_l[ii][jj][kk]['radii']
                     radii_jiijjkk, eigVec_jiijjkk = ModelPerformance.sort_eig(radii_jiijjkk, eigVec_jiijjkk)
                     
                     self.covMat_modelPred[l, ii, jj, kk] = ellParams_to_covMat(radii_jiijjkk, eigVec_jiijjkk)
@@ -367,5 +367,5 @@ class ModelPerformance():
             median_m = np.median(similarity_score[m].flatten())
             counts_m,_ = np.histogram(similarity_score[m].flatten(), bins=bin_edges)
             ax.plot(bin_centers+pltP['jitter'][m], counts_m,  color = cmap_m, ls = ls, lw = pltP['lw'])
-            ax.plot([median_m, median_m], [0, 30], ls = ls_m, color = cmap_m, lw = pltP['lw'])
+            ax.plot([median_m, median_m], [0, 80], ls = ls_m, color = cmap_m, lw = pltP['lw'])
         ax.grid(True, alpha=0.3)
