@@ -17,21 +17,23 @@ import numpy as np
 from tqdm import trange
 import os
 from dataclasses import replace
-#sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
-sys.path.append("/Users/fh862-adm/Documents/GitHub/ellipsoids/ellipsoids")
+sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
+#sys.path.append("/Users/fh862-adm/Documents/GitHub/ellipsoids/ellipsoids")
 from core import optim, oddity_task
 from core.model_predictions import wishart_model_pred
+from core.wishart_process import WishartProcessModel
 from plotting.wishart_plotting import PlotSettingsBase 
 from plotting.wishart_predictions_plotting import WishartPredictionsVisualization, Plot3DPredSettings
 from analysis.ellipses_tools import find_inner_outer_contours
-#sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version')
-sys.path.append("/Users/fh862-adm/Documents/GitHub/ColorEllipsoids/Python version")
+sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version')
+#sys.path.append("/Users/fh862-adm/Documents/GitHub/ColorEllipsoids/Python version")
 from analysis.utils_load import load_4D_expt_data
 from analysis.utils_load import select_file_and_get_path
 from data_reorg import group_trials_by_grid
 
 #define output directory for output files and figures
-baseDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
+#baseDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
+base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_analysis/'
 COLOR_DIMENSION = 3
 
 #%% load data
@@ -107,7 +109,7 @@ else:
         pickled.dump(vars_dict_subset, f)
     flag_load_previous = False
     print(f"Saved new file: {output_full_path}")
-    
+
 #%% three variables we need to define for loading the data
 #whether we load the data from a previous file or not, we need to set the directory for 
 #output figures
@@ -143,6 +145,7 @@ nBtst = 10
 # -----------------------------------------
 # SECTION 2: Fit individual ellipses
 # -----------------------------------------
+flag_load_previous = False
 if not flag_load_previous:
     # Create a mask for the weight matrix W: only the first element is free; the rest are fixed.
     # This effectively reduces the Wishart model to an independent-threshold model: we assume
@@ -153,7 +156,7 @@ if not flag_load_previous:
     
     # Set optimization hyperparameters
     nSteps   = 20   # number of gradient descent steps (fitting only 1 ellipse → doesn’t need many steps)
-    nRepeats = 30   # number of initializations to avoid local minima
+    nRepeats = 10   # number of initializations to avoid local minima
     
     # Variables to append to the pickle output for each bootstrap iteration
     variable_names_append = [
@@ -163,8 +166,8 @@ if not flag_load_previous:
     ]
     
     #% Define bootstrap settings
-    btst_seed = [None] #+ list(range(nBtst))#[None]  # add additional seeds if needed
-    flag_btst = [False] #+ [True]*nBtst #[False]  # set to True to activate bootstrap
+    btst_seed = [None] + list(range(nBtst))#[None]  # add additional seeds if needed
+    flag_btst = [False] + [True]*nBtst #[False]  # set to True to activate bootstrap
     
     for flag_btst_AEPsych, ll in zip(flag_btst, btst_seed):
         str_ext = str_ext_s
@@ -198,15 +201,15 @@ if not flag_load_previous:
         random_seeds = np.random.randint(0, 2**12, size=(nRefs, nRepeats, 2))
     
         # Initialize arrays to store fitting results
-        W_INIT_KEY      = np.zeros((nRefs, 2), dtype=np.uint32)
-        OPT_KEY    = np.zeros((nRefs, 2), dtype=np.uint32)
+        W_INIT_KEY      = np.full((nRefs, 2), np.nan, dtype=np.uint32)
+        OPT_KEY         = np.full((nRefs, 2), np.nan, dtype=np.uint32)
         bestfit_seed    = np.full((nRefs, 2), np.nan)
         W_init          = np.full((nRefs,) + base_shape + (COLOR_DIMENSION + model_existing.extra_dims,), np.nan)
         W_est           = np.full(W_init.shape, np.nan)
         Sigmas_est_grid = np.full((nRefs, ) + (NUM_GRID_PTS,)*COLOR_DIMENSION + (COLOR_DIMENSION, COLOR_DIMENSION,), np.nan)
         objhist         = np.full((nRefs, nSteps), np.nan)
         fitEll          = np.full((nRefs,) + gt_Wishart.fitEll_unscaled.shape[-2:], np.nan)
-        fitEll_params   = np.full((nRefs, 5), np.nan)
+        fitEll_params   = []
         model_pred_Wishart_indv_ell = []
     
         # Loop over each reference location → fit an independent ellipse
@@ -226,7 +229,7 @@ if not flag_load_previous:
                 W_init_nn = model.sample_W_prior(W_INIT_KEY_nn)
     
                 # Optimize model parameters
-                W_est_nn, _, objhist_nn = optim.optimize_posterior(
+                W_est_nn, iters_nn, objhist_nn = optim.optimize_posterior(
                     W_init_nn, data_n, model, OPT_KEY_nn, opt_params,
                     oddity_task.simulate_oddity, total_steps=nSteps,
                     save_every=1, show_progress=False,
@@ -257,17 +260,23 @@ if not flag_load_previous:
                                                       ngrid_bruteforce=1000, 
                                                       bds_bruteforce=[0.0005, 0.25]
             )
+            # Convert covariance to threshold contour
+            model_pred_Wishart_n.convert_Sig_Threshold_oddity_batch(ref_n[np.newaxis, np.newaxis, np.newaxis,:])
             model_pred_Wishart_indv_ell.append(model_pred_Wishart_n)
     
-            # Convert covariance to threshold contour
-            model_pred_Wishart_n.convert_Sig_Threshold_oddity_batch(ref_n.reshape(model.num_dims, 1, 1))
-    
             # Store the fitted ellipse
-            fitEll[n] = model_pred_Wishart_n.fitEll_unscaled[0, 0]
-            fitEll_params[n] = model_pred_Wishart_n.params_ell[0][0]
+            fitEll[n] = model_pred_Wishart_n.fitEll_unscaled[(0,) * COLOR_DIMENSION]
+            fitEll_params.append(model_pred_Wishart_n.params_ell[0][0][0])
+            
+            #debug plotting
+            fig = plt.figure()
+            ax = fig.add_subplot(111, projection='3d')
+            ax.scatter(fitEll[n][0], fitEll[n][1], fitEll[n][2], s=1, alpha = 0.5)  # s=1 makes dots small
+            ax.set_xlabel('X'); ax.set_ylabel('Y'); ax.set_zlabel('Z')
+            ax.set_aspect('equal'); plt.show()
     
         # Reshape ellipse fits to original grid shape
-        fitEll_indv_org = np.reshape(fitEll, (NUM_GRID_PTS, NUM_GRID_PTS, COLOR_DIMENSION) + gt_Wishart.fitEll_unscaled.shape[-1:])
+        fitEll_indv_org = np.reshape(fitEll, (NUM_GRID_PTS,)*COLOR_DIMENSION + (COLOR_DIMENSION,) + gt_Wishart.fitEll_unscaled.shape[-1:])
     
         #---------------------------------------------------------------------------
         # Save results for this iteration
@@ -281,44 +290,44 @@ if not flag_load_previous:
         print(f"Saved updated vars_dict_subset to '{output_full_path}'.")
     
         #---------------------------------------------------------------------------
-        # Visualize predictions: compare joint fit and individual fits    
-        fig, ax = plt.subplots(1, 1, figsize=predM_settings.fig_size, dpi=predM_settings.dpi)
-        wishart_pred_vis.plot_3D(grid_trans,  gt_Wishart.pred_covMat, #gt_sig, 
-            gt_Wishart.pred_slice_2d_ellipse,  settings = predM_settings)
-        for n in range(NUM_GRID_PTS):
-            for m in range(NUM_GRID_PTS):
-                cm_nm = color_thres_data.M_2DWToRGB @ np.insert(grid[n, m], 2, 1)
-                ax.plot(fitEll_indv_org[n, m, 0], fitEll_indv_org[n, m, 1], alpha=0.7, c=cm_nm)
-        ax.set_title('Isoluminant plane');
-        fig.savefig(os.path.join(output_figDir_fits, f"{output_file_name[:-4]}_{str_ext}.pdf"))    
+        # # Visualize predictions: compare joint fit and individual fits    
+        # fig, ax = plt.subplots(1, 1, figsize=predM_settings.fig_size, dpi=predM_settings.dpi)
+        # wishart_pred_vis.plot_3D(grid_trans,  gt_Wishart.pred_covMat, #gt_sig, 
+        #     gt_Wishart.pred_slice_2d_ellipse,  settings = predM_settings)
+        # for n in range(NUM_GRID_PTS):
+        #     for m in range(NUM_GRID_PTS):
+        #         cm_nm = color_thres_data.M_2DWToRGB @ np.insert(grid[n, m], 2, 1)
+        #         ax.plot(fitEll_indv_org[n, m, 0], fitEll_indv_org[n, m, 1], alpha=0.7, c=cm_nm)
+        # ax.set_title('Isoluminant plane');
+        # fig.savefig(os.path.join(output_figDir_fits, f"{output_file_name[:-4]}_{str_ext}.pdf"))    
 
 #%% visualize the model predictions with bootstrapped confidence intervals
-flag_done = [True if f'model_pred_indv_subset{size_subset}_btst_AEPsych[{i}]' in vars_dict_subset else False for i in range(nBtst)]
-if flag_load_previous or all(flag_done):
-    fig2, ax2 = plt.subplots(1, 1, figsize=predM_settings.fig_size, dpi=predM_settings.dpi)
-    #loop through each reference color
-    for n in range(NUM_GRID_PTS):
-        for m in range(NUM_GRID_PTS):
-            #initialize
-            fitEll_params_nm = np.full((nBtst, 5), np.nan) #5 means 5 free parameters characterizing an ellipse
-            #extract
-            for ll in range(nBtst):
-                fitEll_params_org = vars_dict_subset[f'model_pred_indv_{str_ext_s}_btst_AEPsych{[ll]}']['fitEll_params']
-                fitEll_params_reshape = np.reshape(fitEll_params_org, (NUM_GRID_PTS, NUM_GRID_PTS, 5))
-                fitEll_params_nm[ll] = fitEll_params_reshape[n,m]
-            #Computes the confidence intervals for the model-predicted ellipses at each grid point.
-            xu, yu, xi, yi = find_inner_outer_contours(fitEll_params_nm)
-            fitEll_min = np.vstack((xi, yi))
-            fitEll_max = np.vstack((xu, yu))
-            cm_nm = color_thres_data.M_2DWToRGB @ np.insert(grid[n, m], 2, 1)
+# flag_done = [True if f'model_pred_indv_subset{size_subset}_btst_AEPsych[{i}]' in vars_dict_subset else False for i in range(nBtst)]
+# if flag_load_previous or all(flag_done):
+#     fig2, ax2 = plt.subplots(1, 1, figsize=predM_settings.fig_size, dpi=predM_settings.dpi)
+#     #loop through each reference color
+#     for n in range(NUM_GRID_PTS):
+#         for m in range(NUM_GRID_PTS):
+#             #initialize
+#             fitEll_params_nm = np.full((nBtst, 5), np.nan) #5 means 5 free parameters characterizing an ellipse
+#             #extract
+#             for ll in range(nBtst):
+#                 fitEll_params_org = vars_dict_subset[f'model_pred_indv_{str_ext_s}_btst_AEPsych{[ll]}']['fitEll_params']
+#                 fitEll_params_reshape = np.reshape(fitEll_params_org, (NUM_GRID_PTS, NUM_GRID_PTS, 5))
+#                 fitEll_params_nm[ll] = fitEll_params_reshape[n,m]
+#             #Computes the confidence intervals for the model-predicted ellipses at each grid point.
+#             xu, yu, xi, yi = find_inner_outer_contours(fitEll_params_nm)
+#             fitEll_min = np.vstack((xi, yi))
+#             fitEll_max = np.vstack((xu, yu))
+#             cm_nm = color_thres_data.M_2DWToRGB @ np.insert(grid[n, m], 2, 1)
             
-            if n == 0 and m == 0:
-                lbl = '100% bootstrap CI (10 datasets)' 
-            else:
-                lbl = None
-            wishart_pred_vis.add_CI_ellipses(fitEll_min, fitEll_max,
-                                             ax=ax2, cm=cm_nm, label=lbl, lw_outer = 0,
-                                             alpha = 0.7)
-    wishart_pred_vis.plot_2D(grid, ax=ax2, settings=predM_settings)
-    ax2.set_title('Isoluminant plane');
-    fig2.savefig(os.path.join(output_figDir_fits, f"{output_file_name[:-4]}_wCI.pdf"))    
+#             if n == 0 and m == 0:
+#                 lbl = '100% bootstrap CI (10 datasets)' 
+#             else:
+#                 lbl = None
+#             wishart_pred_vis.add_CI_ellipses(fitEll_min, fitEll_max,
+#                                              ax=ax2, cm=cm_nm, label=lbl, lw_outer = 0,
+#                                              alpha = 0.7)
+#     wishart_pred_vis.plot_2D(grid, ax=ax2, settings=predM_settings)
+#     ax2.set_title('Isoluminant plane');
+#     fig2.savefig(os.path.join(output_figDir_fits, f"{output_file_name[:-4]}_wCI.pdf"))    
