@@ -14,7 +14,6 @@ import os
 import dill as pickled
 import numpy as np
 import itertools
-import re
 #sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids')
 sys.path.append("/Users/fh862-adm/Documents/GitHub/ellipsoids/ellipsoids")
 from analysis.ellipses_tools import ellParams_to_covMat, rotAngle_to_eigenvectors, \
@@ -182,18 +181,18 @@ else:
                     gt_ellParams[i][j][k]['evecs']) for i, j, k in idx_corner]
 
 # Evaluate the model performance using the loaded data and corner points
-BW_distance_output_indvEll = np.full((nFiles_load_indvEll, numDatasets_indvEll[0],
+BWD_indvEll = np.full((nFiles_load_indvEll, numDatasets_indvEll[0],
                                       grid_pts_desired**COLOR_DIMENSION), np.nan)
 for i in range(nFiles_load_indvEll):
     model_perf.evaluate_model_performance([data_load_indvEll[i]],covMat_corner = covMat_corner)
-    BW_distance_output_indvEll[i] = model_perf.BW_distance
+    BWD_indvEll[i] = model_perf.BW_distance
     
 # Evaluate the model performance using the loaded data and corner points
-BW_distance_output_Wishart = np.full((nFiles_load_indvEll, numDatasets_Wishart[0],
+BWD_Wishart = np.full((nFiles_load_Wishart, numDatasets_Wishart[0],
                                       grid_pts_desired**COLOR_DIMENSION), np.nan)
 for i in range(nFiles_load_Wishart):
     model_perf.evaluate_model_performance([data_load_Wishart[i]],covMat_corner = covMat_corner)
-    BW_distance_output_Wishart[i] = model_perf.BW_distance
+    BWD_Wishart[i] = model_perf.BW_distance
 
 # %% ------------------------------------------
 # Plot Bures-Wasserstein distance
@@ -210,22 +209,29 @@ else:
     cmap_BW = color_thres_data.W_unit_to_N_unit(np.vstack([grid[m, n, o] for m, n, o in idx_corner]))
 
 axis1_merge = (1,2)
-BW_distance_output_median_indvEll = np.nanmedian(BW_distance_output_indvEll, axis = axis1_merge)
-# Create the error for yerr as a tuple of arrays for asymmetrical error
-yerr_indvEll = np.array([BW_distance_output_median_indvEll - \
-                            np.nanmin(BW_distance_output_indvEll, axis = axis1_merge), 
-                 np.nanmax(BW_distance_output_indvEll, axis = axis1_merge) - \
-                     BW_distance_output_median_indvEll])
-    
-BW_distance_output_median_Wishart = np.median(BW_distance_output_Wishart, axis = axis1_merge)
-# Create the error for yerr as a tuple of arrays for asymmetrical error
-yerr_Wishart = np.array([BW_distance_output_median_Wishart - \
-                            np.min(BW_distance_output_Wishart, axis = axis1_merge), 
-                 np.max(BW_distance_output_Wishart, axis = axis1_merge) - \
-                     BW_distance_output_median_Wishart])
+BWD_median_indvEll = np.nanmedian(BWD_indvEll, axis = axis1_merge)
+BWD_indvEll_merged = np.sort(np.reshape(BWD_indvEll, (nFiles_load_indvEll, -1)), axis = 1)
+non_nan_counts_idx_indv = np.sum(~np.isnan(BWD_indvEll_merged), axis=1)
+CI95_bds_idx_indv = np.round(np.tile(non_nan_counts_idx_indv[np.newaxis].T, 2) *
+                             np.array([0.025, 0.975])).astype(int)
 
-BW_distance_circle_median = np.median(model_perf.BW_distance_minEigval)
-BW_distance_corner_median = np.median(model_perf.BW_distance_corner, axis = axis1_merge[:-1])
+# Create the error for yerr as a tuple of arrays for asymmetrical error
+CI95_indv = np.vstack((BWD_indvEll_merged[np.arange(nFiles_load_indvEll),CI95_bds_idx_indv[:,0]], 
+                      BWD_indvEll_merged[np.arange(nFiles_load_indvEll),CI95_bds_idx_indv[:,1]]))
+yerr_indvEll = np.array([BWD_median_indvEll - CI95_indv[0], 
+                         CI95_indv[1] - BWD_median_indvEll])
+    
+BWD_median_Wishart = np.median(BWD_Wishart, axis = axis1_merge)
+BWD_Wishart_merged = np.sort(np.reshape(BWD_Wishart, (nFiles_load_Wishart, -1)), axis = 1)
+non_nan_counts_idx_Wishart = np.sum(~np.isnan(BWD_Wishart_merged), axis=1)
+CI95_bds_idx_Wishart = np.round(np.tile(non_nan_counts_idx_Wishart[np.newaxis].T, 2) *
+                             np.array([0.025, 0.975])).astype(int)
+
+# Create the error for yerr as a tuple of arrays for asymmetrical error
+CI95_Wishart = np.vstack((BWD_Wishart_merged[np.arange(nFiles_load_Wishart),CI95_bds_idx_Wishart[:,0]],
+                          BWD_Wishart_merged[np.arange(nFiles_load_Wishart),CI95_bds_idx_Wishart[:,1]]))
+yerr_Wishart = np.array([BWD_median_Wishart - CI95_Wishart[0], 
+                         CI95_Wishart[1] - BWD_median_Wishart])
 
 #%%plotting
 output_figDir_fits = input_fileDir_all1[-1].replace('DataFiles', 'FigFiles')
@@ -237,9 +243,11 @@ plt.rcParams['font.sans-serif'] = ['Arial']
 plt.rcParams.update({'font.size': 13})
 
 fig1, ax1 = plt.subplots(1,1, figsize = pltSt.figsize, dpi = pltSt.dpi) #; format 1: (3.5, 2.2); format 2:  (3.2, 2.2)
-y_ub = 0.3#0.24
+y_ub = 0.16#0.24
 flag_visualize_baseline = False
 if flag_visualize_baseline:
+    BW_distance_circle_median = np.median(model_perf.BW_distance_minEigval)
+    BW_distance_corner_median = np.median(model_perf.BW_distance_corner, axis = axis1_merge[:-1])
     ax1.plot([-3, nFiles_load_indvEll+2], [BW_distance_circle_median, BW_distance_circle_median],
              c = 'k',ls = '-',lw = 2, alpha = 0.8)
     for i in range(len(covMat_corner)):
@@ -247,14 +255,14 @@ if flag_visualize_baseline:
                  c = cmap_BW[i],ls = '-',lw = 2, alpha = 0.8)
 #Wishart
 for i in range(nFiles_load_indvEll):
-    ax1.errorbar(i+1, BW_distance_output_median_indvEll[i], 
+    ax1.errorbar(i+1, BWD_median_indvEll[i], 
                  yerr=yerr_indvEll[:, i].reshape(2, 1),
                 capsize=pltSt.errorbar_cs, c = pltSt.errorbar_c,  #np.array([0,0,0])+i*0.2
                 marker = pltSt.errorbar_m, markersize = pltSt.errorbar_ms, 
                 lw = pltSt.errorbar_lw)
 for i in range(nFiles_load_Wishart):
-    ax1.errorbar(-i-1, BW_distance_output_median_Wishart[i], 
-                 yerr=yerr_Wishart[:, i].reshape(2, 1),
+    ax1.errorbar(-i-1, BWD_median_Wishart[i], 
+                 yerr=yerr_Wishart[:, i].reshape(2,1),
                  capsize=pltSt.errorbar_cs, c = pltSt.errorbar_c,  #np.array([0,0,0])+i*0.2
                  marker = pltSt.errorbar_m, markersize = pltSt.errorbar_ms, 
                  lw = pltSt.errorbar_lw)
@@ -274,15 +282,16 @@ figName1 = f"ModelPerformance_BuresWassersteinDistance_Wishart_vs_IndvEll_trialN
 fig1.savefig(os.path.join(output_figDir_fits, figName1))   
 
 #%% plot baseline 
+seed = 0
 if COLOR_DIMENSION == 2:
     ellipse_gt = (0.1, 0.1,30, 0, 0)  # center (x,y), axes (a,b), angle in degrees
-    target_bw = np.max(BW_distance_output_indvEll[0]) #np.max(BW_distance_output_Wishart[1])#
+    target_bw = CI95_Wishart[1,0]
     min_len = 0.01
     max_len = 0.6
     
     ellipses, distances = ModelPerformance.generate_ellipses_within_BWdistance(
         ellipse_gt, target_bw, min_len, max_len, 
-        max_trials=1e8, tol=1e-4, seed=2, num_ellipses=10)
+        max_trials=1e8, tol=1e-4, seed=seed, num_ellipses=10)
     
     for i, (ellipse, dist) in enumerate(zip(ellipses, distances)):
         print(f"Ellipse {i+1}: {ellipse}, BW distance: {dist}")
@@ -299,13 +308,13 @@ else:
     ellipsoid_gt= {'radii': np.array([0.1, 0.1, 0.1]),
                   'evecs': np.eye(3),
                   'center': np.array([0,0,0])}
-    target_bw = np.nanmax(BW_distance_output_indvEll[0]) #np.nanmax(BW_distance_output_Wishart[0])#
-    min_len = 0.01
-    max_len = 0.6
+    target_bw = CI95_indv[1,0]  #CI95_Wishart[1,0] CI95_Wishart[1,1] CI95_indv[1,-1] CI95_indv[1,0]
+    min_len = 0.001
+    max_len = 0.3
     varying_planes = np.array([1,2])
     ellipsoids, distances = ModelPerformance.generate_ellipsoids_within_BWdistance(
         ellipsoid_gt, target_bw, min_len, max_len, 
-        max_trials=1e8, tol=1e-4, seed=2, num_ellipsoids=10)    
+        max_trials=1e8, tol=1e-4, seed=seed, num_ellipsoids=10)    
     
     modelpred_proj_ell = np.full((10,5), np.nan)
     for p in range(len(ellipsoids)):
