@@ -4,6 +4,23 @@
 Created on Sun Sep 29 18:18:20 2024
 
 @author: fangfang
+
+This script fits independent thresholds at each reference location using a reduced
+Wishart Process Model, where only the first basis function is retained—corresponding 
+to a uniform performance field.
+
+Main steps:
+    1. Load a .pkl file containing the full dataset.
+    2. Optionally select a subset of the dataset for analysis.
+    3. Choose whether to fit the independent-threshold model to:
+        - the full dataset,
+        - the selected subset, or
+        - bootstrapped versions of the dataset.
+
+Note:
+    Unlike 'visualize_CI_indvEll_grid_3d.py', which separates plotting into a different script,
+    this script includes plotting code directly, as the fitting process is relatively quick.
+
 """
 
 import jax
@@ -34,7 +51,10 @@ from data_reorg import group_trials_by_grid
 baseDir = '/Users/fangfang/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
 COLOR_DIMENSION = 2
 
-#%% load data
+#%% 
+# ----------------------------------------------
+# SECTION 1: Load the data
+# ----------------------------------------------
 #'META_analysis/ModelFitting_DataFiles/2dTask/CIE/sub2/subset4000'
 #'Fitted_byWishart_Isoluminant plane_49interleaved2DExpt_10_10_10_330_AEPsychSampling_EAVC_sub2_subset4000.pkl'
 # It takes the file xxx_subset4000.pkl but we extract the full dataset from the pickle
@@ -45,21 +65,24 @@ with open(Wishart_full_path, 'rb') as f:
     vars_dict = pickled.load(f)
     
 # Extract variables from loaded dictionary
-NUM_GRID_PTS         = len(vars_dict['grid_ref'])                 # Number of grid points per dimension
-nRefs                = NUM_GRID_PTS ** COLOR_DIMENSION            # Total number of reference colors
-data_AEPsych_fullset = vars_dict['data_AEPsych_fullset']          # Full dataset (e.g., ~18,000 trials)
-color_thres_data     = vars_dict['color_thres_data']              # Color threshold data object
-gt_Wishart           = vars_dict['gt_Wishart']                    # Ground truth Wishart model (joint fit)
-grid                 = vars_dict['grid']                          # 2D grid of reference points (shape: N x N x 2)
-grid_flatten         = np.reshape(grid, (nRefs, -1))              # Flattened grid (shape: N^2 x 2)
-NTRIALS_STRAT        = vars_dict['NTRIALS_STRAT']                 # Trials per sampling strategy per reference (e.g., [10, 10, 10, 330])
-NTRIALS              = sum(NTRIALS_STRAT)                         # Total trials per reference
-size_fullset         = NTRIALS * nRefs                            # Total number of trials across all references
-model_pred_existing  = vars_dict['model_pred_Wishart']            # Existing model predictions
-model_existing       = model_pred_existing.model                  # Wishart model object
-opt_params_existing  = model_pred_existing.opt_params             # Optimization parameters
+NUM_GRID_PTS         = len(vars_dict['grid_ref'])        # Number of grid points per dimension
+nRefs                = NUM_GRID_PTS ** COLOR_DIMENSION   # Total number of reference colors
+data_AEPsych_fullset = vars_dict['data_AEPsych_fullset'] # Full dataset (e.g., ~18,000 trials)
+color_thres_data     = vars_dict['color_thres_data']     # Color threshold data object
+gt_Wishart           = vars_dict['gt_Wishart']           # Ground truth Wishart model (joint fit)
+grid                 = vars_dict['grid']                 # 2D grid of reference points (shape: N x N x 2)
+grid_flatten         = np.reshape(grid, (nRefs, -1))     # Flattened grid (shape: N^2 x 2)
+NTRIALS_STRAT        = vars_dict['NTRIALS_STRAT']        # Trials per sampling strategy per reference (e.g., [10, 10, 10, 330])
+NTRIALS              = sum(NTRIALS_STRAT)                # Total trials per reference
+size_fullset         = NTRIALS * nRefs                   # Total number of trials across all references
+model_pred_existing  = vars_dict['model_pred_Wishart']   # Existing model predictions
+model_existing       = model_pred_existing.model         # Wishart model object
+opt_params_existing  = model_pred_existing.opt_params    # Optimization parameters
 
-# Define the subset size for fitting independent threshold models
+#%% Define the subset size for fitting independent threshold models
+# ----------------------------------------------
+# SECTION 2: Select subset or the full dataset
+# ----------------------------------------------
 size_subset = 6027  # Example options: [6027, 10045, 14014, 17640]
 str_ext_s = f'subset{size_subset}'
 
@@ -108,7 +131,7 @@ else:
     flag_load_previous = False
     print(f"Saved new file: {output_full_path}")
     
-#%% three variables we need to define for loading the data
+#%% some figure settings
 #whether we load the data from a previous file or not, we need to set the directory for 
 #output figures
 # Create output directory for figures
@@ -139,11 +162,12 @@ predM_settings = replace(
     modelpred_alpha=1,
     modelpred_label='Ground truth (CIE 1994)',
     ticks=np.linspace(-0.7, 0.7, 5))
-    
+
+#%%
+# -----------------------------------------
+# SECTION 3: Fit individual ellipses
+# -----------------------------------------
 nBtst = 10
-# -----------------------------------------
-# SECTION 2: Fit individual ellipses
-# -----------------------------------------
 if not flag_load_previous:
     # Create a mask for the weight matrix W: only the first element is free; the rest are fixed.
     # This effectively reduces the Wishart model to an independent-threshold model: we assume
@@ -178,10 +202,9 @@ if not flag_load_previous:
             y_btst, xref_btst, x1_btst = [],[],[]
             for n in range(nRefs):
                 xref_n, x1_n, y_n, _ = load_4D_expt_data.bootstrap_AEPsych_data(
-                    data_AEPsych_subset_flatten[1][n], 
-                    data_AEPsych_subset_flatten[2][n], 
-                    data_AEPsych_subset_flatten[0][n],
-                    trials_split=[sum(NTRIALS_STRAT[:-1])], seed=ll*100 + n
+                    data_AEPsych_subset_flatten[1][n], data_AEPsych_subset_flatten[2][n], 
+                    data_AEPsych_subset_flatten[0][n], trials_split=[sum(NTRIALS_STRAT[:-1])], 
+                    seed=ll*100 + n
                 )
                 y_btst.append(y_n)
                 xref_btst.append(xref_n)
@@ -273,13 +296,23 @@ if not flag_load_previous:
         # Save results for this iteration
         vars_dict_subset_ll = {var_name: eval(var_name) for var_name in variable_names_append}
         key_name_ll = f'model_pred_indv_{str_ext}'
-        vars_dict_subset[key_name_ll] = vars_dict_subset_ll
-    
-        # Write updated dictionary to file
-        with open(output_full_path, 'wb') as f:
-            pickled.dump(vars_dict_subset, f)
-        print(f"Saved updated vars_dict_subset to '{output_full_path}'.")
-    
+        
+        # Check if the key already exists in the dictionary
+        if key_name_ll in vars_dict_subset.keys():
+            # Prompt the user to confirm overwriting the existing variable
+            flag_overwrite = input("The variable name already exists in this file. Enter 'y' to confirm overwrite: ")
+
+        # If the user confirms, update the dictionary and save it
+        if flag_overwrite:
+            vars_dict_subset[key_name_ll] = vars_dict_subset_ll  
+            # Write updated dictionary to file
+            with open(output_full_path, 'wb') as f:
+                pickled.dump(vars_dict_subset, f)
+            print(f"Saved updated vars_dict_subset to '{output_full_path}'.")
+        else:
+            # Do not update the dictionary if user didn't confirm
+            print("The variable was not added to the pickle file.")
+
         #---------------------------------------------------------------------------
         # Visualize predictions: compare joint fit and individual fits    
         fig, ax = plt.subplots(1, 1, figsize=predM_settings.fig_size, dpi=predM_settings.dpi)
@@ -320,7 +353,7 @@ if flag_load_previous or all(flag_done):
                                              alpha = 0.7)
     wishart_pred_vis.plot_2D(grid, ax=ax2, settings=predM_settings)
     ax2.set_title('Isoluminant plane');
-    fig2.savefig(os.path.join(output_figDir_fits, f"{output_file_name[:-4]}_wCI.pdf"))    
+    #fig2.savefig(os.path.join(output_figDir_fits, f"{output_file_name[:-4]}_wCI.pdf"))    
 
 
 
