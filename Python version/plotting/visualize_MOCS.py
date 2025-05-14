@@ -379,7 +379,7 @@ class MOCSConditionsVisualization(PlottingTools):
                 ax.scatter(comp[:, 0], comp[:, 1], marker=settings.comp_marker, 
                            color=settings.comp_mc, s=settings.comp_ms)
                 ax.plot([xref[0], comp[-1, 0]], [xref[1], comp[-1, 1]], 
-                        lw= settings.comp_lw, color= settings.comp_lc)
+                        solid_capstyle='butt', lw= settings.comp_lw, color= settings.comp_lc)
                 if settings.easyTrials_highlight:
                     ax.scatter(*comp[-1,:], marker=settings.catch_marker, facecolor='none', 
                                edgecolor= settings.catch_ec, 
@@ -414,7 +414,7 @@ class MOCSConditionsVisualization(PlottingTools):
                 ax.scatter(comp[:, 0], comp[:, 1], comp[:, 2], marker=settings.comp_marker, 
                            color= settings.comp_mc, s= settings.comp_ms)
                 ax.plot(comp[:, 0], comp[:, 1], comp[:, 2], lw=settings.comp_lw,
-                        color=settings.lc)
+                        color=settings.lc, solid_capstyle='butt')
                 if settings.easyTrials_highlight:
                     ax.scatter(*comp[-1, :], marker= settings.catch_marker,
                                facecolor='none', edgecolor=settings.catch_ec, 
