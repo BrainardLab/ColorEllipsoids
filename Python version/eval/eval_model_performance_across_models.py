@@ -23,23 +23,25 @@ from analysis.ellipses_tools import ellParams_to_covMat, rotAngle_to_eigenvector
     fit_2d_isothreshold_contour
 from analysis.ellipsoids_tools import  eig_to_covMat
 from plotting.wishart_predictions_plotting import WishartPredictionsVisualization
-sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version')
-#sys.path.append("/Users/fh862-adm/Documents/GitHub/ColorEllipsoids/Python version")
-from analysis.model_performance_test import ModelPerformance, \
+from analysis.model_performance import ModelPerformance, \
     compute_95CI_BWD_multipleConditions, generate_ellipses_within_BWdistance,\
     generate_ellipsoids_within_BWdistance
 from plotting.wishart_plotting import PlotSettingsBase 
 from plotting.modelperf_plotting import PltBWDSettings, ModelPerformanceVisualization
 from analysis.utils_load import select_file_and_get_path
 
-##################################################
-COLOR_DIMENSION = 2 #this can be modified, 2 or 3
+sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version')
+#sys.path.append("/Users/fh862-adm/Documents/GitHub/ColorEllipsoids/Python version")
 
-#%% --------------------------------------------------------
+##################################################
+COLOR_DIMENSION = 3 #this can be modified, 2 or 3
+
+#%% 
+# --------------------------------------------------------
 # Load the model fits by the independent threshold model
 # ----------------------------------------------------------
 nFiles_load_indvEll = 4   # Total number of files to load
-grid_pts_desired = 7      # Grid size for reference stimulus (e.g., 7x7 for 2D, 5x5x5 for 3D)
+grid_pts_desired = 5      # Grid size for reference stimulus (e.g., 7x7 for 2D, 5x5x5 for 3D)
 min_grid_desired = -0.7   # Minimum grid value expected for the reference stimulus
 
 # Initialize lists for storing loaded data and metadata
@@ -86,11 +88,11 @@ for _ in range(nFiles_load_indvEll):
             for idx, m in enumerate(matching_keys):
                 model_ellParams1[idx] = vars_dict1[m]['fitEll_params']
             data_load_indvEll.append(model_ellParams1.tolist())
-        else:  # COLOR_DIMENSION == 3
+        else: 
             model_ellParams1 = []
             for m in matching_keys:
                 model_ellParams1.append(vars_dict1[m]['fitEll_params'])
-            data_load_indvEll.append([model_ellParams1])
+            data_load_indvEll.append(model_ellParams1)
     else:
         raise ValueError('The file does not match the desired grid configuration.')
 
@@ -158,7 +160,7 @@ for _ in range(nFiles_load_Wishart): #it can be any number depending on how many
     if COLOR_DIMENSION == 2:
         data_load_Wishart.append(model_ellParams2.tolist())
     else:
-        data_load_Wishart.append([model_ellParams2])
+        data_load_Wishart.append(model_ellParams2)
 
 #store whether this is a interleaved 2D/3D or a full 4D/6D task
 task_dims = [re.search(r'(\d+D)Expt', name).group(1) for name in file_name_all2]
@@ -288,7 +290,7 @@ else:
     ellipsoid_gt= {'radii': np.array([0.1, 0.1, 0.1]),
                   'evecs': np.eye(3),
                   'center': np.array([0,0,0])}
-    target_bw = CI95_indv[0,1]  #CI95_Wishart[0,1] CI95_Wishart[1,1] CI95_indv[-1,1]  
+    target_bw = CI95_indv[1,1]  #CI95_Wishart; CI95_indv[0]: lower bound; CI95_indv[1]: upper bound
     min_len = 0.001
     max_len = 0.3
     varying_planes = np.array([1,2])
