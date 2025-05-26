@@ -25,68 +25,85 @@ from analysis.ellipsoids_tools import  eig_to_covMat
 from plotting.wishart_predictions_plotting import WishartPredictionsVisualization
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version')
 #sys.path.append("/Users/fh862-adm/Documents/GitHub/ColorEllipsoids/Python version")
-#from analysis.model_performance import ModelPerformance, PltBWDSettings
-from analysis.model_performance_test import ModelPerformance, compute_95CI_BWD_multipleConditions
+from analysis.model_performance_test import ModelPerformance, \
+    compute_95CI_BWD_multipleConditions, generate_ellipses_within_BWdistance,\
+    generate_ellipsoids_within_BWdistance
 from plotting.wishart_plotting import PlotSettingsBase 
 from plotting.modelperf_plotting import PltBWDSettings, ModelPerformanceVisualization
 from analysis.utils_load import select_file_and_get_path
 
-COLOR_DIMENSION = 2
+##################################################
+COLOR_DIMENSION = 2 #this can be modified, 2 or 3
 
-#%% ------------------------------------------
-# Load data simulated using CIELab
-# ------------------------------------------
-# List to store loaded simulation data
-nFiles_load_indvEll = 4
-data_load_indvEll, input_fileDir_all1, file_name_all1, trial_num_indvEll, numDatasets_indvEll = [],[],[],[],[]
-grid_pts_desired = 7
-min_grid_desired = -0.7
-for _ in range(nFiles_load_indvEll): #it can be any number depending on how many files we want to compare
+#%% --------------------------------------------------------
+# Load the model fits by the independent threshold model
+# ----------------------------------------------------------
+nFiles_load_indvEll = 4   # Total number of files to load
+grid_pts_desired = 7      # Grid size for reference stimulus (e.g., 7x7 for 2D, 5x5x5 for 3D)
+min_grid_desired = -0.7   # Minimum grid value expected for the reference stimulus
+
+# Initialize lists for storing loaded data and metadata
+data_load_indvEll = []
+input_fileDir_all1 = []
+file_name_all1 = []
+trial_num_indvEll = []
+numDatasets_indvEll = []
+
+for _ in range(nFiles_load_indvEll):
     #2D
     #META_analysis/ModelFitting_DataFiles/2dTask_indvEll/CIE/sub2/subset6027'
     #'IndvFitted_byWishart_Isoluminant plane_49interleaved2DExpt_10_10_10_330_AEPsychSampling_EAVC_sub2_subset6027.pkl'
-
+    
     #or 3D
     #'META_analysis/ModelFitting_DataFiles/3dTask_indvEll/CIE/sub1/subset30000'
     # 'IndvFitted_byWishart_ellipsoids_3DExpt_30_30_30_550_AEPsychSampling_EAVC_decayRate0.4_nBasisDeg5_sub1_subset30000.pkl'
+    
+    # Select a model fitting result file (interactive or scripted selection)
     input_fileDir_fits1, file_name1 = select_file_and_get_path()
     input_fileDir_all1.append(input_fileDir_fits1)
     file_name_all1.append(file_name1)
-    
-    #extract trial number
+
+    # Extract trial number from the filename (e.g., '..._subset6027.pkl' → 6027)
     trial_num = int(file_name1.split('subset')[1].split('.pkl')[0])
     trial_num_indvEll.append(trial_num)
-    
-    # Construct the full path to the selected file
+
+    # Construct the full path to the file and load its contents
     full_path1 = os.path.join(input_fileDir_fits1, file_name1)
-    
-    # Load the necessary variables from the file
     with open(full_path1, 'rb') as f:
         vars_dict1 = pickled.load(f)
-    
-    NUM_GRID_PTS = vars_dict1['NUM_GRID_PTS']
-    if NUM_GRID_PTS == grid_pts_desired and np.min(vars_dict1['grid']) == min_grid_desired:
+
+    # Check that the grid configuration matches the desired setup
+    if vars_dict1['NUM_GRID_PTS'] == grid_pts_desired and np.min(vars_dict1['grid']) == min_grid_desired:
         prefix = f'model_pred_indv_subset{trial_num}'
-        matching_keys = [key for key in vars_dict1.keys() if key.startswith(prefix)]
+
+        # Find all bootstrap datasets associated with this subset
+        matching_keys = [key for key in vars_dict1 if key.startswith(prefix)]
         numDatasets_indvEll.append(len(matching_keys))
-        
+
+        # Load model-predicted ellipse parameters for each bootstrap dataset
         if COLOR_DIMENSION == 2:
-            model_ellParams1 = np.full((len(matching_keys), grid_pts_desired**COLOR_DIMENSION,5), np.nan)
+            model_ellParams1 = np.full((len(matching_keys), grid_pts_desired**2, 5), np.nan)
             for idx, m in enumerate(matching_keys):
                 model_ellParams1[idx] = vars_dict1[m]['fitEll_params']
             data_load_indvEll.append(model_ellParams1.tolist())
-        else:
+        else:  # COLOR_DIMENSION == 3
             model_ellParams1 = []
             for m in matching_keys:
-                model_ellParams1_m = vars_dict1[m]['fitEll_params']
-                model_ellParams1.append(model_ellParams1_m)
+                model_ellParams1.append(vars_dict1[m]['fitEll_params'])
             data_load_indvEll.append([model_ellParams1])
     else:
-        raise ValueError('Cannot find the model predictions at desired grid points.')
+        raise ValueError('The file does not match the desired grid configuration.')
 
-#%% load one from the Wishart fits
+#%% ------------------------------------------ 
+# Load the model fits by the Wishart model
+# -------------------------------------------- 
 nFiles_load_Wishart = 2
-data_load_Wishart, input_fileDir_all2, file_name_all2, trial_num_Wishart, numDatasets_Wishart = [],[],[],[],[]
+# Initialize lists for storing loaded data and metadata
+data_load_Wishart = []
+input_fileDir_all2 = []
+file_name_all2 = []
+trial_num_Wishart = []
+numDatasets_Wishart = [] 
 for _ in range(nFiles_load_Wishart): #it can be any number depending on how many files we want to compare
     #'META_analysis/ModelFitting_DataFiles/4dTask/CIE/sub1/decayRate0.5'
     #'Fitted_byWishart_Isoluminant plane_4DExpt_300_300_300_5100_AEPsychSampling_EAVC_decayRate0.5_nBasisDeg5_sub1.pkl'
@@ -112,7 +129,6 @@ for _ in range(nFiles_load_Wishart): #it can be any number depending on how many
     else:
         model_ellParams2 = []
     for idx, m in enumerate(matching_files):
-        # Construct the full path to the selected file
         full_path2 = os.path.join(input_fileDir_fits2, m)
         
         # Load the necessary variables from the file
@@ -120,6 +136,8 @@ for _ in range(nFiles_load_Wishart): #it can be any number depending on how many
             vars_dict2 = pickled.load(f)
             #extract the number of trials
             if idx == 0: trial_num_Wishart.append(vars_dict2['data_AEPsych'][0].shape[0])
+            
+            # Check that the grid configuration matches the desired setup
             if vars_dict2['grid'].shape[0] == grid_pts_desired and\
                 np.min(vars_dict2['grid']) == min_grid_desired:
                     model_ellParams2_m = vars_dict2['model_pred_Wishart'].params_ell
@@ -128,6 +146,7 @@ for _ in range(nFiles_load_Wishart): #it can be any number depending on how many
                     model_ellParams2_m = vars_dict2[f'model_pred_Wishart_grid{grid_pts_desired}'].params_ell
             else:
                 raise ValueError('Cannot find the model predictions at desired grid points.')
+                
         if COLOR_DIMENSION == 2:
             model_ellParams2_reshape = np.reshape(np.array(model_ellParams2_m), 
                                                   (grid_pts_desired**COLOR_DIMENSION, 5))
@@ -141,6 +160,7 @@ for _ in range(nFiles_load_Wishart): #it can be any number depending on how many
     else:
         data_load_Wishart.append([model_ellParams2])
 
+#store whether this is a interleaved 2D/3D or a full 4D/6D task
 task_dims = [re.search(r'(\d+D)Expt', name).group(1) for name in file_name_all2]
 
 #%% load ground truths
@@ -154,12 +174,11 @@ if COLOR_DIMENSION == 2:
     gt_ellParams_reshape = np.reshape(np.array(gt_ellParams),
                                       (grid_pts_desired**COLOR_DIMENSION,5))
     gt_ellParams_rep = gt_ellParams_reshape.tolist()
-    
 else:
     gt_ellParams_rep = list(itertools.chain.from_iterable(itertools.chain.from_iterable(gt_ellParams)))
 
-#%%
-# Create an instance of ModelPerformance to evaluate model predictions
+#%% Compute model performance
+#define the corners for computing the baseline
 indices = [0, grid_pts_desired-1]
 
 # Select specific points (corners) in the 2D or 3D space for comparison
@@ -177,7 +196,7 @@ else:
     # For 3D, select corner points in the 3D space
     idx_corner = [[i, j, k] for i in indices for j in indices for k in indices]
 
-    # # Retrieve covariance matrices at these corner points
+    # Retrieve covariance matrices at these corner points
     covMat_corner = [ellParams_to_covMat(gt_ellParams[i][j][k]['radii'],\
                     gt_ellParams[i][j][k]['evecs']) for i, j, k in idx_corner]
 
@@ -191,12 +210,8 @@ def compute_BWD(data_list, nFiles, numDatasets):
     return BWD, perf
 
 # Compute BWD for individual ellipsoid fits and Wishart model fits
-BWD_indvEll, model_perf_indvEll = compute_BWD(data_load_indvEll, 
-                                              nFiles_load_indvEll,
-                                              numDatasets_indvEll)
-BWD_Wishart, model_perf_Wishart = compute_BWD(data_load_Wishart, 
-                                              nFiles_load_Wishart, 
-                                              numDatasets_Wishart)
+BWD_indvEll, model_perf_indvEll = compute_BWD(data_load_indvEll, nFiles_load_indvEll, numDatasets_indvEll)
+BWD_Wishart, model_perf_Wishart = compute_BWD(data_load_Wishart, nFiles_load_Wishart, numDatasets_Wishart)
 
 # compute the 95% confidence interval
 #for the independent threshold model
@@ -254,7 +269,7 @@ if COLOR_DIMENSION == 2:
     min_len = 0.01
     max_len = 0.6
     
-    ellipses, distances = ModelPerformance.generate_ellipses_within_BWdistance(
+    ellipses, distances = generate_ellipses_within_BWdistance(
         ellipse_gt, target_bw, min_len, max_len, 
         max_trials=1e8, tol=1e-4, seed=seed, num_ellipses=10)
     
@@ -277,7 +292,7 @@ else:
     min_len = 0.001
     max_len = 0.3
     varying_planes = np.array([1,2])
-    ellipsoids, distances = ModelPerformance.generate_ellipsoids_within_BWdistance(
+    ellipsoids, distances = generate_ellipsoids_within_BWdistance(
         ellipsoid_gt, target_bw, min_len, max_len, 
         max_trials=1e8, tol=1e-4, seed=seed, num_ellipsoids=10)    
     
