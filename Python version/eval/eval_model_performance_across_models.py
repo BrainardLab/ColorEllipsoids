@@ -4,6 +4,40 @@
 Created on Mon Sep 30 20:31:02 2024
 
 @author: fangfang
+
+This script compares the performance of the Wishart model and the 
+independent-threshold model in predicting color discrimination data. 
+
+Model performance is quantified using the Bures-Wasserstein distance (BWD) 
+between model predictions and the ground truth, which is defined as the 
+Wishart fit to simulated ΔE94 (CIELab 1994) data. Given this ground truth, 
+we simulate trials using AEPsych, fit both models to those simulated trials, 
+and evaluate their respective accuracy.
+
+The script includes the following main sections:
+
+1. Load independent-threshold model predictions  
+   (multiple files may be loaded, each corresponding to a different trial count).
+
+2. Load Wishart model predictions  
+   (can include multiple files, e.g., from different task designs such as 
+   interleaved 2D or full 4D experiments).
+
+3. Load ground-truth Wishart model fit  
+   (obtained from the simulated CIELab ΔE94 data).
+
+4. Compute Bures-Wasserstein distances between model predictions and ground truth, 
+   separately for the Wishart and independent-threshold models.
+
+5. Visualize the comparison by plotting the median BWD along with the 95% 
+   confidence intervals for each condition.
+
+6. Generate synthetic ellipses/ellipsoids with specified BWDs relative to 
+   a unit circle/sphere, to provide visual references for interpreting model performance.
+
+7. Visualize the confidence ellipses/ellipsoids to illustrate variability 
+   in model predictions.
+   
 """
 
 import jax
