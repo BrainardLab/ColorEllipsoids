@@ -394,7 +394,7 @@ class TrialPlacement_Isoluminant_sobolRef_gtCIE(NonAdaptiveTrialPlacement):
                 
 #%%
 class TrialPlacement_RGB_gridRef_gtCIE(NonAdaptiveTrialPlacement):
-    def __init__(self, gt_CIE, config: StimConfig, random_seed=None):
+    def __init__(self, gt_CIE, config: StimConfig, random_seed=None, num_grid_pts = 5):
         """
         
         colordiff_alg (str): The method for calculating deltaE. Options are:
@@ -404,9 +404,9 @@ class TrialPlacement_RGB_gridRef_gtCIE(NonAdaptiveTrialPlacement):
 
         """
         super().__init__()
-        self.gt_CIE_param = gt_CIE[0]    
-        self.gt_CIE_stim = gt_CIE[1]
-        self.gt_CIE_results = gt_CIE[2]
+        self.gt_CIE_param = gt_CIE[f'sim_thres_CIELab_grid{num_grid_pts}']    
+        self.gt_CIE_stim = gt_CIE[f'stim_grid{num_grid_pts}']
+        self.gt_CIE_results = gt_CIE[f'results_grid{num_grid_pts}']
         self.M_RGBTo2DW = config.M_RGBTo2DW
         self.M_2DWToRGB = config.M_2DWToRGB
         self.colordiff_alg = config.gt

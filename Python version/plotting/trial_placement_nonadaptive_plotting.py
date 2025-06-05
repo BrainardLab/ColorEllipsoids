@@ -20,7 +20,7 @@ from plotting.wishart_plotting import PlottingTools, PlotSettingsBase
 @dataclass
 class PlotWeibullPMFSettings(PlotSettingsBase):
     fig_size: Tuple[float, float] = (2.2, 2.2)
-    xticks: List[float] = field(default_factory=lambda: [0, 2, 4, 6])
+    xticks: Union[List[float], np.ndarray] = field(default_factory=lambda: [0, 2, 4, 6])
     xlabel: str = r'Perceptual difference ($\Delta E$)'
     ylabel: str = 'Proportion correct'
     fig_name: str = field(default_factory=lambda: f'Weibull_PMF_{datetime.now().strftime("%Y%m%d_%H%M%S")}')

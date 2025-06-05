@@ -84,14 +84,13 @@ stim_config = StimConfig(
 
 """
 stim_config = StimConfig(
-    fixed_plane ='B', #could be R, G, or B
+    fixed_plane = 'lum',
     gt = colordiff_alg,
     fixed_ref = True,
-    M_RGBTo2DW= None,
-    M_2DWToRGB= None,
-    file_name=f'Isothreshold_contour_CIELABderived_fixedVal0.5_{colordiff_alg}.pkl'
+    M_RGBTo2DW=color_thres_data.M_RGBTo2DW,
+    M_2DWToRGB=color_thres_data.M_2DWToRGB,
+    file_name = f'Isothreshold_ellipses_isoluminant_{colordiff_alg}.pkl'
 )
-
 
 #%%
 if stim_config.fixed_ref:
@@ -135,7 +134,8 @@ sim_vis = TrialPlacementVisualization(sim_trial,
                                       settings = pltSettings_base,
                                       save_fig = True)
 pltSettings_PMF = replace(PlotWeibullPMFSettings(), **pltSettings_base.__dict__)
-x_PMF = np.linspace(0,6,100)
+pltSettings_PMF = replace(pltSettings_PMF, xticks = np.linspace(0, 9, 4))
+x_PMF = np.linspace(0,9,100)
 sim_vis.plot_WeibullPMF(x_PMF, settings = pltSettings_PMF)
 
 #if the ref is sobol-generated, then we visualize the data using the following way
