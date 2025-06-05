@@ -338,7 +338,7 @@ class SimThresCIELab:
         return opt_vecLen
     
     def find_threshold_point_on_isoluminant_plane(self, W_ref, chrom_dir, M_RGBTo2DW, 
-                                                  M_2DWToRGB, deltaE, coloralg = 'CIE2000'):
+                                                  M_2DWToRGB, deltaE, coloralg = 'CIE1994'):
         """
         Compute the threshold point along a given chromatic direction on the isoluminant plane.
     

@@ -27,7 +27,7 @@ from plotting.wishart_plotting import PlotSettingsBase
 base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
 output_figDir = os.path.join(base_dir, 'ELPS_analysis','Simulation_FigFiles','Python_version','CIE')
 output_fileDir = os.path.join(base_dir, 'ELPS_analysis','Simulation_DataFiles')
-pltSettings_base = PlotSettingsBase(fig_dir=output_figDir, fontsize = 12)
+pltSettings_base = PlotSettingsBase(fig_dir=output_figDir, fontsize = 15)
 
 #%% LOAD TRANSFORMATION MATRICES AND INITIALIZE SIMULATION
 
@@ -48,7 +48,7 @@ M_2DWToRGB = iso_mat['M_2DWToRGB'][0]  # 2D Wishart space → RGB
 #%% DEFINE GRID POINTS IN WISHART SPACE
 # Create a 2D grid of reference locations in Wishart space
 #######################################
-nGridPts_ref = 9  #we can change it
+nGridPts_ref = 5  #we can change it
 #######################################
 #str_ext = f'_grid{nGridPts_ref}by{nGridPts_ref}' if nGridPts_ref != 5 else ''
 grid_ref = np.linspace(-0.7, 0.7, nGridPts_ref)
@@ -71,7 +71,7 @@ grid_theta_xy = sim_thres_CIELab.set_chromatic_directions(num_dir_pts=numDirPts)
 
 # Set JND threshold and color difference algorithm
 #######################################
-color_diff_algorithm = 'CIE2000'  # Options: 'CIE2000', 'CIE1994', 'CIE1976'
+color_diff_algorithm = 'CIE1994'  # Options: 'CIE2000', 'CIE1994', 'CIE1976'
 #######################################
 
 deltaE_1JND = 5 if color_diff_algorithm == 'CIE1976' else 2.5
@@ -144,12 +144,23 @@ pred2D_settings = replace(Plot2DSinglePlaneSettings(), **pltSettings_base.__dict
 pred2D_settings = replace(pred2D_settings, 
                           rgb_background=None, 
                           lim = [-1,1],
-                          ticks = np.linspace(-0.7,0.7,3),
+                          ticks = np.linspace(-0.7,0.7,5),
+                          ref_mc=cmap_ell_lc,
                           ell_lc=cmap_ell_lc)
 # Plot 2D plane with computed ellipses and thresholds
-sim_CIE_vis.plot_2D_single_plane(ref_points_W, fitEllipse_scaled, rawData=W_comp_contour_scaled,
-                                 settings = pred2D_settings)
+fig1, ax1 = sim_CIE_vis.plot_2D_single_plane(ref_points_W, fitEllipse_scaled, 
+                                             rawData=W_comp_contour_scaled,
+                                             settings = pred2D_settings)
+for i in range(nGridPts_ref):
+    for j in range(nGridPts_ref):
+        ax1.scatter(*W_comp_contour_unscaled[i,j], marker = 'o', s = 25,
+                   color=cmap_ell_lc[i,j], edgecolor= 'none')
+ax1.grid(True, alpha = 0.3)
+# Save the figure as a PDF
+plt.show()
+fig1.savefig(os.path.join(output_figDir, f"{color_diff_algorithm}_derived_threshold_contours_isoluminant_plane_Wspace.pdf"))
 
+#%%
 #convert fitted ellipses to RGB space for future uses 
 #(maybe we want to visualize that in the RGB space)
 base_shape = (3, nGridPts_ref, nGridPts_ref, nThetaEllipse)
@@ -166,14 +177,28 @@ fE_us3 = M_2DWToRGB @ fE_us2
 fitEllipse_unscaled_RGB = np.transpose(np.reshape(fE_us3, base_shape), (1,2,3,0))
 
 # visualize the isoluminant slice in the RGB cube
-fig = plt.figure(figsize=(8, 6))
-ax = fig.add_subplot(111, projection='3d')
-ax.plot(*gamut_rgb,color ='k')
+fig2 = plt.figure(figsize=(9, 7),dpi = 1024)
+ax2 = fig2.add_subplot(111, projection='3d')
+ax2.plot(*gamut_rgb,color ='k')
 # Scatter plot
-ax.scatter(*fE_us3, cmap='viridis', marker='.', s=10, alpha=0.7, edgecolors='none')
-ax.view_init(elev=30, azim=-120)
-ax.set_xlim([0,1]); ax.set_ylim([0,1]); ax.set_zlim([0,1]); ax.set_aspect('equal')
-ax.set_xlabel('R'); ax.set_ylabel('G'); ax.set_zlabel('B')
+#ax.scatter(*fE_us3, cmap='viridis', marker='.', s=10, alpha=0.7, edgecolors='none')
+for i in range(nGridPts_ref):
+    for j in range(nGridPts_ref):
+        ax2.scatter(*cmap_ell_lc[i,j], c=cmap_ell_lc[i,j], 
+                   marker='+')
+        ax2.scatter(*fitEllipse_unscaled_RGB[i,j].T, c=cmap_ell_lc[i,j], 
+                   marker='.', s=2, alpha=0.7, edgecolors=cmap_ell_lc[i,j])
+        ax2.scatter(*rgb_comp_contour_unscaled[i,j], marker = 'o', s = 15,
+                   color=cmap_ell_lc[i,j], edgecolor= cmap_ell_lc[i,j],alpha =0.5)
+ax2.view_init(elev=30, azim=-120)
+ax2.set_xticks(np.linspace(0,1,5)); ax2.set_yticks(np.linspace(0,1,5)); ax2.set_zticks(np.linspace(0,1,5));
+ax2.set_xlim([0,1]); ax2.set_ylim([0,1]); ax2.set_zlim([0,1]); 
+ax2.set_xlabel('R'); ax2.set_ylabel('G'); ax2.set_zlabel('B')
+ax2.set_aspect('equal')
+# Save the figure as a PDF
+plt.show()
+fig2.savefig(os.path.join(output_figDir, f"{color_diff_algorithm}_derived_threshold_contours_isoluminant_plane_RGBspace.pdf"))
+
         
 #%%
 output_file = f'Isothreshold_ellipses_isoluminant_{color_diff_algorithm}.pkl'

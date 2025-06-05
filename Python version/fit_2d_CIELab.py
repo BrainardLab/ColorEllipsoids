@@ -27,7 +27,7 @@ from core.model_predictions import wishart_model_pred
 from plotting.wishart_predictions_plotting import WishartPredictionsVisualization, Plot2DPredSettings
 from plotting.wishart_plotting import PlotSettingsBase 
 sys.path.append('/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version')
-from data_reorg import organize_data, organize_data_sim_isoluminant_plane
+from data_reorg import organize_data_sim_isoluminant_plane
 from analysis.cross_validation import expt_data
 
 #%% three variables we need to define for loading the data
