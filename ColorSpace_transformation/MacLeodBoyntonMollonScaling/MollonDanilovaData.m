@@ -1,8 +1,5 @@
 % Initialize
-clear; close all;
-
-% Apply Mollon/Danilova scaling for MB space?
-mollonScale = true;
+clear; close all; clc;
 
 % Load spectral data and set calibration file
 S = [390 1 441];
@@ -91,6 +88,10 @@ LMSEEWhite = sum(T_cones,2)/EEFactor;
 XYZEEWhite = M_LMSToXYZ*LMSEEWhite;
 xyYEEWhite = XYZToxyY(XYZEEWhite);
 lsEEWhite = LMSToMacBoyn(LMSEEWhite,T_cones,T_Y);
+%FH: to verify MacBoynToLMS
+recover_LMSEEWhite = MacBoynToLMS(lsEEWhite, T_cones, T_Y, sum(LMSEEWhite(1:2)));
+fprintf('Difference (Recovered - Original):\n');
+disp(round(recover_LMSEEWhite - LMSEEWhite,4));
 
 % Compute representations for D65
 D65Factor = 4000;
@@ -98,6 +99,10 @@ LMSD65 = T_cones*spd_D65/D65Factor;
 XYZD65 = M_LMSToXYZ*LMSD65;
 xyYD65 = XYZToxyY(XYZD65);
 lsD65 = LMSToMacBoyn(LMSD65,T_cones,T_Y);
+%FH: to verify MacBoynToLMS
+recover_LMSD65 = MacBoynToLMS(lsD65, T_cones, T_Y, sum(LMSD65(1:2)));
+fprintf('Difference (Recovered - Original):\n');
+disp(round(recover_LMSD65 - LMSD65,4));
 
 % Find scale factor for S cone axis that makes line between 574 and D65 %
 % run at 45 deg.  This is how Mollon and Danilova scale their MB space
@@ -105,10 +110,12 @@ lsD65 = LMSToMacBoyn(LMSD65,T_cones,T_Y);
 % underlying cones.
 ls574 = lsSpectrumLocus(:,index574);
 deltaD65574 = ls574-lsD65;
-desiredS = deltaD65574(1) + ls574(2);
+desiredS = deltaD65574(1) + ls574(2); 
 mollonFactor = desiredS/lsD65(2);
 
 % Scale to Mollon/Danilova land if desired
+% Apply Mollon/Danilova scaling for MB space?
+mollonScale = true;
 if (mollonScale)
     mollonScaleMatrix = diag([1 mollonFactor]);
 else
@@ -124,7 +131,7 @@ deltaD65574 = ls574-lsD65;
 lMinValue = 0.59;
 sIntValue = (lMinValue-ls574(1))*deltaD65574(2)/deltaD65574(1)+ls574(2);
 
-% Plot M-B diagram
+%% Plot M-B diagram
 figure; clf; hold on;
 set(gca,'FontName','Helvetica','FontSize',16);
 for ii = 1:length(plotIndex)
@@ -134,18 +141,19 @@ end
 plot(lsSpectrumLocus(1,:),lsSpectrumLocus(2,:),'k','LineWidth',2);
 plot(lsSpectrumLocus(1,index574),lsSpectrumLocus(2,index574), ...
     'o','Color',[1 0 0],'MarkerFaceColor',[1 0 0],'MarkerSize',12);
-plot(lsEEWhite(1),lsEEWhite(2), ...
-    's','Color',[0.5 0.5 0.5],'MarkerFaceColor',[0.5 0.5 0.5],'MarkerSize',12);
-plot(lsD65(1),lsD65(2), ...
-    's','Color',[0 0 0.5],'MarkerFaceColor',[0 0 0.5],'MarkerSize',12);
+scatter(lsEEWhite(1),lsEEWhite(2), 200,'Marker','s',...
+    'MarkerFaceColor', [0.5 0.5 0.5],'MarkerFaceAlpha',0.5, 'MarkerEdgeColor','k');
+scatter(lsD65(1),lsD65(2), 200, 'Marker','d',...
+    'MarkerFaceColor', [0.5 0.5 0.5],'MarkerFaceAlpha',0.5, 'MarkerEdgeColor','k');
 xlabel('l'); ylabel('s');
 title({'MacLeod-Boynton' ; ['Based on ' whichCones]}, ...
     'FontName','Helvetica','FontSize',20);
 xlim([0.4 1]); ylim([0,1]);
-axis('square');
-saveas(gcf,fullfile(outputDir,'MacLeodBoynton.tiff'),'tif');
+axis('square'); grid on
+if mollonScale; str_ext = '_wMollonScale'; else; str_ext = '';end
+%saveas(gcf,fullfile(outputDir, sprintf('MacLeodBoynton%s.pdf', str_ext)),'pdf');
 
-% Zoomed version, as is typical in some papers. Compare
+%% Zoomed version, as is typical in some papers. Compare
 % with Danilova and Mollon 2012 Figure 1B.
 figure; clf; hold on;
 set(gca,'FontName','Helvetica','FontSize',16);
@@ -156,10 +164,10 @@ end
 plot(lsSpectrumLocus(1,:),lsSpectrumLocus(2,:),'k','LineWidth',2);
 plot(lsSpectrumLocus(1,index574),lsSpectrumLocus(2,index574), ...
     'o','Color',[1 0 0],'MarkerFaceColor',[1 0 0],'MarkerSize',12);
-plot(lsEEWhite(1),lsEEWhite(2), ...
-    's','Color',[0.5 0.5 0.5],'MarkerFaceColor',[0.5 0.5 0.5],'MarkerSize',12);
-plot(lsD65(1),lsD65(2), ...
-    's','Color',[0 0 0.5],'MarkerFaceColor',[0 0 0.5],'MarkerSize',12);
+scatter(lsEEWhite(1),lsEEWhite(2), 200,'Marker','s',...
+    'MarkerFaceColor', [0.5 0.5 0.5],'MarkerFaceAlpha',0.5, 'MarkerEdgeColor','k');
+scatter(lsD65(1),lsD65(2), 200, 'Marker','d',...
+    'MarkerFaceColor', [0.5 0.5 0.5],'MarkerFaceAlpha',0.5, 'MarkerEdgeColor','k');
 plot([ls574(1) lMinValue],[ls574(2) sIntValue],'k:','LineWidth',2);
 xlabel('l'); ylabel('s');
 title({'MacLeod-Boynton' ; ['Based on ' whichCones]}, ...
@@ -177,7 +185,7 @@ elseif (strcmp(whichCones,'SmithPokornyJudd1951'))
     xlim([0.59 0.7]); ylim([-0.01 0.1]);
     set(gca,'YTick',[0 0.02 0.04 0.06 0.08 1.0]);
 end
-saveas(gcf,fullfile(outputDir,'MacLeodBoyntonZoom.tiff'),'tif');
+% saveas(gcf,fullfile(outputDir,'MacLeodBoyntonZoom.tiff'),'tif');
 
 % Plot xy chromaticity
 figure; clf; hold on;
@@ -187,10 +195,10 @@ for ii = 1:length(plotIndex)
         'o','Color',plotColors(:,ii)/255,'MarkerFaceColor',plotColors(:,ii)/255,'MarkerSize',12);
 end
 plot(xyYSpectrumLocus(1,:),xyYSpectrumLocus(2,:),'k','LineWidth',2);
-plot(xyYEEWhite(1),xyYEEWhite(2), ...
-    's','Color',[0.5 0.5 0.5],'MarkerFaceColor',[0.5 0.5 0.5],'MarkerSize',12);
-plot(xyYD65(1),xyYD65(2), ...
-    's','Color',[0 0 0.5],'MarkerFaceColor',[0 0 0.5],'MarkerSize',12);
+scatter(xyYEEWhite(1),xyYEEWhite(2), 200,'Marker','s',...
+    'MarkerFaceColor', [0.5 0.5 0.5],'MarkerFaceAlpha',0.5, 'MarkerEdgeColor','k');
+scatter(xyYEEWhite(1),xyYEEWhite(2), 200, 'Marker','d',...
+    'MarkerFaceColor', [0.5 0.5 0.5],'MarkerFaceAlpha',0.5, 'MarkerEdgeColor','k');
 xlabel('x'); ylabel('y');
 if (strcmp(whichCones,'StockmanSharpe'))
     title({'Chromaticity' ; 'CIE Physiological XYZ'},'FontName','Helvetica','FontSize',20);
@@ -199,7 +207,7 @@ elseif (strcmp(whichCones,'SmithPokorny'))
 end
 xlim([0 1]); ylim([0 1]);
 axis('square');
-saveas(gcf,fullfile(outputDir,'xyChrom.tiff'),'tif');
+% saveas(gcf,fullfile(outputDir,'xyChrom.tiff'),'tif');
 
 % Plot spectrum locus and EE white in LMS
 figure; clf; hold on;
@@ -209,13 +217,11 @@ for ii = 1:length(plotIndex)
         'o','Color',plotColors(:,ii)/255,'MarkerFaceColor',plotColors(:,ii)/255,'MarkerSize',12);
 end
 plot3(T_cones(1,:),T_cones(2,:),T_cones(3,:),'k','LineWidth',2);
-plot3(LMSEEWhite(1),LMSEEWhite(2),LMSEEWhite(3), ...
-    's','Color',[0.5 0.5 0.5],'MarkerFaceColor',[0.5 0.5 0.5],'MarkerSize',12);
-plot3(LMSD65(1),LMSD65(2),LMSD65(3), ...
-    's','Color',[0 0 0.5],'MarkerFaceColor',[0 0 0.5],'MarkerSize',12);
-xlabel('L');
-ylabel('M');
-zlabel('S');
+scatter3(LMSEEWhite(1),LMSEEWhite(2),LMSEEWhite(3), 200,'Marker','s',...
+    'MarkerFaceColor', [0.5 0.5 0.5],'MarkerFaceAlpha',0.5, 'MarkerEdgeColor','k');
+scatter3(LMSD65(1),LMSD65(2),LMSD65(3), 200, 'Marker','d',...
+    'MarkerFaceColor', [0.5 0.5 0.5],'MarkerFaceAlpha',0.5, 'MarkerEdgeColor','k');
+xlabel('L'); ylabel('M'); zlabel('S');
 title({'LMS Space' ; whichCones},'FontName','Helvetica','FontSize',20);
 view([50 16]);
 axis('square');
@@ -223,7 +229,7 @@ xlim([0 1]); ylim([0 1]); zlim([0 1]);
 set(gca,'XTick',[0 0.5 1]);
 set(gca,'YTick',[0 0.5 1]);
 set(gca,'ZTick',[0 0.5 1]);
-saveas(gcf,fullfile(outputDir,'LMSSpace.tiff'),'tif');
+% saveas(gcf,fullfile(outputDir,'LMSSpace.tiff'),'tif');
 
 % Plot spectrum locus and EE white in XYZ
 figure; clf; hold on;
@@ -233,10 +239,10 @@ for ii = 1:length(plotIndex)
         'o','Color',plotColors(:,ii)/255,'MarkerFaceColor',plotColors(:,ii)/255,'MarkerSize',12);
 end
 plot3(T_XYZ(1,:),T_XYZ(2,:),T_XYZ(3,:),'k','LineWidth',2);
-plot3(XYZEEWhite(1),XYZEEWhite(2),XYZEEWhite(3), ...
-    'o','Color',[0.5 0.5 0.5],'MarkerFaceColor',[0.5 0.5 0.5],'MarkerSize',12);
-plot3(XYZD65(1),XYZD65(2),XYZD65(3), ...
-    's','Color',[0 0 0.5],'MarkerFaceColor',[0 0 0.5],'MarkerSize',12);
+scatter3(XYZEEWhite(1),XYZEEWhite(2),XYZEEWhite(3), 200,'Marker','s',...
+    'MarkerFaceColor', [0.5 0.5 0.5],'MarkerFaceAlpha',0.5, 'MarkerEdgeColor','k');
+scatter3(XYZD65(1),XYZD65(2),XYZD65(3), 200, 'Marker','d',...
+    'MarkerFaceColor', [0.5 0.5 0.5],'MarkerFaceAlpha',0.5, 'MarkerEdgeColor','k');
 xlabel('X');
 ylabel('Y');
 zlabel('Z');
@@ -251,7 +257,7 @@ xlim([0 1.6]); ylim([0 1.6]); zlim([0 1.6]);
 set(gca,'XTick',[0 0.8 1.6]);
 set(gca,'YTick',[0 0.8 1.6]);
 set(gca,'ZTick',[0 0.8 1.6]);
-saveas(gcf,fullfile(outputDir,'XYZSpace.tiff'),'tif');
+% saveas(gcf,fullfile(outputDir,'XYZSpace.tiff'),'tif');
 
 % Plots of cones and XYZ
 figure; clf; hold on
@@ -280,12 +286,18 @@ elseif (strcmp(whichCones,'SmithPokorny'))
     title({'Judd-Vos XYZ'},'FontName','Helvetica','FontSize',20);
 end
 xlim([400 700]);
-saveas(gcf,fullfile(outputDir,'XYZColorMatchingFcns.tiff'),'tif');
+% saveas(gcf,fullfile(outputDir,'XYZColorMatchingFcns.tiff'),'tif');
 
 %% Get info to extract data from Danilova and Mollon 2025
+% Generate unit circle
+ell_pts = 1000;
+t = linspace(0, 2*pi, ell_pts);
+circle = [cos(t); sin(t)];  % 2xN matrix
 %
 %  Read in the ellipse table
 ellipseDataTable = readtable('DanilovaMollon2025_Table1.xlsx','VariableNamingRule','preserve');
+% stimulus size 
+stim_size = [32, 48, 240]; %in min
 
 % Figure out both coordinates from table.  The table gives the l coordinate
 % of the reference, and tells us the angle of the line in the space it
@@ -293,6 +305,10 @@ ellipseDataTable = readtable('DanilovaMollon2025_Table1.xlsx','VariableNamingRul
 refLCoords = ellipseDataTable.Ref_LminusM'; % Extract l coordinates from the table
 
 % Loop through the table rows (one row per reference)
+refSCoords = NaN(1, height(ellipseDataTable));
+[ellipseAxis1, ellipseAxis2, ellipseAngle] = deal(NaN(height(ellipseDataTable), length(stim_size)));
+[rotMat, stretchMat, ellMat] = deal(NaN(height(ellipseDataTable), length(stim_size), 2, 2));
+ellContour = NaN(height(ellipseDataTable), length(stim_size), 2, ell_pts);
 for rr = 1:height(ellipseDataTable)
     % If both l and s are there, just read them out, otherwise compute.
     if (ellipseDataTable.Ref_S(rr) == -1)
@@ -305,9 +321,91 @@ for rr = 1:height(ellipseDataTable)
         refSCoords(rr) = ellipseDataTable.Ref_S(rr);
     end
 
-    ellipseAxis1(rr) = ellipseDataTable.L1_240(rr);
-    ellipseAxis2(rr) = ellipseDataTable.L2_240(rr);
-    ellipseAngle(rr) = ellipseDataTable.Theta_240(rr);
+    for ll = 1:length(stim_size)
+        eval(sprintf('ellipseAxis1(rr,ll) = ellipseDataTable.L1_%d(rr);', stim_size(ll)));
+        eval(sprintf('ellipseAxis2(rr,ll) = ellipseDataTable.L2_%d(rr);',  stim_size(ll)));
+        eval(sprintf('ellipseAngle(rr,ll) = ellipseDataTable.Theta_%d(rr);',  stim_size(ll)));
+
+        rotMat(rr,ll,:,:) = [cosd(ellipseAngle(rr,ll)), -sind(ellipseAngle(rr,ll)); ...
+                             sind(ellipseAngle(rr,ll)), cosd(ellipseAngle(rr,ll))];
+        stretchMat(rr,ll,:,:) = [ellipseAxis1(rr,ll)^2, 0;...
+                              0, ellipseAxis2(rr,ll)^2];
+        ellMat(rr,ll,:,:) = squeeze(rotMat(rr,ll,:,:)) * squeeze(stretchMat(rr,ll,:,:)) * squeeze(rotMat(rr,ll,:,:))';
+    
+        % Transform unit circle into ellipse using Cholesky or sqrtm
+        ellContour(rr,ll,:,:) = sqrtm(squeeze(ellMat(rr,ll,:,:))) * circle;
+    end
 end
 
-[refLCoords ; refSCoords]
+%% plot the ellipses
+scaler_vis = [1,1,4];
+y_bds = [0, 0.2];
+x_bds = [0.58, 0.78];
+% Plot
+figure;
+for ll = 1:length(stim_size)
+    subplot(1,length(stim_size), ll)
+    %horizontal line
+    plot(x_bds, ones(1,2).*lsD65(2), 'k:'); hold on
+    %vertical line
+    plot(lsD65(1).*ones(1,2), y_bds, 'k:');
+    %45 deg line
+    plot(lsD65(1) + [1, -1], lsD65(2) + [tand(45),-tand(45)], 'k--');
+    %135 deg line
+    plot(lsD65(1) + [1, -1], lsD65(2) + [tand(135),-tand(135)], 'k--');
+    %165 deg line
+    plot(lsD65(1) + [1, -1], lsD65(2) + [tand(165), -tand(165)], 'k-');
+    for i = 1:height(ellipseDataTable)
+        plot(refLCoords(i) + scaler_vis(ll).*squeeze(ellContour(i,ll,1,:)),...
+             refSCoords(i) + scaler_vis(ll).*squeeze(ellContour(i,ll,2,:)), 'k', 'LineWidth', 2);
+    end
+    axis square; hold off
+    xlabel('L/(L+M)'); ylabel('S/(L+M)');
+    xlim(x_bds); ylim(y_bds);
+    xticks(0.6:0.05:0.75); yticks(0:0.05:0.2);
+    title(sprintf('D = %d min', stim_size(ll)));
+end
+set(gcf,'Unit','Normalized','Position',[0, 0, 0.7,0.3]);
+
+%% convert the ref to DKL
+cal_path = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_materials/Calibration/';
+matfileName = 'Transformation_btw_color_spaces.mat';
+outputName = fullfile(cal_path,matfileName);
+CalData = load(outputName);
+
+%obtain transformation matrices
+M_LMSTORGB = CalData.DELL_02242025_texture_right.M_LMSTORGB;
+M_RGBTo2DW = CalData.DELL_02242025_texture_right.M_RGBTo2DW;
+
+%get the monitor's primary
+P_device = CalData.DELL_02242025_texture_right.cal.processedData.P_device;
+%grab the previous S for splining
+previous_S = CalData.DELL_02242025_texture_right.cal.rawData.S; 
+%spline it to be consistent with what we have done so far
+P_device_new = SplineSpd(previous_S, P_device, S);
+%calculate luminance
+T_lum = T_Y * (P_device_new * [0.5, 0.5, 0.5]');
+
+[LMS_ref, RGB_ref, W_ref] = deal(NaN(height(ellipseDataTable), 3));
+
+for rr = 1:height(ellipseDataTable)
+    %here if we call MacBoynToLMS_v2, T_lum should be L'+M'
+    %if we call MacBoynToLMS, T_lum should be L+M
+    LMS_ref(rr,:) = MacBoynToLMS_v2(inv(mollonScaleMatrix)*[refLCoords(rr), refSCoords(rr)]', T_cones, T_Y, T_lum);
+
+    %sanity check
+    recover_ref = LMSToMacBoyn(LMS_ref(rr,:)', T_cones, T_Y);
+    if sum(recover_ref - [refLCoords(rr), refSCoords(rr)]) > 1e-4; error('We failed to recover the reference stimuli.'); end
+
+    RGB_ref(rr,:) = M_LMSTORGB * LMS_ref(rr,:)';
+    W_ref(rr,:) = M_RGBTo2DW * RGB_ref(rr,:)';
+end
+
+%display (if everything works fine, the 3rd column of W should be roughly 1)
+W_ref
+
+
+
+
+
+
