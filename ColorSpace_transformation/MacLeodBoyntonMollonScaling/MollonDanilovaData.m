@@ -56,7 +56,7 @@ fprintf('D65 chrom: %0.3f, %0.3f\n',xyY1931D65(1),xyY1931D65(2));
 % of CIE 170-2:2015 (if StockmanSharpe set). Otherwise make the
 % MacLeod-Boynton diagram from Smith-Pokorny land, which differs from the
 % CIE standard.
-lsSpectrumLocus = LMSToMacBoyn(T_cones,T_cones,T_Y);
+lsYSpectrumLocus = LMSToMacBoyn(T_cones,T_cones,T_Y,1);
 xyYSpectrumLocus = XYZToxyY(T_XYZ);
 wls = SToWls(S);
 index574 = find(wls == 574);
@@ -74,7 +74,8 @@ plotColors = SRGBGammaCorrect(XYZToSRGBPrimary((T_XYZ(:,plotIndex))));
 % check that this routine still works the way it did when we put in the
 % check.
 if (strcmp(whichCones,'StockmanSharpe'))
-    check = round(sum(lsSpectrumLocus(:)),4);
+    temp = lsYSpectrumLocus(1:2,:);
+    check = round(sum(temp(:)),4);
     if (abs(check-412.2608) > 1e-4)
         error('No longer get same check value as we used to');
     end
@@ -87,9 +88,9 @@ EEFactor = 200;
 LMSEEWhite = sum(T_cones,2)/EEFactor;
 XYZEEWhite = M_LMSToXYZ*LMSEEWhite;
 xyYEEWhite = XYZToxyY(XYZEEWhite);
-lsEEWhite = LMSToMacBoyn(LMSEEWhite,T_cones,T_Y);
+lsYEEWhite = LMSToMacBoyn(LMSEEWhite,T_cones,T_Y,1);
 %FH: to verify MacBoynToLMS
-recover_LMSEEWhite = MacBoynToLMS(lsEEWhite, T_cones, T_Y, sum(LMSEEWhite(1:2)));
+recover_LMSEEWhite = MacBoynToLMS(lsYEEWhite, T_cones, T_Y);
 fprintf('Difference (Recovered - Original):\n');
 disp(round(recover_LMSEEWhite - LMSEEWhite,4));
 
@@ -98,9 +99,9 @@ D65Factor = 4000;
 LMSD65 = T_cones*spd_D65/D65Factor;
 XYZD65 = M_LMSToXYZ*LMSD65;
 xyYD65 = XYZToxyY(XYZD65);
-lsD65 = LMSToMacBoyn(LMSD65,T_cones,T_Y);
+lsYD65 = LMSToMacBoyn(LMSD65,T_cones,T_Y,1);
 %FH: to verify MacBoynToLMS
-recover_LMSD65 = MacBoynToLMS(lsD65, T_cones, T_Y, sum(LMSD65(1:2)));
+recover_LMSD65 = MacBoynToLMS(lsYD65, T_cones, T_Y);
 fprintf('Difference (Recovered - Original):\n');
 disp(round(recover_LMSD65 - LMSD65,4));
 
@@ -108,10 +109,10 @@ disp(round(recover_LMSD65 - LMSD65,4));
 % run at 45 deg.  This is how Mollon and Danilova scale their MB space
 % in many of their papers.  This method should work for any choice of
 % underlying cones.
-ls574 = lsSpectrumLocus(:,index574);
-deltaD65574 = ls574-lsD65;
+ls574 = lsYSpectrumLocus(1:2,index574);
+deltaD65574 = ls574-lsYD65(1:2);
 desiredS = deltaD65574(1) + ls574(2); 
-mollonFactor = desiredS/lsD65(2);
+mollonFactor = desiredS/lsYD65(2);
 
 % Scale to Mollon/Danilova land if desired
 % Apply Mollon/Danilova scaling for MB space?
@@ -121,11 +122,11 @@ if (mollonScale)
 else
     mollonScaleMatrix = eye(2);
 end
-lsSpectrumLocus = mollonScaleMatrix*lsSpectrumLocus;
-lsEEWhite = mollonScaleMatrix*lsEEWhite;
-lsD65 = mollonScaleMatrix*lsD65;
+lsYSpectrumLocus(1:2,:) = mollonScaleMatrix*lsYSpectrumLocus(1:2,:);
+lsYEEWhite(1:2) = mollonScaleMatrix*lsYEEWhite(1:2);
+lsYD65(1:2) = mollonScaleMatrix*lsYD65(1:2);
 ls574 = mollonScaleMatrix*ls574;
-deltaD65574 = ls574-lsD65;
+deltaD65574 = ls574-lsYD65(1:2);
 
 % Compute end point of line through 574 and D65 at y axis
 lMinValue = 0.59;
@@ -135,15 +136,15 @@ sIntValue = (lMinValue-ls574(1))*deltaD65574(2)/deltaD65574(1)+ls574(2);
 figure; clf; hold on;
 set(gca,'FontName','Helvetica','FontSize',16);
 for ii = 1:length(plotIndex)
-    plot(lsSpectrumLocus(1,plotIndex(ii)),lsSpectrumLocus(2,plotIndex(ii)), ...
+    plot(lsYSpectrumLocus(1,plotIndex(ii)),lsYSpectrumLocus(2,plotIndex(ii)), ...
         'o','Color',plotColors(:,ii)/255,'MarkerFaceColor',plotColors(:,ii)/255,'MarkerSize',12);
 end
-plot(lsSpectrumLocus(1,:),lsSpectrumLocus(2,:),'k','LineWidth',2);
-plot(lsSpectrumLocus(1,index574),lsSpectrumLocus(2,index574), ...
+plot(lsYSpectrumLocus(1,:),lsYSpectrumLocus(2,:),'k','LineWidth',2);
+plot(lsYSpectrumLocus(1,index574),lsYSpectrumLocus(2,index574), ...
     'o','Color',[1 0 0],'MarkerFaceColor',[1 0 0],'MarkerSize',12);
-scatter(lsEEWhite(1),lsEEWhite(2), 200,'Marker','s',...
+scatter(lsYEEWhite(1),lsYEEWhite(2), 200,'Marker','s',...
     'MarkerFaceColor', [0.5 0.5 0.5],'MarkerFaceAlpha',0.5, 'MarkerEdgeColor','k');
-scatter(lsD65(1),lsD65(2), 200, 'Marker','d',...
+scatter(lsYD65(1),lsYD65(2), 200, 'Marker','d',...
     'MarkerFaceColor', [0.5 0.5 0.5],'MarkerFaceAlpha',0.5, 'MarkerEdgeColor','k');
 xlabel('l'); ylabel('s');
 title({'MacLeod-Boynton' ; ['Based on ' whichCones]}, ...
@@ -158,15 +159,15 @@ if mollonScale; str_ext = '_wMollonScale'; else; str_ext = '';end
 figure; clf; hold on;
 set(gca,'FontName','Helvetica','FontSize',16);
 for ii = 1:length(plotIndex)
-    plot(lsSpectrumLocus(1,plotIndex(ii)),lsSpectrumLocus(2,plotIndex(ii)), ...
+    plot(lsYSpectrumLocus(1,plotIndex(ii)),lsYSpectrumLocus(2,plotIndex(ii)), ...
         'o','Color',plotColors(:,ii)/255,'MarkerFaceColor',plotColors(:,ii)/255,'MarkerSize',12);
 end
-plot(lsSpectrumLocus(1,:),lsSpectrumLocus(2,:),'k','LineWidth',2);
-plot(lsSpectrumLocus(1,index574),lsSpectrumLocus(2,index574), ...
+plot(lsYSpectrumLocus(1,:),lsYSpectrumLocus(2,:),'k','LineWidth',2);
+plot(lsYSpectrumLocus(1,index574),lsYSpectrumLocus(2,index574), ...
     'o','Color',[1 0 0],'MarkerFaceColor',[1 0 0],'MarkerSize',12);
-scatter(lsEEWhite(1),lsEEWhite(2), 200,'Marker','s',...
+scatter(lsYEEWhite(1),lsYEEWhite(2), 200,'Marker','s',...
     'MarkerFaceColor', [0.5 0.5 0.5],'MarkerFaceAlpha',0.5, 'MarkerEdgeColor','k');
-scatter(lsD65(1),lsD65(2), 200, 'Marker','d',...
+scatter(lsYD65(1),lsYD65(2), 200, 'Marker','d',...
     'MarkerFaceColor', [0.5 0.5 0.5],'MarkerFaceAlpha',0.5, 'MarkerEdgeColor','k');
 plot([ls574(1) lMinValue],[ls574(2) sIntValue],'k:','LineWidth',2);
 xlabel('l'); ylabel('s');
@@ -313,9 +314,9 @@ for rr = 1:height(ellipseDataTable)
     % If both l and s are there, just read them out, otherwise compute.
     if (ellipseDataTable.Ref_S(rr) == -1)
         % Need to figure out reference s coord
-        deltaL = refLCoords(rr) - lsD65(1);
+        deltaL = refLCoords(rr) - lsYD65(1);
         deltaS = deltaL*tand(ellipseDataTable.LineAngle(rr));
-        refSCoords(rr) = lsD65(2) + deltaS;
+        refSCoords(rr) = lsYD65(2) + deltaS;
     else
         % We have reference s coord already
         refSCoords(rr) = ellipseDataTable.Ref_S(rr);
@@ -346,15 +347,15 @@ figure;
 for ll = 1:length(stim_size)
     subplot(1,length(stim_size), ll)
     %horizontal line
-    plot(x_bds, ones(1,2).*lsD65(2), 'k:'); hold on
+    plot(x_bds, ones(1,2).*lsYD65(2), 'k:'); hold on
     %vertical line
-    plot(lsD65(1).*ones(1,2), y_bds, 'k:');
+    plot(lsYD65(1).*ones(1,2), y_bds, 'k:');
     %45 deg line
-    plot(lsD65(1) + [1, -1], lsD65(2) + [tand(45),-tand(45)], 'k--');
+    plot(lsYD65(1) + [1, -1], lsYD65(2) + [tand(45),-tand(45)], 'k--');
     %135 deg line
-    plot(lsD65(1) + [1, -1], lsD65(2) + [tand(135),-tand(135)], 'k--');
+    plot(lsYD65(1) + [1, -1], lsYD65(2) + [tand(135),-tand(135)], 'k--');
     %165 deg line
-    plot(lsD65(1) + [1, -1], lsD65(2) + [tand(165), -tand(165)], 'k-');
+    plot(lsYD65(1) + [1, -1], lsYD65(2) + [tand(165), -tand(165)], 'k-');
     for i = 1:height(ellipseDataTable)
         plot(refLCoords(i) + scaler_vis(ll).*squeeze(ellContour(i,ll,1,:)),...
              refSCoords(i) + scaler_vis(ll).*squeeze(ellContour(i,ll,2,:)), 'k', 'LineWidth', 2);
@@ -394,7 +395,7 @@ for rr = 1:height(ellipseDataTable)
     LMS_ref(rr,:) = MacBoynToLMS_v2(inv(mollonScaleMatrix)*[refLCoords(rr), refSCoords(rr)]', T_cones, T_Y, T_lum);
 
     %sanity check
-    recover_ref = LMSToMacBoyn(LMS_ref(rr,:)', T_cones, T_Y);
+    recover_ref = LMSToMacBoyn(LMS_ref(rr,:)', T_cones, T_Y, 1);
     if sum(recover_ref - [refLCoords(rr), refSCoords(rr)]) > 1e-4; error('We failed to recover the reference stimuli.'); end
 
     RGB_ref(rr,:) = M_LMSTORGB * LMS_ref(rr,:)';
