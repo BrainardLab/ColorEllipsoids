@@ -1,17 +1,34 @@
-function LMS = MacBoynToLMS(ls,T_cones,T_lum, sumLM) 
-    %in this version, sumLM = L + M
+function [LMS, factorsLMS] = MacBoynToLMS(lsY,T_cones,T_lum) 
+% [LMS, factorsLMS] = MacBoynToLMS(lsY,T_cones,T_lum)
+%
+% Convert Macleod-Boynton chromaticity together with luminance to
+% cone coordinates.
+%
+% This is designed to be used with the modern form of LMSTOMacBoyn,
+% namely
+%   lsY = LMSToMacBoyn(LMS2,T_cones,T_Y,1);
+% as this form returns both ls and the corresponding luminance.  Passing
+% both cone fundamentals and luminance sensitivity (T_cones and T_Y) keeps
+% the routine general.  The scaling of s is also consistent when the calls
+% are done in this way.
+%
+% See usage example in LMSToMacBoyn.
 
-    factorsLM = (T_cones(1:2,:)'\T_lum');
-    factorL = factorsLM(1);
-    factorM = factorsLM(2);
-    factorS = 1/max(T_cones(3,:)./T_lum);
+% History
+%   06/xx/25 fh   Wrote it
+%   06/16/25 dhb  Adjusted LMSToMacBoyn and this to mesh together more
+%                 smoothly.
+    
+    % Magic call into LMSToMacBoyn to get the scaling factors
+    % we need to invert.  See LMSToMacBoyn.
+    [~,factorsLMS] = LMSToMacBoyn([],T_cones,T_lum);
 
-    l = ls(1);
-    s = ls(2);
-    denom = l/factorL + (1-l)/factorM;
-    L = (l*sumLM / factorL) / denom;
-    M = ((1-l)*sumLM/ factorM) / denom;
-    S = (s*sumLM / factorS) / denom;
-
-    LMS = [L; M; S];
+    % Once we have the scaling factors, the inversion is pretty simple,
+    % because we have the luminance returned by LMSToMacBoyn as well as the
+    % ls coordinates.
+    LMS = zeros(size(lsY));
+    LMS(1,:) = lsY(1,:).*lsY(3,:)/factorsLMS(1);
+    LMS(2,:) = (1-lsY(1,:)).*lsY(3,:)/factorsLMS(2);
+    LMS(3,:) = lsY(2,:).*lsY(3,:)/factorsLMS(3);
+   
 end
