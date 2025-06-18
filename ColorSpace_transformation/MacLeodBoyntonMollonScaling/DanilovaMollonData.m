@@ -1,4 +1,4 @@
-%% MollonDanilovaData
+%% DanilovaMollonData
 %
 % This script develops the data representation used by Danilova and
 % Mollon and illustrates how we think we should connect their 
