@@ -26,11 +26,11 @@ end
 % luminance, to keep everything very happy.
 load T_cones_sp
 load T_xyzJuddVos
-T_cones_dm = SplineCmf(S_cones_sp,T_cones_sp,S);
+T_cones_dm_unscaled = SplineCmf(S_cones_sp,T_cones_sp,S);
 T_XYZ_dm = SplineCmf(S_xyzJuddVos,T_xyzJuddVos,S);
 T_Y_dm = T_XYZ_dm(2,:);
-[~, factorsLMS_dm] = LMSToMacBoyn([],T_cones_dm,T_Y_dm,1);
-T_cones_dm = diag(factorsLMS_dm)*T_cones_dm;
+[~, factorsLMS_dm] = LMSToMacBoyn([],T_cones_dm_unscaled,T_Y_dm,1);
+T_cones_dm = diag(factorsLMS_dm)*T_cones_dm_unscaled;
 M_LMSToXYZ_dm = (T_cones_dm'\T_XYZ_dm')';
 if (sum(abs(T_cones_dm(1,:) + T_cones_dm(2,:) - T_Y_dm)) > 1e-10)
     error('Oops');
@@ -39,17 +39,62 @@ end
 % Get our fundamentals and associated luminance.
 load T_cones_ss2
 load T_xyzCIEPhys2
-T_cones_us = SplineCmf(S_cones_ss2,T_cones_ss2,S);
+T_cones_us_unscaled = SplineCmf(S_cones_ss2,T_cones_ss2,S);
 T_XYZ_us = SplineCmf(S_xyzCIEPhys2,T_xyzCIEPhys2,S);
 T_Y_us = T_XYZ_us(2,:);
-[~, factorsLMS_us] = LMSToMacBoyn([],T_cones_us,T_Y_us,1);
-T_cones_us = diag(factorsLMS_us)*T_cones_us;
+[~, factorsLMS_us] = LMSToMacBoyn([],T_cones_us_unscaled,T_Y_us,1);
+T_cones_us = diag(factorsLMS_us)*T_cones_us_unscaled;
 M_LMSToXYZ_us = (T_cones_us'\T_XYZ_us')';
 if (sum(abs(T_cones_us(1,:) + T_cones_us(2,:) - T_Y_us)) > 1e-4)
     error('Oops');
 end
 
-% Get spectrum of D65
+% visualize the difference
+figure
+h1 = plot(wls, T_cones_dm_unscaled(1,:), 'r-', ...
+     wls, T_cones_dm_unscaled(2,:), 'g-', ...
+     wls, T_cones_dm_unscaled(3,:), 'b-', 'LineWidth',2); hold on
+h2 = plot(wls, T_cones_us_unscaled(1,:), 'r:', ...
+     wls, T_cones_us_unscaled(2,:), 'g:', ...
+     wls, T_cones_us_unscaled(3,:), 'b:', 'LineWidth',2);
+legend([h1(1), h2(1)], {'Smith & Pokorny (1975)', 'Stockman & Sharpe (2000)'},...
+    'Location','southeast'); legend boxoff
+title('Cone fundamentals'); ylabel('Normalized sensitivity');
+xlabel('Wavelength (nm)'); axis square
+xlim([wls(1) wls(end)]); ylim([0,1])
+yticks(0:0.25:1); xticks(wls(1:80:end))
+set(gca,'FontSize', 16); box off; grid on
+%saveas(gcf,fullfile(outputDir, 'Cone_fundamentals_comparison.pdf'),'pdf');
+
+figure
+g1 = plot(wls, T_Y_dm, 'k-', 'LineWidth',2); hold on
+g2 = plot(wls, T_Y_us, 'k:', 'LineWidth',2);
+legend([g1, g2],{'Judd-Vos', 'CIE'},...
+    'Location','southeast'); legend boxoff
+xlabel('Wavelength (nm)'); ylabel('Color matching function value');
+title('Luminance'); axis square
+xlim([wls(1) wls(end)]); ylim([0,1])
+yticks(0:0.25:1); xticks(wls(1:80:end))
+set(gca,'FontSize', 16); box off; grid on
+%saveas(gcf,fullfile(outputDir, 'Luminance_comparison.pdf'),'pdf');
+
+figure
+q1 = plot(wls, T_cones_dm(1,:), 'r-', ...
+     wls, T_cones_dm(2,:), 'g-', ...
+     wls, T_cones_dm(3,:), 'b-', 'LineWidth',2); hold on
+q2 = plot(wls, T_cones_us(1,:), 'r:', ...
+     wls, T_cones_us(2,:), 'g:', ...
+     wls, T_cones_us(3,:), 'b:', 'LineWidth',2);
+legend([q1(1), q2(1)], {'Smith & Pokorny (1975) - Judd-Vos', 'Stockman & Sharpe (2000) - CIE'},...
+    'Location','southeast'); legend boxoff
+title('Scaled cone fundamentals'); ylabel('Scaled sensitivity');
+xlabel('Wavelength (nm)'); axis square
+xlim([wls(1) wls(end)]); ylim([0,1])
+yticks(0:0.25:1); xticks(wls(1:80:end))
+set(gca,'FontSize', 16); box off; grid on
+%saveas(gcf,fullfile(outputDir, 'Scaled_cone_fundamentals_comparison.pdf'),'pdf');
+
+%% Get spectrum of D65
 load spd_D65.mat
 spd_D65 = SplineSpd(S_D65,spd_D65,S);
 LMSD65_dm = T_cones_dm*spd_D65;
@@ -119,30 +164,28 @@ sIntValue = (lMinValue-lsY574_dm(1))*deltalsYD65574_dms(2)/deltalsYD65574_dms(1)
 
 %% Plot M-B diagram in DM scale
 figure; clf; hold on;
-set(gca,'FontName','Helvetica','FontSize',16);
 for ii = 1:length(plotIndex)
     plot(lsYSpectrumLocus_dms(1,plotIndex(ii)),lsYSpectrumLocus_dms(2,plotIndex(ii)), ...
         'o','Color',plotColors(:,ii)/255,'MarkerFaceColor',plotColors(:,ii)/255,'MarkerSize',12);
 end
 plot(lsYSpectrumLocus_dms(1,:),lsYSpectrumLocus_dms(2,:),'k','LineWidth',2);
 plot(lsYSpectrumLocus_dms(1,index574),lsYSpectrumLocus_dms(2,index574), ...
-    'o','Color',[1 0 0],'MarkerFaceColor',[1 0 0],'MarkerSize',12);
+    'x','Color','k','MarkerFaceColor','k','MarkerSize',12);
 scatter(lsYEEWhite_dms(1),lsYEEWhite_dms(2), 200,'Marker','s',...
     'MarkerFaceColor', [0.5 0.5 0.5],'MarkerFaceAlpha',0.5, 'MarkerEdgeColor','k');
 scatter(lsYD65_dms(1),lsYD65_dms(2), 200, 'Marker','d',...
     'MarkerFaceColor', [0.5 0.5 0.5],'MarkerFaceAlpha',0.5, 'MarkerEdgeColor','k');
-xlabel('l'); ylabel('s');
-title({'MacLeod-Boynton'}, ...
-    'FontName','Helvetica','FontSize',20);
-xlim([0.4 1]); ylim([0,1]);
+xlabel('$l$', 'Interpreter', 'latex'); ylabel('$s$', 'Interpreter', 'latex');
+title('MacLeod-Boynton', 'FontName','Arial');
+xlim([0.4 1]); ylim([0,1]); yticks(0:0.25:1);
 axis('square'); grid on
+set(gca,'FontSize', 16);
 if dmScale; str_ext = '_wMollonScale'; else; str_ext = '';end
 %saveas(gcf,fullfile(outputDir, sprintf('MacLeodBoynton%s.pdf', str_ext)),'pdf');
 
 %% Zoomed version, as is typical in some papers. Compare
 % with Danilova and Mollon 2012 Figure 1B.
 figure; clf; hold on;
-set(gca,'FontName','Helvetica','FontSize',16);
 for ii = 1:length(plotIndex)
     plot(lsYSpectrumLocus_dms(1,plotIndex(ii)),lsYSpectrumLocus_dms(2,plotIndex(ii)), ...
         'o','Color',plotColors(:,ii)/255,'MarkerFaceColor',plotColors(:,ii)/255,'MarkerSize',12);
@@ -155,13 +198,13 @@ scatter(lsYEEWhite_dms(1),lsYEEWhite_dms(2), 200,'Marker','s',...
 scatter(lsYD65_dms(1),lsYD65_dms(2), 200, 'Marker','d',...
     'MarkerFaceColor', [0.5 0.5 0.5],'MarkerFaceAlpha',0.5, 'MarkerEdgeColor','k');
 plot([lsY574_dms(1) lMinValue],[lsY574_dms(2) sIntValue],'k:','LineWidth',2);
-xlabel('l'); ylabel('s');
-title({'MacLeod-Boynton'}, ...
-    'FontName','Helvetica','FontSize',20);
-axis('square');
+xlabel('$l$', 'Interpreter', 'latex'); ylabel('$s$', 'Interpreter', 'latex');
+title('MacLeod-Boynton (scaled)');
+axis('square'); grid on
 xlim([0.59 0.7]); ylim([-0.01 0.1]);
+set(gca,'FontSize', 16);
 set(gca,'YTick',[0 0.02 0.04 0.06 0.08 1.0]);
-% saveas(gcf,fullfile(outputDir,'MacLeodBoyntonZoom.tiff'),'tif');
+%saveas(gcf,fullfile(outputDir,'MacLeodBoyntonZoom.pdf'),'pdf');
 
 %% Get info to extract data from Danilova and Mollon 2025
 %
@@ -213,33 +256,36 @@ end
 
 %% Plot the ellipses
 scaler_vis = [1,1,4];
-y_bds = [0, 0.2];
+y_bds = [0, 0.15];%[0, 0.2];
 x_bds = [0.58, 0.78];
 
 % Loop and plot ellipses for each stim size in its own subplot
+% Preallocate axes handles
+ax = gobjects(1, length(stimSizesMin));
 figure; clf; hold on;
 for ll = 1:length(stimSizesMin)
-    subplot(1,length(stimSizesMin), ll);
+    ax(ll) = subplot(1,length(stimSizesMin), ll);
 
     % Plot reference lines at different orientations
-    plot(x_bds, ones(1,2).*lsYD65_dms(2), 'k:'); hold on
-    plot(lsYD65_dms(1).*ones(1,2), y_bds, 'k:');
-    plot(lsYD65_dms(1) + [1, -1], lsYD65_dms(2) + [tand(45),-tand(45)], 'k--');
-    plot(lsYD65_dms(1) + [1, -1], lsYD65_dms(2) + [tand(135),-tand(135)], 'k--');
-    plot(lsYD65_dms(1) + [1, -1], lsYD65_dms(2) + [tand(165), -tand(165)], 'k-');
+    plot(ax(ll),x_bds, ones(1,2).*lsYD65_dms(2), 'k:'); hold on
+    plot(ax(ll),lsYD65_dms(1).*ones(1,2), y_bds, 'k:');
+    plot(ax(ll),lsYD65_dms(1) + [1, -1], lsYD65_dms(2) + [tand(45),-tand(45)], 'k--');
+    plot(ax(ll),lsYD65_dms(1) + [1, -1], lsYD65_dms(2) + [tand(135),-tand(135)], 'k--');
+    plot(ax(ll),lsYD65_dms(1) + [1, -1], lsYD65_dms(2) + [tand(165), -tand(165)], 'k-');
 
     % Plot this ellpise
     for i = 1:height(ellipseDataTable)
-        plot(refLCoords(i) + scaler_vis(ll).*squeeze(ellContour(i,ll,1,:)),...
-            refSCoords(i) + scaler_vis(ll).*squeeze(ellContour(i,ll,2,:)), 'k', 'LineWidth', 2);
+        plot(ax(ll),refLCoords(i) + scaler_vis(ll).*squeeze(ellContour(i,ll,1,:)),...
+            refSCoords(i) + scaler_vis(ll).*squeeze(ellContour(i,ll,2,:)), 'k', 'LineWidth', 1.5);
     end
-    axis square; hold off
-    xlabel('L/(L+M)'); ylabel('S/(L+M)');
-    xlim(x_bds); ylim(y_bds);
+    axis equal; 
+    xlabel('$l$', 'Interpreter', 'latex'); ylabel('$s$', 'Interpreter', 'latex');
+    xlim(x_bds); ylim(y_bds); box off;
     xticks(0.6:0.05:0.75); yticks(0:0.05:0.2);
     title(sprintf('D = %d min', stimSizesMin(ll)));
+    set(gca,'FontSize',16);
 end
-set(gcf,'Unit','Normalized','Position',[0, 0, 0.7,0.3]);
+set(gcf,'Unit','Normalized','Position',[0, 0, 1,0.3]);
 
 %% Convert the ref to DKL
 %
@@ -262,7 +308,7 @@ P_device = SplineSpd(S_device, P_device, S);
 % Get transformation into and out of dm and our cones
 M_RGBToLMS_dm = T_cones_dm*P_device;
 M_LMSTORGB_dm = inv(M_RGBToLMS_dm);
-M_RGBToLMS_us = T_cones_us*P_device;
+M_RGBToLMS_us = T_cones_us*P_device; %note that this converts to scaled LMS (i.e., factorsLMS_us is already factored in!!!)
 M_LMSTORGB_us = inv(M_RGBToLMS_us);
 
 % Get various adaptation gray points
@@ -291,7 +337,8 @@ M_DKLToConeInc_us = inv(M_ConeIncToDKL_us);
 % Put in adapt luminance and DM unscale the Macleod-Boynton lsY coords.
 % Note that adaptLum_dm = adaptLum_dms so we just carry the _dm version
 % around.
-lsYRefs_dm = lsYScaleMatrixInv_dm*[refLCoords ; refSCoords ; adaptLum_dm(1,ones(1,length(refSCoords)))];
+lsYRefs_dms = [refLCoords ; refSCoords ; adaptLum_dm(1,ones(1,length(refSCoords)))];
+lsYRefs_dm = lsYScaleMatrixInv_dm*lsYRefs_dms;
 
 % lsY_dm -> LMS_dm
 LMSRef_dm = MacBoynToLMS(lsYRefs_dm, T_cones_dm, T_Y_dm);
@@ -350,6 +397,80 @@ if (max(abs(WD2Ref_us(3,:) - 1)) > 1e-4)
     error('Wishart space third coord error');
 end
 
+%% vertices of the model space
+W_vertices = [-1, 1, 1, -1; -1, -1, 1, 1];
+
+%%%%%%%%%%% convert from W -> scaled MacBoyn using T_cones_ss2 & T_xyzCIEPhys2
+% W -> RGB
+M_WD2ToRGB_us = monData.DELL_02242025_texture_right.M_2DWToRGB;
+W_vertices_ext = [W_vertices; ones(1,size(W_vertices,2))]; %need to add a filler row
+RGB_vertices = M_WD2ToRGB_us * W_vertices_ext;
+
+% RGB -> LMS (Note that factorsLMS_us is factored in, so LMS cones exictations are scaled)
+LMS_vertices = M_RGBToLMS_us * RGB_vertices;
+
+% LMS -> MacBoyn (when passed in, factorLMS will be [1, 1, 1], so scaling DOES NOT happen twice)
+lsYVertices = LMSToMacBoyn(LMS_vertices, T_cones_us, T_Y_us, 1);
+
+% MacBoyn -> scaled MacBoyn
+lsYVertices_scaled = lsYScaleMatrix_dm * lsYVertices;
+%%%%%%%%%%%
+
+% repeat that for the Ref stimuli
+lsYRef_us_scaled = lsYScaleMatrix_dm * lsYRef_us;
+
+% compute the transformation matrix 
+M_shifting =  lsYRefs_dms * pinv(lsYRef_us_scaled);
+lsYVertices_scaled_shifted = M_shifting * lsYVertices_scaled;
+lsYRef_us_scaled_shifted = M_shifting *lsYRef_us_scaled;
+
+%before shifting
+flag_plot_before_trans = false;
+if flag_plot_trans
+    plot(ax(3), [lsYVertices_scaled(1,:), lsYVertices_scaled(1,1)],...
+        [lsYVertices_scaled(2,:), lsYVertices_scaled(2,1)], 'r-');
+    scatter(ax(3), lsYRef_us_scaled(1,:), lsYRef_us_scaled(2,:), 'r+','LineWidth',1.5);
+end
+%after
+plot(ax(3), [lsYVertices_scaled_shifted(1,:), lsYVertices_scaled_shifted(1,1)],...
+    [lsYVertices_scaled_shifted(2,:), lsYVertices_scaled_shifted(2,1)], 'k-');
+scatter(ax(3), lsYRef_us_scaled_shifted(1,:), lsYRef_us_scaled_shifted(2,:), 'k+','LineWidth',1.5);
+set(gcf, 'PaperUnits', 'inches', 'PaperSize', [30, 10]);
+%saveas(gcf,fullfile(outputDir,'DanilovaMollonEllipses.pdf'),'pdf');
+
+%% load WPPM ellipses
+ell_path = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_analysis/Experiment_DataFiles/pilot2/sub1/fits/output_ellipses';
+ell_filename = 'ellParams_Fitted_ColorDiscrimination_4dExpt_Isoluminant plane_sub1_decayRate0.5_nBasisDeg5.xlsx';
+ell_scaler = 2;
+
+% Construct full path
+full_path = fullfile(ell_path, ell_filename);
+
+% Read Excel file into numeric matrix
+ell_matrix = readmatrix(full_path);  % Automatically skips headers
+
+nEll = size(ell_matrix, 1);
+ellContour_grid_W = NaN(nEll, 2, ell_pts);
+ellContour_grid_M = NaN(nEll, 3, ell_pts);
+for n = 1:nEll
+    rotMat_n = [cosd(ell_matrix(n,end)), -sind(ell_matrix(n,end)); ...
+                sind(ell_matrix(n,end)), cosd(ell_matrix(n,end))];
+    stretchMat_n = [ell_matrix(n,3)^2, 0;...
+                    0, ell_matrix(n,4)^2];
+    covMat_n = rotMat_n * stretchMat_n * rotMat_n';
+
+    % Transform unit circle into ellipse using Cholesky or sqrtm
+    ellContour_grid_W_n = sqrtm(covMat_n) * (ell_scaler.*circle) + ell_matrix(n,1:2)';
+    ellContour_grid_W(n,:,:) = ellContour_grid_W_n;
+    ellContour_grid_W_n_ext = [ellContour_grid_W_n; ones(1,ell_pts)];
+
+    % W -> RGB
+    ellContour_grid_LMS_n = M_RGBToLMS_us * M_WD2ToRGB_us * ellContour_grid_W_n_ext;
+    ellContour_grid_M_n = M_shifting * lsYScaleMatrix_dm * LMSToMacBoyn(ellContour_grid_LMS_n, T_cones_us, T_Y_us, 1);
+    ellContour_grid_M(n,:,:) = ellContour_grid_M_n;
+
+    plot(ax(3), ellContour_grid_M_n(1,:), ellContour_grid_M_n(2,:), 'b-');
+end
 
 
 

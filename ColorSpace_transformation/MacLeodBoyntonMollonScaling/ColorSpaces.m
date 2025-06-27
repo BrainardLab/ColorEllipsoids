@@ -143,7 +143,7 @@ title({'MacLeod-Boynton' ; ['Based on ' whichCones]}, ...
     'FontName','Helvetica','FontSize',20);
 xlim([0.4 1]); ylim([0,1]);
 axis('square');
-saveas(gcf,fullfile(outputDir,'MacLeodBoynton.tiff'),'tif');
+% saveas(gcf,fullfile(outputDir,'MacLeodBoynton.tiff'),'tif');
 
 % Zoomed version, as is typical in some papers. Compare
 % with Danilova and Mollon 2012 Figure 1B.
@@ -177,7 +177,7 @@ elseif (strcmp(whichCones,'SmithPokornyJudd1951'))
     xlim([0.59 0.7]); ylim([-0.01 0.1]);
     set(gca,'YTick',[0 0.02 0.04 0.06 0.08 1.0]);
 end
-saveas(gcf,fullfile(outputDir,'MacLeodBoyntonZoom.tiff'),'tif');
+% saveas(gcf,fullfile(outputDir,'MacLeodBoyntonZoom.tiff'),'tif');
 
 % Plot xy chromaticity
 figure; clf; hold on;
@@ -199,7 +199,7 @@ elseif (strcmp(whichCones,'SmithPokorny'))
 end
 xlim([0 1]); ylim([0 1]);
 axis('square');
-saveas(gcf,fullfile(outputDir,'xyChrom.tiff'),'tif');
+% saveas(gcf,fullfile(outputDir,'xyChrom.tiff'),'tif');
 
 % Plot spectrum locus and EE white in LMS
 figure; clf; hold on;
@@ -223,7 +223,7 @@ xlim([0 1]); ylim([0 1]); zlim([0 1]);
 set(gca,'XTick',[0 0.5 1]);
 set(gca,'YTick',[0 0.5 1]);
 set(gca,'ZTick',[0 0.5 1]);
-saveas(gcf,fullfile(outputDir,'LMSSpace.tiff'),'tif');
+% saveas(gcf,fullfile(outputDir,'LMSSpace.tiff'),'tif');
 
 % Plot spectrum locus and EE white in XYZ
 figure; clf; hold on;
@@ -251,7 +251,7 @@ xlim([0 1.6]); ylim([0 1.6]); zlim([0 1.6]);
 set(gca,'XTick',[0 0.8 1.6]);
 set(gca,'YTick',[0 0.8 1.6]);
 set(gca,'ZTick',[0 0.8 1.6]);
-saveas(gcf,fullfile(outputDir,'XYZSpace.tiff'),'tif');
+% saveas(gcf,fullfile(outputDir,'XYZSpace.tiff'),'tif');
 
 % Plots of cones and XYZ
 figure; clf; hold on
@@ -264,7 +264,7 @@ xlabel('Wavelength (nm)','FontName','Helvetica','FontSize',20);
 ylabel('Normalized Sensitivity','FontName','Helvetica','FontSize',20);
 title(whichCones);
 xlim([400 700]);
-saveas(gcf,fullfile(outputDir,'LMSFundamentals.tiff'),'tif');
+% saveas(gcf,fullfile(outputDir,'LMSFundamentals.tiff'),'tif');
 
 figure; clf; hold on
 set(gca,'FontName','Helvetica','FontSize',16);
@@ -280,4 +280,4 @@ elseif (strcmp(whichCones,'SmithPokorny'))
     title({'Judd-Vos XYZ'},'FontName','Helvetica','FontSize',20);
 end
 xlim([400 700]);
-saveas(gcf,fullfile(outputDir,'XYZColorMatchingFcns.tiff'),'tif');
+% saveas(gcf,fullfile(outputDir,'XYZColorMatchingFcns.tiff'),'tif');
