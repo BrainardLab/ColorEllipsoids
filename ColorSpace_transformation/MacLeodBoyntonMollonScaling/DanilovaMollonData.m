@@ -279,7 +279,7 @@ for ll = 1:length(stimSizesMin)
             refSCoords(i) + scaler_vis(ll).*squeeze(ellContour(i,ll,2,:)), 'k', 'LineWidth', 1.5);
     end
     axis equal; 
-    xlabel('$l$', 'Interpreter', 'latex'); ylabel('$s$', 'Interpreter', 'latex');
+    xlabel('$l$', 'Interpreter', 'latex'); ylabel('Scaled $s$', 'Interpreter', 'latex');
     xlim(x_bds); ylim(y_bds); box off;
     xticks(0.6:0.05:0.75); yticks(0:0.05:0.2);
     title(sprintf('D = %d min', stimSizesMin(ll)));
@@ -320,8 +320,8 @@ adaptLum_dm = T_Y_dm * (P_device * monGrayRGB);
 adaptLMS_dm = LMSD65_dm*adaptLum_dm/lumD65_dm;
 
 % Get our adaptation LMS and lumiannce from monitor gray point
-adaptLMS_us = T_cones_us * (P_device * monGrayRGB);
 adaptLum_us = T_Y_us * (P_device * monGrayRGB);
+adaptLMS_us = T_cones_us * (P_device * monGrayRGB);
 
 % DKL transformation matrices
 M_ConeIncToDKL_dm = ComputeDKL_M(adaptLMS_dm,T_cones_dm,T_Y_dm);
@@ -397,54 +397,58 @@ if (max(abs(WD2Ref_us(3,:) - 1)) > 1e-4)
     error('Wishart space third coord error');
 end
 
-%% vertices of the model space
+%%
+% vertices of the model space
 W_vertices = [-1, 1, 1, -1; -1, -1, 1, 1];
 
-%%%%%%%%%%% convert from W -> scaled MacBoyn using T_cones_ss2 & T_xyzCIEPhys2
-% W -> RGB
+%%%%%%%%%%% convert from W -> scaled MacBoyn 
+% W_us -> RGB_us
 M_WD2ToRGB_us = monData.DELL_02242025_texture_right.M_2DWToRGB;
 W_vertices_ext = [W_vertices; ones(1,size(W_vertices,2))]; %need to add a filler row
-RGB_vertices = M_WD2ToRGB_us * W_vertices_ext;
+RGB_vertices_us = M_WD2ToRGB_us * W_vertices_ext;
 
-% RGB -> LMS (Note that factorsLMS_us is factored in, so LMS cones exictations are scaled)
-LMS_vertices = M_RGBToLMS_us * RGB_vertices;
+% RGB_us -> LMS_us (Note that factorsLMS_us is factored in, so LMS cones exictations are scaled already)
+LMS_vertices_us = M_RGBToLMS_us * RGB_vertices_us;
 
-% LMS -> MacBoyn (when passed in, factorLMS will be [1, 1, 1], so scaling DOES NOT happen twice)
-lsYVertices = LMSToMacBoyn(LMS_vertices, T_cones_us, T_Y_us, 1);
+% LMS_us -> LMSInc_us
+LMSInc_vertices_us = LMS_vertices_us - adaptLMS_us;
 
-% MacBoyn -> scaled MacBoyn
-lsYVertices_scaled = lsYScaleMatrix_dm * lsYVertices;
-%%%%%%%%%%%
+% LMSInc_us -> DKL_us
+DKL_vertices_us = M_ConeIncToDKL_us * LMSInc_vertices_us;
 
-% repeat that for the Ref stimuli
-lsYRef_us_scaled = lsYScaleMatrix_dm * lsYRef_us;
+% DKL_us -> LMSInc_dm
+LMSInc_vertices_dm = M_DKLToConeInc_dm * DKL_vertices_us;
 
-% compute the transformation matrix 
-M_shifting =  lsYRefs_dms * pinv(lsYRef_us_scaled);
-lsYVertices_scaled_shifted = M_shifting * lsYVertices_scaled;
-lsYRef_us_scaled_shifted = M_shifting *lsYRef_us_scaled;
+% LMSInc_dm -> LMS_dm
+LMS_vertices_dm = LMSInc_vertices_dm + adaptLMS_dm;
 
-%before shifting
-flag_plot_before_trans = false;
-if flag_plot_trans
-    plot(ax(3), [lsYVertices_scaled(1,:), lsYVertices_scaled(1,1)],...
-        [lsYVertices_scaled(2,:), lsYVertices_scaled(2,1)], 'r-');
-    scatter(ax(3), lsYRef_us_scaled(1,:), lsYRef_us_scaled(2,:), 'r+','LineWidth',1.5);
-end
-%after
-plot(ax(3), [lsYVertices_scaled_shifted(1,:), lsYVertices_scaled_shifted(1,1)],...
-    [lsYVertices_scaled_shifted(2,:), lsYVertices_scaled_shifted(2,1)], 'k-');
-scatter(ax(3), lsYRef_us_scaled_shifted(1,:), lsYRef_us_scaled_shifted(2,:), 'k+','LineWidth',1.5);
+% LMS_dm -> MacBoyn_dm
+lsY_vertices_dm = LMSToMacBoyn(LMS_vertices_dm, T_cones_dm, T_Y_dm, 1);
+
+% MacBoyn_dm -> MacBoyn_dms
+lsY_vertices_dms = lsYScaleMatrix_dm * lsY_vertices_dm;
+
+%add to the plot
+plot(ax(3), [lsY_vertices_dms(1,:), lsY_vertices_dms(1,1)],...
+    [lsY_vertices_dms(2,:), lsY_vertices_dms(2,1)], 'k-','lineWidth', 1.5);
+scatter(ax(3), refLCoords, refSCoords, 'k+','lineWidth', 1.5);
 set(gcf, 'PaperUnits', 'inches', 'PaperSize', [30, 10]);
-%saveas(gcf,fullfile(outputDir,'DanilovaMollonEllipses.pdf'),'pdf');
+%saveas(gcf,fullfile(outputDir,'DanilovaMollonEllipses_wGamut.pdf'),'pdf');
 
 %% load WPPM ellipses
-ell_path = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_analysis/Experiment_DataFiles/pilot2/sub1/fits/output_ellipses';
-ell_filename = 'ellParams_Fitted_ColorDiscrimination_4dExpt_Isoluminant plane_sub1_decayRate0.5_nBasisDeg5.xlsx';
-ell_scaler = 2;
+subN = '11';
+dataPath = fullfile(getpref('ColorEllipsoids','ELPSAnalysis'), ...
+    sprintf('Experiment_DataFiles/pilot2/sub%s/fits/output_ellipses', subN));
+outputFigPath = fullfile(getpref('ColorEllipsoids','ELPSAnalysis'), ...
+    sprintf('Experiment_FigFiles/pilot2/sub%s/DanilovaMollon_ellipses', subN));
+if ~exist(outputFigPath, 'dir')
+    mkdir(outputFigPath);
+end
+ell_filename = sprintf('ellParams_Fitted_ColorDiscrimination_4dExpt_Isoluminant plane_sub%s_decayRate0.5_nBasisDeg5.xlsx', subN);
+ell_scaler = 1.5;
 
 % Construct full path
-full_path = fullfile(ell_path, ell_filename);
+full_path = fullfile(dataPath, ell_filename);
 
 % Read Excel file into numeric matrix
 ell_matrix = readmatrix(full_path);  % Automatically skips headers
@@ -464,13 +468,45 @@ for n = 1:nEll
     ellContour_grid_W(n,:,:) = ellContour_grid_W_n;
     ellContour_grid_W_n_ext = [ellContour_grid_W_n; ones(1,ell_pts)];
 
-    % W -> RGB
-    ellContour_grid_LMS_n = M_RGBToLMS_us * M_WD2ToRGB_us * ellContour_grid_W_n_ext;
-    ellContour_grid_M_n = M_shifting * lsYScaleMatrix_dm * LMSToMacBoyn(ellContour_grid_LMS_n, T_cones_us, T_Y_us, 1);
-    ellContour_grid_M(n,:,:) = ellContour_grid_M_n;
+    % W_us -> RGB_us
+    RGB_ell_us = M_WD2ToRGB_us * ellContour_grid_W_n_ext;
+    RGB_ref_us = M_WD2ToRGB_us * [ell_matrix(n,1:2)';1];
+    
+    % RGB_us -> LMS_us 
+    LMS_ell_us = M_RGBToLMS_us * RGB_ell_us;
+    
+    % LMS_us -> LMSInc_us
+    LMSInc_ell_us = LMS_ell_us - adaptLMS_us;
+    
+    % LMSInc_us -> DKL_us
+    DKL_ell_us = M_ConeIncToDKL_us * LMSInc_ell_us;
+    
+    % DKL_us -> LMSInc_dm
+    LMSInc_ell_dm = M_DKLToConeInc_dm * DKL_ell_us;
+    
+    % LMSInc_dm -> LMS_dm
+    LMS_ell_dm = LMSInc_ell_dm + adaptLMS_dm;
+    
+    % LMS_dm -> MacBoyn_dm
+    lsY_ell_dm = LMSToMacBoyn(LMS_ell_dm, T_cones_dm, T_Y_dm, 1);
+    
+    % MacBoyn_dm -> MacBoyn_dms
+    lsY_ell_dms = lsYScaleMatrix_dm * lsY_ell_dm;
 
-    plot(ax(3), ellContour_grid_M_n(1,:), ellContour_grid_M_n(2,:), 'b-');
+    ellContour_grid_M(n,:,:) = lsY_ell_dms;
+
+    plot(ax(3), lsY_ell_dms(1,:), lsY_ell_dms(2,:), '-', 'Color', [RGB_ref_us; 0.75],...
+        'LineWidth',2);
 end
-
+%add major axis
+% Plot this ellpise
+for i = 1:height(ellipseDataTable)
+    major_axis_i = ellipseAxis1(i,end).*[cosd(ellipseAngle(i,end)), -sind(ellipseAngle(i,end)); ...
+                    sind(ellipseAngle(i,end)), cosd(ellipseAngle(i,end))] * [1,-1; 0,0];
+    plot(ax(3),refLCoords(i) + scaler_vis(end).*major_axis_i(1,:),...
+        refSCoords(i) + scaler_vis(end).*major_axis_i(2,:),...
+        'r', 'LineWidth', 1.5);
+end
+print(gcf,fullfile(outputFigPath,sprintf('DanilovaMollonEllipses_sub%s.pdf', subN)), '-dpdf', '-painters');
 
 
