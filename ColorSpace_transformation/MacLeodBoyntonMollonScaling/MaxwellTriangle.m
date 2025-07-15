@@ -32,8 +32,8 @@ thelms = theLMS ./ theLMSSum;
 % on the chromaticities.  Choosing the height this way
 % leads to an equalateral triangle, which seems most
 % satisfactory.
-topVertexHeight = sqrt(1-0.5^2);
-M_TriangleToChrom = [[1 0]',[-0.5/topVertexHeight 1/topVertexHeight]'];
+topVertexHeight = sqrt(1-(0.5)^2);
+M_TriangleToChrom = inv([[1 0]',[0.5 topVertexHeight]']);
 M_ChromToTriangle = inv(M_TriangleToChrom);
 theTriangle = M_ChromToTriangle*thelms(1:2,:);
 
@@ -59,4 +59,6 @@ plot([0 1],[0 0],'k:');
 plot([0.5 1],[topVertexHeight 0],'k:');
 xlim([0 1.25]); 
 ylim([0 1.25]);
+axis('square')
+
 
