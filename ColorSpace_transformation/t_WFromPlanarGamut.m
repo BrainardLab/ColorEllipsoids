@@ -16,7 +16,8 @@ whichCalFile = 'DELL_02242025_texture_right.mat';
 whichCalNumber = 1;
 nDeviceBits = 14; %doesn't have to be the true color depth; we can go higher
 whichCones = 'ss2';
-cal_path = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_materials/Calibration/';
+cal_path = fullfile(getpref('ColorEllipsoids','ELPSMaterials'),'Calibration');
+%cal_path = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_materials/Calibration/';
 cal = LoadCalFile(whichCalFile,whichCalNumber,cal_path);
 fig_output_path = fullfile(cal_path, 'Plots');
 % Ensure the output folder exists
