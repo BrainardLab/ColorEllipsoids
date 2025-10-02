@@ -98,6 +98,34 @@ bgXYZ = PrimaryToSensor(calObjXYZ,bgPrimary);
 bgxyY = XYZToxyY(bgXYZ);
 bgLMS = PrimaryToSensor(calObjCones,bgPrimary);
 
+%% Compute background xyY for various choices of  daylight CCT
+fprintf('\nComputing possible adapting backgrounds\n')
+load B_cieday.mat
+B_cieday = SplineSpd(S_cieday,B_cieday,Scolor);
+adaptingCCTs = [4000 6500 10000];
+for cct = 1:size(adaptingCCTs,2)
+    % Generate CIE daylight with specified correlated color temperature (CCT)
+    spdCCTs(:,cct) = GenerateCIEDay(adaptingCCTs(cct),B_cieday);
+
+    % Get XYZ and xyY
+    XYZCCTs(:,cct) = T_xyz*spdCCTs(:,cct);
+    xyYCCTs(:,cct) = XYZToxyY(XYZCCTs(:,cct));
+
+    % Swap in Y from the background.  Need to do this in chromaticity
+    xyYCCTs(3,cct)= bgxyY(3);
+    XYZCCTs(:,cct) = xyYToXYZ(xyYCCTs(:,cct));
+
+    % Get linear RGB.  I think, let's not quantize here and just get the continuous value
+    % in linear RGB.
+    cctPrimary(:,cct) = SensorToPrimary(calObjXYZ,XYZCCTs(:,cct));
+    LMSCCTs(:,cct) = PrimaryToSensor(calObjCones,cctPrimary(:,cct));
+
+    % Print out
+    fprintf('\tCCT: %d;\tlinear rgb; %0.3f; %0.3f; %0.3f;\txyY: %0.4f, %0.4f, %0.1f;\tLMS: %0.2f, %0.2f, %0.2f\n', ...
+        adaptingCCTs(cct), cctPrimary(1,cct), cctPrimary(2,cct), cctPrimary(3,cct), ...
+        xyYCCTs(1,cct), xyYCCTs(2,cct), xyYCCTs(3,cct), LMSCCTs(1,cct), LMSCCTs(2,cct), LMSCCTs(3,cct));
+end
+
 % Print basic info and report on monitor
 fprintf('\nCalibration file %s, calibration number %d, calibration date %s\n', ...
     whichCalFile,whichCalNumber,calObjXYZ.cal.describe.date);
