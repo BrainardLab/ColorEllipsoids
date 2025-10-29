@@ -52,6 +52,15 @@ grid_3d = [grid_2d, ones(nRefs, 1)]';
 % Map 2D model points into RGB (3xN)
 grid_RGB = M_2DWToRGB * grid_3d;
 
+%sanity check
+LMS_3d_sanitycheck = M_RGBToLMS * grid_RGB; 
+coneContrast_3d_sanitycheck = ExcitationToContrast(LMS_3d_sanitycheck, bgLMS);
+LMS_3d_sanitycheck_b = ContrastToExcitation(coneContrast_3d_sanitycheck, bgLMS);
+grid_RGB_sanitycheck = M_LMSToRGB * LMS_3d_sanitycheck_b;
+if max(abs(grid_RGB_sanitycheck - grid_RGB)) > 1e-6
+    disp('Sanity check did not pass.')
+end
+
 %% ------------------------------------------------------------------------
 % 3) Visualize the reference set inside the unit RGB cube + the plane fill
 % -------------------------------------------------------------------------
@@ -93,11 +102,9 @@ calObjXYZ = ObjectToHandleCalOrCalStruct(cal);
 % Set color matching functions (XYZ) for this calibration object (phys units)
 % (Order here: we define T_xyz then set into cal object.)
 load T_xyzCIEPhys2.mat
-T_xyz = 683*SplineCmf(S_xyzCIEPhys2, T_xyzCIEPhys2, Scolor);  
-SetSensorColorSpace(calObjXYZ, T_xyz, Scolor);
 
 % Load a bank of alternative cone fundamentals (cell array)
-savedConeFundamentals = load([pwd, '/FilesFromPsychtoolbox/T_conesRnd.mat'], 'T_conesRnd');
+savedConeFundamentals = load([pwd, '/FilesFromPsychtoolbox/T_conesRnd_age50.mat'], 'T_conesRnd');
 nSets = length(savedConeFundamentals.T_conesRnd);
 
 % Preallocate outputs across observers
@@ -105,17 +112,19 @@ grid_RGB_hypSub  = NaN(nSets, 3, nRefs);    % RGB for each alt observer (nSets x
 M_RGBToLMS_hypSub = NaN(nSets, 3, 3);       % per-observer RGB->LMS
 bgLMS_hypSub     = NaN(nSets, 3);           % per-observer bg LMS
 
-for n = 1:nSets
+for n = 1:nSets %the last one includes the original cone fundamentals
     % -- 4a) Install the nth cone fundamentals into a fresh cal object
     T_cones_n = savedConeFundamentals.T_conesRnd{n};
     calObjCones = ObjectToHandleCalOrCalStruct(cal);
 
     % Gamma settings for device → linear primaries (assumes gammaMode exists)
-    SetGammaMethod(calObjCones, gammaMode); 
+    SetGammaMethod(calObjCones, 2); 
 
     % Wavelength support for sensors
     Scolor = calObjCones.get('S');
     SetSensorColorSpace(calObjCones, T_cones_n, Scolor);
+    % T_xyz = 683*SplineCmf(S_xyzCIEPhys2, T_xyzCIEPhys2, Scolor);  
+    % SetSensorColorSpace(calObjXYZ, T_xyz, Scolor);
 
     % -- 4b) Compute bg LMS for this observer 
     bgPrimary = SettingsToPrimary(calObjCones, PrimaryToSettings(calObjCones, [0.5 0.5 0.5]'));
@@ -126,8 +135,8 @@ for n = 1:nSets
     M_RGBToLMS_hypSub(n,:,:) = M_RGBToLMS_n;
 
     % -- 4d) Take *my* RGB grid → per-observer LMS → *my* bg-referenced cone contrasts
-    LMS_3d_hypSub = M_RGBToLMS_n * grid_RGB;                        % (3xN)
-    coneContrast_3d = ExcitationToContrast(LMS_3d_hypSub, bgLMS_hypSub(n,:));
+    LMS_3d_hypSub = M_RGBToLMS_n * grid_RGB;                        
+    coneContrast_3d = ExcitationToContrast(LMS_3d_hypSub, bgLMS_hypSub(n,:)'); %bgLMS has to be a column vector
 
     % -- 4e) Map those contrasts back to absolute LMS using *my* bgLMS
     %        (This anchors cone-contrast definition to my background)
@@ -135,6 +144,8 @@ for n = 1:nSets
 
     % -- 4f) Finally, map LMS back to *my* RGB space for visualization
     grid_RGB_hypSub(n,:,:) = M_LMSToRGB * LMS_3d;
+
+    % transformation matrix that goes from RGB to the model space
 
     clear calObjCones
 end
@@ -168,7 +179,7 @@ for n = 1:nSets
 end
 
 %% save data
-save([pwd, '/FilesFromPsychtoolbox/grid_RGB_hypSub.mat'], "grid_RGB_hypSub");
+save([pwd, '/FilesFromPsychtoolbox/grid_RGB_hypSub_age50.mat'], "grid_RGB_hypSub");
 
 
 
