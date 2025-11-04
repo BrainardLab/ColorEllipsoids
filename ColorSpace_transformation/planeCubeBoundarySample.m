@@ -1,30 +1,33 @@
 function [boundaryPoints, cornerPoints] = planeCubeBoundarySample(v1, v2, origin, varargin)
 % planeCubeBoundarySample
-%   Find intersection points between a plane (through 'origin' and spanned
-%   by vectors v1, v2) and the boundary of an axis-aligned cube, using
+%   Approximate the intersection curve between an axis-aligned cube and a
+%   plane (defined by a point 'origin' and spanning vectors v1, v2) by
 %   radial sampling within the plane.
 %
 % Inputs
-%   v1, v2  : (3x1 or 1x3) spanning vectors of the plane
-%   origin  : (3x1 or 1x3) point on the plane; also the ray start
+%   v1, v2    : (3x1 or 1x3) spanning vectors of the plane
+%   origin    : (3x1 or 1x3) point on the plane; also the ray start
 %
-% Name–Value pairs (all optional, defaults shown)
-%   'CubeBounds' : [0 1]     % cube is [lo, hi]^3
-%   'NAngles'    : 1000      % number of in-plane ray directions
-%   'Tol'        : 1e-4      % boundary/corner proximity tolerance
-%   'ScaleMinMax': [0.1 2]   % radial scaling range along each ray
-%   'NScaleSteps': 1e5       % number of steps along each ray
+% Name–Value pairs (optional; defaults shown)
+%   'CubeBounds'      : [0 1]        % cube is [lo, hi]^3 (axis-aligned)
+%   'NAngles'         : 1e5          % number of in-plane ray directions
+%   'intersectionDims': [1, 2]       % which dims define the "corner" plane
+%                                    % e.g., [1,2] → XY, [1,3] → XZ, [2,3] → YZ
 %
 % Outputs
-%   boundaryPoints : (<= nAngles x 3) boundary hits along in-plane rays
-%   cornerPoints   : (4 x 3) points near XY-corners:
-%                    [lo,lo,*], [lo,hi,*], [hi,lo,*], [hi,hi,*]
+%   boundaryPoints : (<= NAngles x 3) first boundary hit per in-plane ray
+%   cornerPoints   : (4 x 3) points nearest to the four 2D “corners” in the
+%                    selected dims (z is free if dims=[1,2], etc.).
 %
-% Notes
-%   - This implements your sampling approach: shoot many directions in the
-%     plane, sample outward, and record the first contact with the cube.
-%   - Corner detection looks for (x,y) ≈ the four XY-corners (z is free).
-%   - For a cube centered at the origin, pass 'CubeBounds',[-1 1].
+% Method (sampling-based, approximate)
+%   1) Build an orthonormal basis {e1, e2} for the plane via Gram–Schmidt.
+%   2) For each angle θ, shoot a unit ray d(θ) = cosθ e1 + sinθ e2 from 'origin'.
+%   3) For each ray, compute parametric scalars t to the six cube slabs
+%      (x=lo/hi, y=lo/hi, z=lo/hi) as (bound - origin) ./ dir, ignore t<=0,
+%      and select the smallest positive t as the first boundary contact.
+%   4) Keep rays that produce a finite hit point (robustness cleanup).
+%   5) Among the collected boundary samples, pick those nearest to the
+%      four 2D corners (lo/hi pairs in 'intersectionDims') as cornerPoints.
 
     % ---------------------------
     % Parse & validate inputs
@@ -33,70 +36,69 @@ function [boundaryPoints, cornerPoints] = planeCubeBoundarySample(v1, v2, origin
     p.FunctionName = mfilename;
 
     addParameter(p, 'CubeBounds',  [0 1],    @(x)isnumeric(x)&&isequal(size(x),[1 2]));
-    addParameter(p, 'NAngles',     1000,     @(x)isnumeric(x)&&isscalar(x)&&x>=3);
-    addParameter(p, 'Tol',         1e-4,     @(x)isnumeric(x)&&isscalar(x)&&x>0);
-    addParameter(p, 'ScaleMinMax', [0.1 2],  @(x)isnumeric(x)&&isequal(size(x),[1 2])&&x(2)>x(1));
-    addParameter(p, 'NScaleSteps', 1e5,      @(x)isnumeric(x)&&isscalar(x)&&x>=10);
+    addParameter(p, 'NAngles',     1e6,      @(x)isnumeric(x)&&isscalar(x)&&x>=3);
+    addParameter(p, 'intersectionDims', [1,2], @(x)isnumeric(x)&&isequal(size(x),[1 2]));
 
     parse(p, varargin{:});
-    cubeBounds   = p.Results.CubeBounds;
-    nAngles      = double(p.Results.NAngles);
-    tol          = p.Results.Tol;
-    scaleMinMax  = p.Results.ScaleMinMax;
-    nScaleSteps  = double(p.Results.NScaleSteps);
+    cubeBounds       = p.Results.CubeBounds;
+    nAngles          = double(p.Results.NAngles);
+    intersectionDims = p.Results.intersectionDims;
 
-    % Ensure column vectors
+    % Force column vectors
     v1     = v1(:);
     v2     = v2(:);
     origin = origin(:);
 
     % ---------------------------
-    % 1) Orthonormal in-plane directions (uniform in angle)
+    % 1) Orthonormal in-plane directions (uniform angular sampling)
     % ---------------------------
-    rayDirs = samplePlaneDirections_(v1, v2, nAngles);   % (nAngles x 3)
+    rayDirs = samplePlaneDirections_(v1, v2, nAngles);   % (NAngles x 3)
 
     % ---------------------------
-    % 2) March along each ray and record first boundary hit
+    % 2) March along each ray; record first boundary hit
+    %
+    % For each ray component i∈{x,y,z}, t = (bound_i - origin_i) / dir_i.
+    % We assemble all 6 slab candidates and take the smallest positive t.
     % ---------------------------
     boundaryPoints = NaN(nAngles, 3);
-    scales = linspace(scaleMinMax(1), scaleMinMax(2), nScaleSteps);   % 1 x S
-
     lo = cubeBounds(1); hi = cubeBounds(2);
 
     for k = 1:nAngles
-        dir3 = rayDirs(k, :);           % 1 x 3
-        % origin + dir * scale (3 x S) via implicit expansion
-        sampled = origin + dir3(:) .* scales;  % 3 x S
+        dir3 = rayDirs(k, :);                     % 1 x 3
+        % 3x2 array of t to the six slabs:
+        %   row = axis (x,y,z), col = bound (lo,hi)
+        scalers = ([lo, hi; lo, hi; lo, hi] - origin) ./ dir3(:);
 
-        % For each coord, find first index that hits lo or hi (within tol)
-        hitX = find( abs(sampled(1,:) - lo) < tol | abs(sampled(1,:) - hi) < tol, 1, 'first' );
-        hitY = find( abs(sampled(2,:) - lo) < tol | abs(sampled(2,:) - hi) < tol, 1, 'first' );
-        hitZ = find( abs(sampled(3,:) - lo) < tol | abs(sampled(3,:) - hi) < tol, 1, 'first' );
+        % Ignore non-advancing or invalid steps
+        B = scalers;
+        B(B <= 0) = Inf;
 
-        % Earliest contact index along this ray
-        firstHitIdx = min([hitX, hitY, hitZ]);
+        % First positive intersection along the ray
+        [val, ~] = min(B(:));
 
-        if ~isempty(firstHitIdx)
-            boundaryPoints(k, :) = sampled(:, firstHitIdx).';
-        end
+        % Store candidate hit point
+        boundaryPoints(k,:) = origin + dir3(:) .* val;
     end
 
-    % Drop rays that never hit (robustness)
+    % Discard rays with no valid hit (NaN rows)
     boundaryPoints = boundaryPoints(~any(isnan(boundaryPoints),2), :);
 
     % ---------------------------
-    % 3) Find points near the four XY-corners (z free)
+    % 3) Select samples nearest to the four 2D “corners”
+    %
+    % We project boundaryPoints to the selected dims, and for each 2D
+    % target corner (lo/hi pair), pick the sample with minimum L1 distance.
     % ---------------------------
     xyCornerTargets = [lo, lo;
                        lo, hi;
                        hi, hi;
                        hi, lo];
     cornerPoints = NaN(size(xyCornerTargets,1), 3);
+
     if ~isempty(boundaryPoints)
-        % Compute L1 distance in XY to each target; pick any within tol*100
-        XY = boundaryPoints(:,1:2);
+        XY = boundaryPoints(:, intersectionDims);  % project to chosen 2D plane
         for c = 1:size(xyCornerTargets,1)
-            idx = find( sum(abs(XY - xyCornerTargets(c,:)), 2) < tol*100, 1, 'first' );
+            [~,idx] = min(sum(abs(XY - xyCornerTargets(c,:)), 2)); % L1
             if ~isempty(idx)
                 cornerPoints(c,:) = boundaryPoints(idx,:);
             end
@@ -106,20 +108,21 @@ end
 
 
 function dirs = samplePlaneDirections_(v1, v2, nSamples)
-% Create nSamples unit vectors uniformly spaced in angle within the plane
-% spanned by v1 and v2 (Gram–Schmidt orthonormalization).
-    e1 = v1 / norm(v1);
-    v2p = v2 - (e1' * v2) * e1;
-    nv2 = norm(v2p);
-    if nv2 < 1e-14
-        error('v1 and v2 are nearly collinear; cannot span a plane.');
-    end
-    e2 = v2p / nv2;
+% samplePlaneDirections_
+%   Build an orthonormal basis {e1,e2} for span(v1,v2) via Gram–Schmidt,
+%   then return nSamples unit directions uniformly spaced in angle:
+%     d(θ) = cosθ * e1 + sinθ * e2, for θ ∈ [0, 2π).
+%
+% Notes
+%   - If v1 and v2 are nearly collinear, Gram–Schmidt may be ill-conditioned.
+%     Provide two reasonably independent spanning vectors for robust behavior.
+
+    [e1, e2] = gram_Schmidt(v1, v2);
 
     theta = linspace(0, 2*pi, nSamples+1).';
-    theta(end) = [];                % drop duplicate 2π
+    theta(end) = [];                           % drop duplicate 2π endpoint
 
-    % d(θ) = cosθ * e1 + sinθ * e2, unit directions in-plane
+    % Produce a (nSamples x 3) matrix of unit directions in the plane
     dirs = cos(theta).*e1.' + sin(theta).*e2.';   % nSamples x 3
 end
 
