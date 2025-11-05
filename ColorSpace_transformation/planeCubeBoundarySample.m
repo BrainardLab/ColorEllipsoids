@@ -1,4 +1,4 @@
-function [boundaryPoints, cornerPoints] = planeCubeBoundarySample(v1, v2, origin, varargin)
+function [boundaryPoints, cornerPoints, e1, e2] = planeCubeBoundarySample(v1, v2, origin, varargin)
 % planeCubeBoundarySample
 %   Approximate the intersection curve between an axis-aligned cube and a
 %   plane (defined by a point 'origin' and spanning vectors v1, v2) by
@@ -52,7 +52,7 @@ function [boundaryPoints, cornerPoints] = planeCubeBoundarySample(v1, v2, origin
     % ---------------------------
     % 1) Orthonormal in-plane directions (uniform angular sampling)
     % ---------------------------
-    rayDirs = samplePlaneDirections_(v1, v2, nAngles);   % (NAngles x 3)
+    [rayDirs, e1, e2] = samplePlaneDirections_(v1, v2, nAngles, 0.3);   % (NAngles x 3)
 
     % ---------------------------
     % 2) March along each ray; record first boundary hit
@@ -107,7 +107,8 @@ function [boundaryPoints, cornerPoints] = planeCubeBoundarySample(v1, v2, origin
 end
 
 
-function dirs = samplePlaneDirections_(v1, v2, nSamples)
+function [dirs, e1,e2] = samplePlaneDirections_(v1, v2, nSamples, scaler)
+    if nargin < 4; scaler = 1; end
 % samplePlaneDirections_
 %   Build an orthonormal basis {e1,e2} for span(v1,v2) via Gram–Schmidt,
 %   then return nSamples unit directions uniformly spaced in angle:
@@ -121,6 +122,9 @@ function dirs = samplePlaneDirections_(v1, v2, nSamples)
 
     theta = linspace(0, 2*pi, nSamples+1).';
     theta(end) = [];                           % drop duplicate 2π endpoint
+
+    e1 = scaler*e1;
+    e2 = scaler*e2;
 
     % Produce a (nSamples x 3) matrix of unit directions in the plane
     dirs = cos(theta).*e1.' + sin(theta).*e2.';   % nSamples x 3
