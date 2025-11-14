@@ -37,8 +37,6 @@ print(np.around(color_thres_data.M_2DWToRGB,3))
 #load model predictions
 model_pred = vars_dict['model_pred_Wishart']
 grid = vars_dict['grid']
-grid_trans = vars_dict['grid_trans']
-ndims = model_pred.model.num_dims
 
 #ellipse parameters
 fitEll = model_pred.fitEll_unscaled
@@ -53,6 +51,7 @@ for i in range(grid.shape[0]):
     for j in range(grid.shape[1]):
         #we need the rgb to color code the ellipse
         cmap_ij = color_thres_data.M_2DWToRGB @ np.append(grid[i,j], 1)
+        #ax.scatter(*grid[i,j], color = cmap_ij)
         ax.plot(*fitEll[i,j], color = cmap_ij)
 ax.set_xlabel('Model space dimension 1')
 ax.set_ylabel('Model space dimension 2')
@@ -142,17 +141,17 @@ for i in range(grid.shape[0]):
         x0_ij, y0_ij, a_ij, b_ij, rotAng_ij = paramsEll_ij
         
         #convert them to x, y coordinates
-        fitEll_ij = PointsOnEllipseQ(a_ij, b_ij, rotAng_ij, x0_ij, y0_ij)
+        fitEll_x_ij, fitELL_y_ij = PointsOnEllipseQ(a_ij, b_ij, rotAng_ij, x0_ij, y0_ij)
         
         #plot it
-        ax1.plot(*fitEll_ij, color = cmap_ij)
-ax.set_xlabel('Model space dimension 1')
-ax.set_ylabel('Model space dimension 2')
-ax.set_xlim([-1,1])
-ax.set_ylim([-1,1])
-ax.set_xticks(np.linspace(-0.7, 0.7, 5))
-ax.set_yticks(np.linspace(-0.7, 0.7, 5))
-ax.set_title('Isoluminant plane')
-ax.set_aspect('equal')
-ax.grid(True, alpha = 0.1)
+        ax1.plot(fitEll_x_ij, fitELL_y_ij, color = cmap_ij)
+ax1.set_xlabel('Model space dimension 1')
+ax1.set_ylabel('Model space dimension 2')
+ax1.set_xlim([-1,1])
+ax1.set_ylim([-1,1])
+ax1.set_xticks(np.linspace(-0.7, 0.7, 5))
+ax1.set_yticks(np.linspace(-0.7, 0.7, 5))
+ax1.set_title('Isoluminant plane')
+ax1.set_aspect('equal')
+ax1.grid(True, alpha = 0.1)
 plt.show()

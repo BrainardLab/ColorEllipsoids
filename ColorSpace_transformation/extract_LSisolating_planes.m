@@ -13,10 +13,10 @@ clear all; close all; clc
 % -------------------------------------------------------------------------
 
 % --- Load calibration and color-space transforms used in the adaptation expt
-cal_date = '10062025';
+cal_date = '10062025'; %10062025
 cal_path = fullfile(getpref('ColorEllipsoids','ELPSMaterials'),'Calibration');
 S = load(fullfile(cal_path, ['Transformation_btw_color_spaces_', cal_date, '.mat']), ...
-                  ['DELL_',cal_date, '_texture_right']);
+                  ['DELL_',cal_date, '_texture_right']); %_', cal_date, '.mat'
 output_fig_dir = fullfile(cal_path, 'Plots', cal_date);
 if ~isfolder(output_fig_dir)           
     [ok, msg] = mkdir(output_fig_dir);
@@ -146,11 +146,11 @@ xticks(linspace(round(xmin,1), round(xmax,1), 3));
 yticks(linspace(round(ymin,1), round(ymax,1), 5));
 
 box(ax,'on'); grid(ax,'on');
-xlabel('L-cone contrast'); ylabel('M-cone contrast');
+xlabel('L-cone contrast'); ylabel('S-cone contrast');
 title('Cone contrast space');
 set(ax,'FontSize',14);
-outfile = fullfile(output_fig_dir, 'LSisolating_cc.pdf');  % target PDF
-exportgraphics(gcf, outfile, 'ContentType','vector');      
+%outfile = fullfile(output_fig_dir, 'LSisolating_cc.pdf');  % target PDF
+%exportgraphics(gcf, outfile, 'ContentType','vector');      
 
 %% 
 % figure B: cone excitation plane
@@ -191,8 +191,8 @@ box(ax,'on'); grid(ax,'on');
 xlabel('L-cone excitation'); ylabel('S-cone excitation');
 title('Cone excitation space');
 set(ax,'FontSize',14);
-outfile = fullfile(output_fig_dir, 'LSisolating_ce.pdf');  % target PDF
-exportgraphics(gcf, outfile, 'ContentType','vector');      
+%outfile = fullfile(output_fig_dir, 'LSisolating_ce.pdf');  % target PDF
+%exportgraphics(gcf, outfile, 'ContentType','vector');      
 
 %% 
 % figure C: linear RGB
@@ -236,8 +236,8 @@ legend([h1 h2], {sprintf('%s cone isolating plane', isolating_plane), ...
                  'Isoluminant plane'});
 title('RGB space');
 view(ax,3);
-outfile = fullfile(output_fig_dir, 'LSisolating_RGB.pdf');  % target PDF
-exportgraphics(gcf, outfile, 'ContentType','vector');      
+%outfile = fullfile(output_fig_dir, 'LSisolating_RGB.pdf');  % target PDF
+%exportgraphics(gcf, outfile, 'ContentType','vector');      
 
 %% 
 % figure D: model space (2D)
@@ -277,9 +277,28 @@ end
 
 set(gcf, 'Units','normalized', 'Position',[0 0 0.5 0.4]);
 set(gcf, 'PaperUnits','inches', 'PaperSize',[20 11]);   % for export
-outfile = fullfile(output_fig_dir, 'LSisolating_2DW.pdf');  % target PDF
-exportgraphics(gcf, outfile, 'ContentType','vector');     
+%outfile = fullfile(output_fig_dir, 'LSisolating_2DW.pdf');  % target PDF
+%exportgraphics(gcf, outfile, 'ContentType','vector');     
 
 %%
 % save('Pts_cc.mat', 'Pts_RGB', 'Pts_coneContrast', 'Pts_LMS', 'M_2DWToRGB', 'M_RGBTo2DW');
-
+expt_date = '11172025';
+flag_save_data = true;
+if flag_save_data
+    file_output_path_M = {fullfile(cal_path, 'M_2DWToRGB'), ...
+                       fullfile(cal_path, 'M_RGBTo2DW')};
+    % Ensure the output folder exists
+    for i = 1:length(file_output_path_M)
+        if ~exist(file_output_path_M{i}, 'dir')
+            mkdir(file_output_path_M{i});
+        end
+    end
+    % Specify the filename
+    filename1 = sprintf('M_2DWToRGB_%s.csv', expt_date);
+    outputName1 = fullfile(file_output_path_M{1},filename1);
+    filename2 = sprintf('M_RGBTo2DW_%s.csv', expt_date);
+    outputName2 = fullfile(file_output_path_M{2},filename2);
+    % Save the matrix to a CSV file
+    writematrix(round(M_2DWToRGB,8), outputName1);
+    writematrix(round(M_RGBTo2DW,8), outputName2);
+end
