@@ -1,17 +1,23 @@
 % -------------------------------------------------------------------------
 % GOAL
 % -------------------------------------------------------------------------
-% Map a set of reference stimuli from *my* model space into *other observers’*
-% model spaces that differ in cone fundamentals, via a common cone-contrast
-% space.
+% Map a fixed set of reference stimuli from an *other observer’s gamut space*
+% into *my gamut space*, accounting for differences in cone fundamentals via
+% a shared cone-contrast representation.
 %
-% Pipeline (conceptually):
-%   my model space (2D plane + filler dim)  -->  RGB (my calibration)
-%   RGB (my calibration)                    -->  LMS (my cones)        --> cone contrasts (relative to my bg LMS)
-%   cone contrasts                          -->  LMS (other observer)  --> RGB (other observer’s model space)
+% We begin by defining an identical set of reference points in the *other
+% observer’s gamut space*. These points are then transformed through the
+% following conceptual pipeline:
 %
-% We then visualize how the same “reference set” would appear in RGB for
-% other observers with different cone fundamentals.
+%   other observer’s gamut space
+%       → LMS excitations (using their cone fundamentals)
+%       → cone contrast (relative to their background LMS)
+%       → LMS excitations (using my cone fundamentals)
+%       → my gamut space
+%
+% This procedure allows us to visualize how the same nominal set of reference
+% stimuli would be represented in *my gamut space* for observers with
+% different cone fundamentals.
 %
 % Notes:
 % - “LMS excitations” = absolute cone responses. “Cone contrast” = (LMS - bgLMS) ./ bgLMS
@@ -50,7 +56,9 @@ grid_2d = [grid_dim1(:), grid_dim2(:)];
 grid_3d = [grid_2d, ones(nRefs, 1)]';
 
 % Map 2D model points into RGB (3xN)
-grid_RGB = M_2DWToRGB * grid_3d;
+% the set of reference points in *other observer's gamut space*
+% they stay the same
+grid_RGB = M_2DWToRGB * grid_3d;  
 
 %sanity check
 LMS_3d_sanitycheck = M_RGBToLMS * grid_RGB; 
@@ -64,32 +72,33 @@ end
 %% ------------------------------------------------------------------------
 % 3) Visualize the reference set inside the unit RGB cube + the plane fill
 % -------------------------------------------------------------------------
-figure; hold on; box on; grid on
-
-% Plane fill from the 4 corner points (convex hull gives two triangles)
-V = corner_PointsRGB.';            % 4x3, rows are [R G B] vertices
-K = convhull(V(:,1), V(:,2), V(:,3));
-
-trisurf(K, V(:,1), V(:,2), V(:,3), ...
-    'FaceColor', [0.5 0.5 0.5], 'FaceAlpha', 0.25, ...
-    'EdgeColor', 'none');
-
-% Plot the 49 reference RGBs (color each point by its own RGB)
 R = grid_RGB(1,:); G = grid_RGB(2,:); B = grid_RGB(3,:);
-scatter3(R, G, B, 50, [R.' G.' B.'], 'filled');
+C = [R.' G.' B.'];
 
-xlabel('R'); ylabel('G'); zlabel('B');
-xlim([0 1]); ylim([0 1]); zlim([0 1]);
-axis equal
-view(35,25)
+plot3d_points_with_plane(grid_RGB, ...
+    'PlaneCorners', corner_PointsRGB, ...
+    'PointColors', C, ...
+    'Labels', {'R','G','B'}, ...
+    'Marker', 'o',... 
+    'Limits', [0 1; 0 1; 0 1]);
 
-% Draw a wireframe unit cube for context
-corners = [0 0 0; 1 0 0; 1 1 0; 0 1 0; 0 0 1; 1 0 1; 1 1 1; 0 1 1];
-edges   = [1 2; 2 3; 3 4; 4 1; 5 6; 6 7; 7 8; 8 5; 1 5; 2 6; 3 7; 4 8];
-for k = 1:size(edges,1)
-    plot3(corners(edges(k,[1 2]),1), corners(edges(k,[1 2]),2), corners(edges(k,[1 2]),3), ...
-        'k-', 'LineWidth', 1.2);
-end
+% visualize LMS
+V2 = M_RGBToLMS * corner_PointsRGB;  
+plot3d_points_with_plane(LMS_3d_sanitycheck, ...
+    'PlaneCorners', V2, ...
+    'PointColors', C, ...
+    'Labels', {'L','M','S'}, ...
+    'Marker', 'o');
+
+
+% visualize cone contrast
+V3 = ExcitationToContrast((M_RGBToLMS * corner_PointsRGB), bgLMS); 
+plot3d_points_with_plane(coneContrast_3d_sanitycheck, ...
+    'PlaneCorners', V3, ...
+    'PointColors', C, ...
+    'Labels', {'$\Delta L / L_{bg}$', '$\Delta M / M_{bg}$', '$\Delta S / S_{bg}$'},...
+    'LabelInterpreter', 'latex', ...
+    'Marker', 'o');
 
 %% ------------------------------------------------------------------------
 % 4) Prepare “other observers” by swapping cone fundamentals
@@ -104,7 +113,7 @@ calObjXYZ = ObjectToHandleCalOrCalStruct(cal);
 load T_xyzCIEPhys2.mat
 
 % Load a bank of alternative cone fundamentals (cell array)
-savedConeFundamentals = load([pwd, '/FilesFromPsychtoolbox/T_conesRnd_age50.mat'], 'T_conesRnd');
+savedConeFundamentals = load([pwd, '/FilesFromPsychtoolbox/T_conesRnd.mat'], 'T_conesRnd');
 nSets = length(savedConeFundamentals.T_conesRnd);
 
 % Preallocate outputs across observers
@@ -123,8 +132,6 @@ for n = 1:nSets %the last one includes the original cone fundamentals
     % Wavelength support for sensors
     Scolor = calObjCones.get('S');
     SetSensorColorSpace(calObjCones, T_cones_n, Scolor);
-    % T_xyz = 683*SplineCmf(S_xyzCIEPhys2, T_xyzCIEPhys2, Scolor);  
-    % SetSensorColorSpace(calObjXYZ, T_xyz, Scolor);
 
     % -- 4b) Compute bg LMS for this observer 
     bgPrimary = SettingsToPrimary(calObjCones, PrimaryToSettings(calObjCones, [0.5 0.5 0.5]'));
@@ -151,7 +158,7 @@ for n = 1:nSets %the last one includes the original cone fundamentals
 end
 
 %% ------------------------------------------------------------------------
-% 5) Visualize each “other observer” mapping in RGB
+% 5) Visualize the same physical reference points in *my gamut space*
 % -------------------------------------------------------------------------
 figure; hold on; box on; grid on
 for n = 1:nSets
@@ -179,7 +186,7 @@ for n = 1:nSets
 end
 
 %% save data
-save([pwd, '/FilesFromPsychtoolbox/grid_RGB_hypSub_age50.mat'], "grid_RGB_hypSub");
+%save([pwd, '/FilesFromPsychtoolbox/grid_RGB_hypSub_age50.mat'], "grid_RGB_hypSub");
 
 
 
