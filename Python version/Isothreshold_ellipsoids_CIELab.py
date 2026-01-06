@@ -13,12 +13,11 @@ import numpy as np
 import pickle
 import dill as pickled
 from dataclasses import replace
-sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ColorEllipsoids/Python version")
-from analysis.simulations_CIELab import SimThresCIELab
-from plotting.sim_CIELab_plotting import CIELabVisualization, Plot3DSettings
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
 from analysis.ellipsoids_tools import UnitCircleGenerate_3D, fit_3d_isothreshold_ellipsoid
+from analysis.simulations_CIELab import SimThresCIELab
 from plotting.wishart_plotting import PlotSettingsBase            
+from plotting.sim_CIELab_plotting import CIELabVisualization, Plot3DSettings
 
 base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
 output_figDir = os.path.join(base_dir,'ELPS_analysis','Simulation_FigFiles', 'Python_version','CIE')
@@ -33,33 +32,31 @@ background_RGB = np.array([0.5,0.5,0.5])
 # Initialize the SimThresCIELab class with the path and background RGB values
 sim_thres_CIELab = SimThresCIELab(background_RGB)
 
-#define the algorithm for computing color difference
-color_diff_algorithm = 'CIE1994' #or 'CIE2000', 'CIE1994', 'CIE1976' (default)
-str_append = '' if color_diff_algorithm == 'CIE1976' else f'_{color_diff_algorithm}'
 
 #%%
 file_name = f'Isothreshold_ellipsoid_CIELABderived{str_append}.pkl'
 path_str = os.path.join(base_dir, 'ELPS_analysis','Simulation_DataFiles')
 full_path = os.path.join(path_str, file_name)
-os.chdir(path_str)
 
-#Here is what we do if we want to load the data
-try:
-    try: #in older version, the saved data are all dictionaries
-        with open(full_path, 'rb') as f:
-            data_load = pickle.load(f)
-    except: 
-        # in newer version, some of the saved data are object/classes, 
-        #so we have to use dill for loading
-        with open(full_path, 'rb') as f:
-            data_load = pickled.load(f)        
-    stim, results, plt_specifics = data_load[1], data_load[2], data_load[3]
-except:
+# #Here is what we do if we want to load the data
+# try:
+#     try: #in older version, the saved data are all dictionaries
+#         with open(full_path, 'rb') as f:
+#             data_load = pickle.load(f)
+#     except: 
+#         # in newer version, some of the saved data are object/classes, 
+#         #so we have to use dill for loading
+#         with open(full_path, 'rb') as f:
+#             data_load = pickled.load(f)        
+#     stim, results, plt_specifics = data_load[1], data_load[2], data_load[3]
+# except:
+
+def run_one_setting(nGridPts_ref, color_diff_algorithm):  
     # DEINE STIMULUS PROPERTIES AND PLOTTING SPECIFICS
     #define a 5 x 5 x 5 grid of RGB values as reference stimuli
     nGridPts_ref = 5
     #define grid points from 0.2 to 0.8 in each dimension
-    grid_ref = np.linspace(0.2,0.8, nGridPts_ref);
+    grid_ref = np.linspace(0.15, 0.85, nGridPts_ref);
     
     #generate 3D grid
     x_grid_ref, y_grid_ref, z_grid_ref = \
@@ -73,7 +70,7 @@ except:
     #Sample directions along Z (polar), fewer due to spherical geometry
     numDirPts_z = int(np.ceil(numDirPts_xy/2))+1
     #Azimuthal angle, 0 to 360 degrees
-    grid_theta = np.linspace(0,2*math.pi - math.pi/8, numDirPts_xy)
+    grid_theta = np.linspace(0, 2 * math.pi - math.pi/8, numDirPts_xy)
     #Polar angle, 0 to 180 degrees
     grid_phi = np.linspace(0, np.pi, numDirPts_z)
     #Create a grid of angles, excluding the redundant final theta
@@ -90,12 +87,11 @@ except:
     
     #This is optional: we can also calculate the ellipsoidal thresholds scaled
     #up or down. The default is 1, no scaling applied.
-    ellipsoid_scaler = 1
+    scaler = 1
     
     #make a finer grid for the direction (just for the purpose of visualization)
-    nThetaEllipsoid = 200
-    nPhiEllipsoid   = 100
-    circleIn3D = UnitCircleGenerate_3D(nThetaEllipsoid, nPhiEllipsoid)
+    nTheta = 200
+    nPhi = 100
     
     #initialization
     base_shape1 = (nGridPts_ref, nGridPts_ref, nGridPts_ref)
@@ -103,10 +99,9 @@ except:
     
     ref_Lab               = np.full(ref_points.shape, np.nan)
     opt_vecLen            = np.full(base_shape1 + base_shape2, np.nan)
-    fitEllipsoid_scaled   = np.full(base_shape1 + (ndims, nThetaEllipsoid* nPhiEllipsoid),np.nan)
-    fitEllipsoid_unscaled = np.full(base_shape1 + (ndims, nThetaEllipsoid* nPhiEllipsoid),np.nan)
-    rgb_surface_scaled    = np.full(base_shape1 + base_shape2 + (ndims,),np.nan)
-    rgb_surface_cov       = np.full(base_shape1 + (ndims, ndims),np.nan)
+    fitEllipsoid_scaled   = np.full(base_shape1 + (ndims, nTheta * nPhi),np.nan)
+    fitEllipsoid_unscaled = np.full(base_shape1 + (ndims, nTheta * nPhi),np.nan)
+    rgb_comp_surface_scaled    = np.full(base_shape1 + base_shape2 + (ndims,),np.nan)
     ellipsoidParams       = np.full(base_shape1,{})
     
     #Fitting starts from here
@@ -130,17 +125,19 @@ except:
                                                                              vecDir,
                                                                              deltaE_1JND,
                                                                              coloralg=color_diff_algorithm)
-                        
+                # derive the comparison stimulus
+                rgb_comp_surface_scaled[i,j,k] = grid_xyz * opt_vecLen[i,j,k] + rgb_ref_ijk
+                
                 #fit an ellipsoid 
                 fit_results = fit_3d_isothreshold_ellipsoid(rgb_ref_ijk, 
-                                                            grid_xyz,
-                                                            vecLen = opt_vecLen[i,j,k],
-                                                            nThetaEllipsoid=nThetaEllipsoid,
-                                                            nPhiEllipsoid = nPhiEllipsoid,
-                                                            ellipsoid_scaler = ellipsoid_scaler)
+                                                            rgb_comp_surface_scaled[i,j,k],
+                                                            nThetaEllipsoid=nTheta,
+                                                            nPhiEllipsoid = nPhi,
+                                                            ellipsoid_scaler = scaler
+                                                            )
                 
                 fitEllipsoid_scaled[i,j,k],fitEllipsoid_unscaled[i,j,k],\
-                    rgb_surface_scaled[i,j,k], ellipsoidParams[i,j,k] = fit_results
+                    rgb_comp_surface_scaled[i,j,k], ellipsoidParams[i,j,k] = fit_results
                         
     #%%
     #save all the stim info
@@ -157,17 +154,17 @@ except:
     results = {}
     for i in results_keys: results[i] = eval(i)    
     
-    plt_specifics_keys = ['nThetaEllipsoid', 'nPhiEllipsoid', 'circleIn3D']
-    plt_specifics = {}
-    for i in  plt_specifics_keys: plt_specifics[i] = eval(i)     
-    
     full_path = f"{output_fileDir}/{file_name}"
         
     # Write the list of dictionaries to a file using pickle
     with open(full_path, 'wb') as f:
-        pickled.dump([sim_thres_CIELab, stim, results, plt_specifics], f)
+        pickled.dump([sim_thres_CIELab, stim, results], f)
                         
 #%%visualize ellipsoids
+#define the algorithm for computing color difference
+color_diff_algorithm = 'CIE1994' #or 'CIE2000', 'CIE1994', 'CIE1976' (default)
+str_append = '' if color_diff_algorithm == 'CIE1976' else f'_{color_diff_algorithm}'
+
 sim_CIE_vis = CIELabVisualization(sim_thres_CIELab,
                                   settings = pltSettings_base,
                                   save_fig= True)

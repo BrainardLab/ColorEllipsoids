@@ -342,8 +342,8 @@ else:
             ref_x = centers[0], ref_y = centers[1])
         pts_on_ell = np.vstack((x_val, y_val))
         
-        _, _, _, modelpred_proj_ell[p] = fit_2d_isothreshold_contour(\
-            centers, [], comp_RGB = pts_on_ell)
+        _, _, modelpred_proj_ell[p], _ = fit_2d_isothreshold_contour(\
+            centers, pts_on_ell)
 
     # now we repeat the calculations we did for the sliced elliposoids
     xu, yu, xi, yi = find_inner_outer_contours(modelpred_proj_ell)
