@@ -4,188 +4,230 @@
 Created on Fri Mar  8 21:02:33 2024
 
 @author: fangfang
+
+This script derives 3D isothreshold contours in CIELab space from RGB stimuli.
+
+Overview
+--------
+The script computes color-discrimination isothreshold 3D surface by converting RGB
+stimuli to CIELab space using calibrated monitor and visual system models, then
+identifying comparison stimuli that produce a fixed perceptual color difference
+(ΔE) from a reference.
+
+General procedure
+-----------------
+1. For each selected reference stimulus, RGB values are converted to CIELab space.
+   This conversion uses:
+     - The monitor’s spectral power distribution (SPD),
+     - The background RGB (adaptation) color,
+     - Stockman–Sharpe 2° cone fundamentals,
+     - A calibrated transformation from LMS cone responses to CIEXYZ
+       (M_LMS_TO_XYZ).
+
+   The monitor calibration data and transformation matrices were output from
+   MATLAB code (`t_WFromPlanarGamut.m`).
+
+2. A set of chromatic directions is defined in each 2D color plane. For each
+   direction, we search along that direction to find the RGB value of a comparison
+   stimulus that produces a target color difference (ΔE = 2.5) relative to the
+   reference.
+
+3. The resulting discrete isothreshold contour points are fit with an ellipsoid
+   with the ellipsoid center constrained to coincide with the reference stimulus.
+
 """
 
 import sys
 import os
-import math
 import numpy as np
-import pickle
 import dill as pickled
+from tqdm import tqdm
 from dataclasses import replace
 sys.path.append("/Users/fangfang/Documents/MATLAB/projects/ellipsoids/ellipsoids")
+from analysis.ellipses_tools import ellParams_to_covMat
 from analysis.ellipsoids_tools import UnitCircleGenerate_3D, fit_3d_isothreshold_ellipsoid
 from analysis.simulations_CIELab import SimThresCIELab
 from plotting.wishart_plotting import PlotSettingsBase            
-from plotting.sim_CIELab_plotting import CIELabVisualization, Plot3DSettings
+from plotting.wishart_predictions_plotting import WishartPredictionsVisualization_html,\
+    Plot3DPredHTMLSettings
+import plotly.graph_objects as go
 
+#%% Set values
+ndims = 3  # Number of color dimensions (R, G, B)
+
+# Background RGB used as the normalization/adaptation point (neutral gray)
+background_RGB = np.array([0.5, 0.5, 0.5])
+
+# Bounds for the coarse reference grid used for threshold simulation / ellipsoid fitting
+lb_RGB_grid = 0.15  # Approx. corresponds to -0.7 in model (W) space
+ub_RGB_grid = 0.85  # Approx. corresponds to +0.7 in model (W) space
+nGridPts_ref = 7    # Number of reference samples per RGB axis
+
+# Number of directions on the isoluminant (xy) plane around each reference
+numDirPts_xy = 16
+
+# Number of polar (z-axis) samples for 3D directions; fewer due to spherical sampling geometry
+numDirPts_z = int(np.ceil(numDirPts_xy / 2)) + 1
+
+# Direction-grid resolution used only for generating smooth ellipsoid surfaces for plotting
+nTheta = 200
+nPhi = 100
+
+# Optional radial scaling applied about the reference when visualizing fitted ellipsoids
+scaler = 1
+
+# Target threshold level (ΔE at 1 JND) used in the threshold search
+deltaE_1JND = 2.5
+
+# Choice of color-difference metric for ΔE computations
+color_diff_algorithm = 'CIE2000' #or CIE1976, CIE2000
+
+# Unit direction vectors on the sphere (shape: (numDirPts_z, numDirPts_xy, 3) or similar)
+grid_xyz = UnitCircleGenerate_3D(numDirPts_xy, numDirPts_z)
+
+# 1D grid of reference RGB coordinates (coarse sampling)
+grid_ref = np.linspace(lb_RGB_grid, ub_RGB_grid, nGridPts_ref)
+
+# 3D mesh of reference RGB locations; shape: (nGridPts_ref, nGridPts_ref, nGridPts_ref, 3)
+ref_points = np.stack(np.meshgrid(grid_ref, grid_ref, grid_ref, indexing="ij"), axis=-1)
+
+# Threshold-search helper configured with the chosen background
+sim_thres_CIELab = SimThresCIELab(background_RGB)
+
+#%%
+# Shapes:
+# - base_shape1 indexes reference RGB locations on the coarse 3D grid
+# - base_shape2 indexes direction samples on the sphere (polar x azimuth)
+base_shape1 = (nGridPts_ref, nGridPts_ref, nGridPts_ref)
+base_shape2 = (numDirPts_z, numDirPts_xy)
+
+# Preallocate outputs
+# opt_vecLen: optimal step length (per ref, per direction) that reaches ΔE = deltaE_1JND
+opt_vecLen = np.full(base_shape1 + base_shape2, np.nan)
+
+# Ellipsoid surface points (3 x nSurfacePts)
+fitEllipsoid_scaled   = np.full(base_shape1 + (ndims, nTheta * nPhi), np.nan)
+fitEllipsoid_unscaled = np.full(base_shape1 + (ndims, nTheta * nPhi), np.nan)
+
+# Discrete threshold samples on the isothreshold surface (3 x nDirs)
+rgb_comp_surface_unscaled = np.full(base_shape1 + (ndims, numDirPts_xy * numDirPts_z), np.nan)
+rgb_comp_surface_scaled   = np.full(base_shape1 + (ndims, numDirPts_xy * numDirPts_z), np.nan)
+
+# Per-reference dictionary of fitted ellipsoid parameters (center, radii, evecs, etc.)
+ellParams = np.full(base_shape1, {})
+
+# Covariance matrices derived from fitted ellipsoid parameters (for later visualization)
+covMat_vis = np.full(base_shape1 + (ndims, ndims), np.nan)
+
+# Main loop: for each reference stimulus, find the isothreshold surface
+for idx in tqdm(np.ndindex(*base_shape1), total=np.prod(base_shape1), desc="Computing"):
+    # Reference RGB at this grid location
+    rgb_ref_idx = ref_points[idx]
+
+    # For each sampled direction on the sphere, find the step length (magnitude)
+    # that yields the target color difference ΔE = deltaE_1JND.
+    for d in np.ndindex(*base_shape2):
+        vecDir = grid_xyz[d]  # unit direction vector in RGB space
+
+        opt_vecLen[*idx, *d] = sim_thres_CIELab.find_vecLen(rgb_ref_idx,
+                                                            vecDir,
+                                                            deltaE_1JND,
+                                                            coloralg=color_diff_algorithm
+                                                            )
+
+    # Convert (direction, magnitude) into discrete threshold RGB points on the surface:
+    # rgb_comp = rgb_ref + vecDir * opt_vecLen
+    rgb_comp_surface_unscaled[idx] = np.reshape(
+        grid_xyz * opt_vecLen[idx][..., None] + rgb_ref_idx[None, None],
+        (-1, ndims)
+    ).T
+
+    # Fit an ellipsoid to the discrete threshold points and (optionally) rescale it about ref
+    fitEllipsoid_scaled[idx], fitEllipsoid_unscaled[idx], ellParams[idx], rgb_comp_surface_scaled[idx] = \
+        fit_3d_isothreshold_ellipsoid(rgb_ref_idx,
+                                      rgb_comp_surface_unscaled[idx].T,
+                                      nTheta=nTheta,
+                                      nPhi=nPhi,
+                                      ellipsoid_scaler=scaler,
+                                      flag_force_centered_ref=True,
+                                      )
+
+    # Convert fitted ellipsoid parameters to a covariance matrix for downstream visualization
+    covMat_vis[idx] = ellParams_to_covMat(ellParams[idx]['radii'],
+                                          ellParams[idx]['evecs']
+                                          )
+                        
+#%% visualize ellipsoids
 base_dir = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/'
 output_figDir = os.path.join(base_dir,'ELPS_analysis','Simulation_FigFiles', 'Python_version','CIE')
 output_fileDir = os.path.join(base_dir, 'ELPS_analysis','Simulation_DataFiles')
 pltSettings_base = PlotSettingsBase(fig_dir=output_figDir, fontsize = 12)
+                                    
+figname = f"Isothreshold_ellipsoid_CIELABderived{color_diff_algorithm}"
+pltSettings_html = Plot3DPredHTMLSettings()
+pltSettings_html = replace(pltSettings_html,
+                           ticks = grid_ref, lim = [0, 1], ell_alpha = 0.4,
+                           xlabel = 'R', ylabel = 'G', zlabel = 'B',
+                           ) 
 
-#%%import functions from the other script
-ndims = 3 #color dimensions
-# Set the background RGB color values used for normalization (in this case, a neutral gray)
-background_RGB = np.array([0.5,0.5,0.5])
+# Visualization helper with HTML settings
+vis_html = WishartPredictionsVisualization_html(settings=pltSettings_html)
 
-# Initialize the SimThresCIELab class with the path and background RGB values
-sim_thres_CIELab = SimThresCIELab(background_RGB)
-
-
-#%%
-file_name = f'Isothreshold_ellipsoid_CIELABderived{str_append}.pkl'
+fig = go.Figure()
+# Render 3D ellipsoids (mesh surfaces) evaluated on the isoluminant plane
+vis_html.plot_ellipsoids_mesh_cov(fig, ref_points, covMat_vis)
+# Apply consistent 3D layout (camera, axes, lighting, hover behavior)
+vis_html.apply_3d_layout(fig)
+# Save interactive HTML
+out_html = os.path.join(output_figDir, f"{figname}_grid{nGridPts_ref}.html")
+fig.write_html(out_html, include_plotlyjs=True)
+    
+    
+#%% Save data
+file_name = f'{figname}.pkl'
 path_str = os.path.join(base_dir, 'ELPS_analysis','Simulation_DataFiles')
 full_path = os.path.join(path_str, file_name)
 
-# #Here is what we do if we want to load the data
-# try:
-#     try: #in older version, the saved data are all dictionaries
-#         with open(full_path, 'rb') as f:
-#             data_load = pickle.load(f)
-#     except: 
-#         # in newer version, some of the saved data are object/classes, 
-#         #so we have to use dill for loading
-#         with open(full_path, 'rb') as f:
-#             data_load = pickled.load(f)        
-#     stim, results, plt_specifics = data_load[1], data_load[2], data_load[3]
-# except:
+#save all the stim info
+stim_keys = ['nGridPts_ref', 'grid_ref', 'ref_points', 'background_RGB',
+             'numDirPts_xy', 'numDirPts_z', 'deltaE_1JND']
+stim = {}
+for i in stim_keys: stim[i] = eval(i)
 
-def run_one_setting(nGridPts_ref, color_diff_algorithm):  
-    # DEINE STIMULUS PROPERTIES AND PLOTTING SPECIFICS
-    #define a 5 x 5 x 5 grid of RGB values as reference stimuli
-    nGridPts_ref = 5
-    #define grid points from 0.2 to 0.8 in each dimension
-    grid_ref = np.linspace(0.15, 0.85, nGridPts_ref);
+results_keys = ['opt_vecLen', 'fitEllipsoid_scaled', 'fitEllipsoid_unscaled',
+                'rgb_comp_surface_scaled',  'rgb_comp_surface_unscaled',
+                'ellParams', 'scaler']
+results = {}
+for i in results_keys: results[i] = eval(i)    
     
-    #generate 3D grid
-    x_grid_ref, y_grid_ref, z_grid_ref = \
-        np.meshgrid(grid_ref, grid_ref, grid_ref,indexing = 'ij')
-    
-    #Concatenate grids to form reference points matrix
-    ref_points = np.stack((x_grid_ref, y_grid_ref,  z_grid_ref), axis = 3)
-    
-    #sample total of 16 directions (0 to 360 deg) 
-    numDirPts_xy = 16
-    #Sample directions along Z (polar), fewer due to spherical geometry
-    numDirPts_z = int(np.ceil(numDirPts_xy/2))+1
-    #Azimuthal angle, 0 to 360 degrees
-    grid_theta = np.linspace(0, 2 * math.pi - math.pi/8, numDirPts_xy)
-    #Polar angle, 0 to 180 degrees
-    grid_phi = np.linspace(0, np.pi, numDirPts_z)
-    #Create a grid of angles, excluding the redundant final theta
-    grid_THETA, grid_PHI = np.meshgrid(grid_theta, grid_phi)
-    
-    #Calculate Cartesian coordinates for direction vectors on a unit sphere
-    grid_x = np.sin(grid_PHI) * np.cos(grid_THETA)
-    grid_y = np.sin(grid_PHI) * np.sin(grid_THETA)
-    grid_z = np.cos(grid_PHI)
-    grid_xyz = np.stack((grid_x, grid_y, grid_z), axis = 2)
-    
-    #define threshold as deltaE = 0.5
-    deltaE_1JND = 2.5
-    
-    #This is optional: we can also calculate the ellipsoidal thresholds scaled
-    #up or down. The default is 1, no scaling applied.
-    scaler = 1
-    
-    #make a finer grid for the direction (just for the purpose of visualization)
-    nTheta = 200
-    nPhi = 100
-    
-    #initialization
-    base_shape1 = (nGridPts_ref, nGridPts_ref, nGridPts_ref)
-    base_shape2 = (numDirPts_z, numDirPts_xy)
-    
-    ref_Lab               = np.full(ref_points.shape, np.nan)
-    opt_vecLen            = np.full(base_shape1 + base_shape2, np.nan)
-    fitEllipsoid_scaled   = np.full(base_shape1 + (ndims, nTheta * nPhi),np.nan)
-    fitEllipsoid_unscaled = np.full(base_shape1 + (ndims, nTheta * nPhi),np.nan)
-    rgb_comp_surface_scaled    = np.full(base_shape1 + base_shape2 + (ndims,),np.nan)
-    ellipsoidParams       = np.full(base_shape1,{})
-    
-    #Fitting starts from here
-    #for each reference stimulus
-    for i in range(nGridPts_ref):
-        print(i)
-        for j in range(nGridPts_ref):
-            for k in range(nGridPts_ref):
-                #grab the reference stimulus' RGB
-                rgb_ref_ijk = ref_points[i,j,k]
-                        
-                #for each chromatic direction
-                for l in range(numDirPts_z):
-                    for m in range(numDirPts_xy):
-                        #determine the direction we are going
-                        vecDir = np.array([grid_x[l,m], grid_y[l,m], grid_z[l,m]])
-                        
-                        #run minimize to search for the magnitude of vector that
-                        #leads to a pre-determined deltaE
-                        opt_vecLen[i,j,k,l,m] = sim_thres_CIELab.find_vecLen(rgb_ref_ijk,
-                                                                             vecDir,
-                                                                             deltaE_1JND,
-                                                                             coloralg=color_diff_algorithm)
-                # derive the comparison stimulus
-                rgb_comp_surface_scaled[i,j,k] = grid_xyz * opt_vecLen[i,j,k] + rgb_ref_ijk
-                
-                #fit an ellipsoid 
-                fit_results = fit_3d_isothreshold_ellipsoid(rgb_ref_ijk, 
-                                                            rgb_comp_surface_scaled[i,j,k],
-                                                            nThetaEllipsoid=nTheta,
-                                                            nPhiEllipsoid = nPhi,
-                                                            ellipsoid_scaler = scaler
-                                                            )
-                
-                fitEllipsoid_scaled[i,j,k],fitEllipsoid_unscaled[i,j,k],\
-                    rgb_comp_surface_scaled[i,j,k], ellipsoidParams[i,j,k] = fit_results
-                        
-    #%%
-    #save all the stim info
-    stim_keys = ['nGridPts_ref', 'grid_ref', 'x_grid_ref', 'y_grid_ref',
-                 'z_grid_ref', 'ref_points', 'background_RGB', 'numDirPts_xy',
-                 'numDirPts_z', 'grid_theta', 'grid_phi', 'grid_THETA', 'grid_PHI',
-                 'grid_x', 'grid_y', 'grid_z', 'grid_xyz', 'deltaE_1JND']
-    stim = {}
-    for i in stim_keys: stim[i] = eval(i)
-    
-    results_keys = ['ellipsoid_scaler', 'ref_Lab', 'opt_vecLen', 
-                    'fitEllipsoid_scaled', 'fitEllipsoid_unscaled',
-                    'rgb_surface_scaled', 'rgb_surface_cov', 'ellipsoidParams']
-    results = {}
-    for i in results_keys: results[i] = eval(i)    
-    
-    full_path = f"{output_fileDir}/{file_name}"
-        
-    # Write the list of dictionaries to a file using pickle
+#% check if there is existing file
+ext_str = f'_grid{nGridPts_ref}'
+
+# Common payload for this grid size
+data_dict = {
+    f'sim_thres_CIELab{ext_str}': sim_thres_CIELab,
+    f'stim{ext_str}': stim,
+    f'results{ext_str}': results
+}
+
+if os.path.exists(full_path):
+    with open(full_path, 'rb') as f:
+        existing_dict = pickled.load(f)
+
+    flag_match_grid_pts = (f'stim{ext_str}' in existing_dict)
+
+    if flag_match_grid_pts:
+        flag_overwrite = input(f"The file '{file_name}' already exists. Enter 'y' to overwrite: ")
+
+        if flag_overwrite.lower() == 'y':
+            with open(full_path, 'wb') as f:
+                pickled.dump(data_dict, f)
+        else:
+            print("File not overwritten.")
+    else:
+        existing_dict.update(data_dict)
+        with open(full_path, 'wb') as f:
+            pickled.dump(existing_dict, f)
+else:
     with open(full_path, 'wb') as f:
-        pickled.dump([sim_thres_CIELab, stim, results], f)
-                        
-#%%visualize ellipsoids
-#define the algorithm for computing color difference
-color_diff_algorithm = 'CIE1994' #or 'CIE2000', 'CIE1994', 'CIE1976' (default)
-str_append = '' if color_diff_algorithm == 'CIE1976' else f'_{color_diff_algorithm}'
-
-sim_CIE_vis = CIELabVisualization(sim_thres_CIELab,
-                                  settings = pltSettings_base,
-                                  save_fig= True)
-plt3DSettings = replace(Plot3DSettings(), **pltSettings_base.__dict__)
-plt3DSettings = replace(plt3DSettings,
-                            visualize_thresholdPoints = True,
-                            threshold_points = np.reshape(results['rgb_surface_scaled'],\
-                                                          (stim['nGridPts_ref']**ndims,\
-                                                           stim['numDirPts_z'],
-                                                           stim['numDirPts_xy'],ndims)),
-                            ref_color = np.array([0.2,0.2,0.2]),
-                            fig_name = f"{file_name[:-4]}.pdf")
-
-sim_CIE_vis.plot_3D(np.reshape(stim['ref_points'],(stim['nGridPts_ref']**ndims,-1)), 
-                            np.reshape(results['fitEllipsoid_scaled'],
-                                       (stim['nGridPts_ref']**ndims,ndims,-1)),
-                            settings = plt3DSettings)
-                                    
-    
-    
-    
-    
-    
-    
+        pickled.dump(data_dict, f)
