@@ -76,7 +76,7 @@ Pts_LMS          = LMS_3d_sanity(:,idx)';
 % intersection polygon with the display cube.
 Pts_RGB_mean = mean(Pts_RGB, 1);
 [inGamt_Pts_RGB, corner_Pts_RGB, e1, e2] = planeCubeBoundarySample( ...
-    Pts_RGB(2,:)  - Pts_RGB_mean, ...   % v1 in RGB plane
+    Pts_RGB(2,:) - Pts_RGB_mean, ...   % v1 in RGB plane
     Pts_RGB(3,:) - Pts_RGB_mean, ...  % v2 in RGB plane (distinct from v1)
     Pts_RGB_mean, ...                   % plane origin in RGB
     'intersectionDims', isolating_dims);
@@ -283,10 +283,16 @@ set(gcf, 'PaperUnits','inches', 'PaperSize',[20 11]);   % for export
 %%
 % save('Pts_cc.mat', 'Pts_RGB', 'Pts_coneContrast', 'Pts_LMS', 'M_2DWToRGB', 'M_RGBTo2DW');
 expt_date = '11172025';
-flag_save_data = true;
+% The calibration was performed on 10062025, but these transformation
+% matrices correspond to the L–S isolating plane rather than the
+% isoluminant plane. Save the file under a different name to avoid
+% overwriting the original isoluminant-plane matrices.
+flag_save_data = false;
 if flag_save_data
     file_output_path_M = {fullfile(cal_path, 'M_2DWToRGB'), ...
-                       fullfile(cal_path, 'M_RGBTo2DW')};
+                          fullfile(cal_path, 'M_RGBTo2DW'),...
+                          fullfile(cal_path, 'M_LMSToRGB'),...
+                          fullfile(cal_path, 'M_RGBToLMS')};
     % Ensure the output folder exists
     for i = 1:length(file_output_path_M)
         if ~exist(file_output_path_M{i}, 'dir')
@@ -294,11 +300,61 @@ if flag_save_data
         end
     end
     % Specify the filename
-    filename1 = sprintf('M_2DWToRGB_%s.csv', expt_date);
+    filename1 = sprintf('M_2DWToRGB_DELL_%s.csv', expt_date);
     outputName1 = fullfile(file_output_path_M{1},filename1);
-    filename2 = sprintf('M_RGBTo2DW_%s.csv', expt_date);
+    filename2 = sprintf('M_RGBTo2DW_DELL_%s.csv', expt_date);
     outputName2 = fullfile(file_output_path_M{2},filename2);
+    filename3 = sprintf('M_LMSToRGB_DELL_%s.csv', expt_date);
+    outputName3 = fullfile(file_output_path_M{3},filename3);
+    filename4 = sprintf('M_RGBToLMS_DELL_%s.csv', expt_date);
+    outputName4 = fullfile(file_output_path_M{4},filename3);
     % Save the matrix to a CSV file
     writematrix(round(M_2DWToRGB,8), outputName1);
     writematrix(round(M_RGBTo2DW,8), outputName2);
+    writematrix(round(M_LMSToRGB,8), outputName3);
+    writematrix(round(M_RGBToLMS,8), outputName4);
 end
+
+%%
+trial_data_path = '/Volumes/T9/Aguirre-Brainard Lab Dropbox/Fangfang Hong/ELPS_data/4D_Expt_dichromats/sub14';
+trial_data_filename = 'Unity_trial_data_sub14_CT_session1__2025-11-17_14-16-26.csv';
+% Read table
+T = readtable(fullfile(trial_data_path, trial_data_filename));
+
+% Extract Var5 and Var6 as cell arrays of char
+str_ref  = T.Var5;  % e.g., {'R0.3480_G0.5077_B0.5774'; ...}
+str_comp = T.Var6;  % e.g., {'R0.4093_G0.5104_B0.5120'; ...}
+
+% Parse "R%f_G%f_B%f" into [R G B] for each row
+RGB_ref = cell2mat( cellfun(@(s) sscanf(s, 'R%f_G%f_B%f').', ...
+                            str_ref,  'UniformOutput', false) );
+
+RGB_comp = cell2mat( cellfun(@(s) sscanf(s, 'R%f_G%f_B%f').', ...
+                             str_comp, 'UniformOutput', false) );
+
+% Reference points: colored "+" markers
+scatter3(ax, ...
+    RGB_ref(:,1), RGB_ref(:,2), RGB_ref(:,3), ...
+    80, ...           % marker size
+    RGB_ref, ...      % Nx3 colors
+    '+');             % marker type
+
+% Comparison points: filled circles with their own colors
+scatter3(ax, ...
+    RGB_comp(:,1), RGB_comp(:,2), RGB_comp(:,3), ...
+    10, ...           % marker size
+    RGB_comp, ...     % Nx3 colors
+    'filled', 'o');   % filled circle markers
+
+% Lines connecting ref → comp, colored by the ref point
+for n = 1:size(RGB_ref,1)
+    plot3(ax, ...
+        [RGB_ref(n,1),  RGB_comp(n,1)], ...
+        [RGB_ref(n,2),  RGB_comp(n,2)], ...
+        [RGB_ref(n,3),  RGB_comp(n,3)], ...
+        'Color', RGB_ref(n,:), ...
+        'LineWidth', 1);
+end
+legend off
+hold off
+
