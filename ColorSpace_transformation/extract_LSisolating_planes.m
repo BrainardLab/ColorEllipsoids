@@ -307,7 +307,7 @@ if flag_save_data
     filename3 = sprintf('M_LMSToRGB_DELL_%s.csv', expt_date);
     outputName3 = fullfile(file_output_path_M{3},filename3);
     filename4 = sprintf('M_RGBToLMS_DELL_%s.csv', expt_date);
-    outputName4 = fullfile(file_output_path_M{4},filename3);
+    outputName4 = fullfile(file_output_path_M{4},filename4);
     % Save the matrix to a CSV file
     writematrix(round(M_2DWToRGB,8), outputName1);
     writematrix(round(M_RGBTo2DW,8), outputName2);
